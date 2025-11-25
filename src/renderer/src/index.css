@@ -1,0 +1,222 @@
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+
+@source "./**/*.{ts,tsx,jsx,js,html}";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Light theme (default) */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.74 0.11 154.89);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.145 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Dark theme */
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.74 0.11 154.89);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.125rem);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  #root {
+    @apply h-screen w-screen;
+  }
+}
+
+/* Titlebar + Tabs strip: draggable area */
+.titlebar {
+  -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Any interactive control inside the titlebar must opt out of drag */
+.titlebar .no-drag,
+.titlebar button,
+.titlebar [role='tab'],
+.titlebar input {
+  -webkit-app-region: no-drag;
+}
+
+/* Markdown rendering */
+.markdown-body {
+  @apply prose prose-sm max-w-none dark:prose-invert;
+}
+
+/* Mermaid SVG 自适应宽度 */
+.markdown-body svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid 错误展示样式 */
+.markdown-body .mermaid-error {
+  border: 1px solid #ef4444; /* red-500 */
+  border-left-width: 4px;
+  border-left-color: #ef4444;
+  background: #fef2f2; /* red-50 */
+  color: #991b1b; /* red-800 */
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 12px;
+}
+.markdown-body .mermaid-error pre {
+  margin-top: 0.5rem;
+}
+.markdown-body .mermaid-error .mermaid-error-msg {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  color: #7f1d1d; /* red-900 */
+  background: #fff;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px dashed #fecaca; /* red-200 */
+}
+
+.markdown-body pre {
+  @apply rounded-md px-3 py-2 font-mono text-xs overflow-x-auto;
+  /* 使用统一的整体背景，由 Shiki 主题或外层容器提供 */
+}
+
+.markdown-body :not(pre) > code {
+  @apply bg-muted rounded px-[0.25rem] py-[0.125rem] font-mono text-xs;
+}
+
+/* 代码块内部不再给每一行单独背景，保持整体一致 */
+.markdown-body pre code {
+  background: transparent !important;
+}
+.markdown-body pre .line {
+  background: transparent !important;
+}
+.markdown-body pre .line > span {
+  background: transparent !important;
+}
+
+/* 不展示代码内由高亮库注入的伪元素（行号/提示符等） */
+.markdown-body code::before,
+.markdown-body code::after,
+.markdown-body pre code::before,
+.markdown-body pre code::after,
+.markdown-body pre .line::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Tables (GFM) */
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.markdown-body thead {
+  background-color: color-mix(in oklab, var(--muted) 70%, transparent);
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid color-mix(in oklab, var(--border) 100%, transparent);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+.markdown-body th {
+  @apply font-semibold;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@layer base {
+  /* Subtle themed scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background-color: color-mix(in oklab, var(--muted-foreground) 32%, transparent);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--muted-foreground) 52%, transparent);
+  }
+}

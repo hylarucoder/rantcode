@@ -1,0 +1,18 @@
+title = "rantcode gitleaks config"
+
+# 扩展 gitleaks 内置默认规则
+[extend]
+useDefault = true
+
+# 项目级全局允许列表：忽略构建产物/临时目录/本地日志
+[allowlist]
+description = "project allowlist"
+paths = [
+    '''(?i)^dist/.*$''',
+    '''(?i)^out/.*$''',
+    '''(?i)^build/.*$''',
+    '''(?i)^tmp/.*$''',
+    '''(?i)^conversation\.log$''',
+    '''(?i)^cc-.*\.log$'''
+]
+

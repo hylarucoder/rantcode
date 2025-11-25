@@ -1,0 +1,280 @@
+import { webContents, Notification, BrowserWindow } from 'electron'
+import type { WebContents } from 'electron'
+import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+// removed unused imports: path, fs, fsConstants
+import type { ChildProcessWithoutNullStreams } from 'node:child_process'
+import type { CodexEvent, CodexRunOptions } from '../shared/types/webui'
+import { resolveWorkspaceRoot } from './rpc'
+import { isErrorLike } from '../shared/utils/errorLike'
+import { buildCodexArgs } from './codexCli'
+
+type ExecEngine = NonNullable<CodexRunOptions['engine']>
+
+const runningProcesses = new Map<string, ChildProcessWithoutNullStreams>()
+
+interface CodexJobState {
+  stderrBuffer: string
+  stdoutLineBuffer: string
+  stderrLineBuffer: string
+  sessionId?: string
+}
+
+const jobStates = new Map<string, CodexJobState>()
+
+import { findExecutable } from './agents/detect'
+
+function getWebContents(targetId: number): WebContents | null {
+  const contents = webContents.fromId(targetId)
+  return contents ?? null
+}
+
+import { notifyCodex } from './notifyBridge'
+
+function dispatchEvent(targetId: number, payload: CodexEvent): void {
+  notifyCodex(targetId, payload)
+}
+
+function notifyRunResult(
+  targetId: number,
+  options: { ok: boolean; durationMs?: number; code?: number; cwd?: string }
+): void {
+  try {
+    // Show system notification only when the target window is not focused (background)
+    const contents = getWebContents(targetId)
+    let isFocused = false
+    try {
+      const win = contents ? BrowserWindow.fromWebContents(contents) : null
+      isFocused = !!(win && win.isVisible() && win.isFocused())
+    } catch {
+      // noop
+    }
+    if (isFocused) return
+
+    const ok = options.ok
+    const title = ok ? '执行完成' : '执行失败'
+    const parts: string[] = []
+    if (typeof options.durationMs === 'number') parts.push(`${options.durationMs}ms`)
+    if (!ok && typeof options.code === 'number') parts.push(`exit ${options.code}`)
+    if (options.cwd) parts.push(options.cwd)
+    const body = parts.filter(Boolean).join(' · ')
+    const notification = new Notification({ title, body, silent: false })
+    notification.on('click', () => {
+      const c = getWebContents(targetId)
+      c?.focus()
+    })
+    notification.show()
+  } catch {
+    // Ignore notification failures (headless/test environments)
+    void 0
+  }
+}
+
+export async function runCodex(
+  targetContentsId: number,
+  payload: CodexRunOptions
+): Promise<{ jobId: string }> {
+  const prompt = payload?.prompt?.trim()
+  if (!prompt) {
+    throw new Error('Prompt is required to run codex')
+  }
+  const jobId =
+    typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
+  const repoRoot = await resolveWorkspaceRoot(payload?.workspaceId)
+  const engine: ExecEngine = (payload.engine as ExecEngine) ?? 'codex'
+  const bin = await findExecutable(engine)
+  const args =
+    engine === 'codex'
+      ? buildCodexArgs({ extraArgs: payload?.extraArgs, sessionId: payload?.sessionId })
+      : // For other CLIs, pass user-provided args as-is (optional), rely on stdin for the prompt
+        Array.isArray(payload?.extraArgs)
+        ? payload!.extraArgs!.filter((s) => typeof s === 'string' && s.length > 0)
+        : []
+  const env = { ...process.env, NO_COLOR: '1' }
+
+  // Print final command to the terminal for debugging
+  try {
+    const cmdStr = [bin, ...args].join(' ')
+    console.log(`[rantcode][${engine}] spawn:`, cmdStr, '\n cwd:', repoRoot)
+  } catch {
+    void 0
+  }
+  const child = spawn(bin, args, {
+    cwd: repoRoot,
+    env,
+    stdio: 'pipe'
+  })
+
+  jobStates.set(jobId, {
+    stderrBuffer: '',
+    stdoutLineBuffer: '',
+    stderrLineBuffer: '',
+    sessionId: payload.sessionId
+  })
+  runningProcesses.set(jobId, child)
+
+  const startedAt = Date.now()
+  dispatchEvent(targetContentsId, {
+    type: 'start',
+    jobId,
+    command: [bin, ...args],
+    cwd: repoRoot
+  })
+
+  child.stdout.setEncoding('utf8')
+  child.stdout.on('data', (chunk: string) => {
+    const state = jobStates.get(jobId)
+    const data = chunk.toString()
+
+    // Fallback: if we somehow lost state, forward chunk as-is
+    if (!state) {
+      dispatchEvent(targetContentsId, {
+        type: 'log',
+        jobId,
+        stream: 'stdout',
+        data
+      })
+      return
+    }
+
+    // Append to per-job stdout line buffer and emit complete lines
+    const buffer = state.stdoutLineBuffer + data
+    const lines = buffer.split(/\r?\n/)
+    state.stdoutLineBuffer = lines.pop() ?? ''
+    for (const line of lines) {
+      const text = line + '\n'
+      dispatchEvent(targetContentsId, {
+        type: 'log',
+        jobId,
+        stream: 'stdout',
+        data: text
+      })
+    }
+  })
+
+  child.stderr.setEncoding('utf8')
+  child.stderr.on('data', (chunk: string) => {
+    const state = jobStates.get(jobId)
+    const data = chunk.toString()
+
+    if (!state) {
+      dispatchEvent(targetContentsId, {
+        type: 'log',
+        jobId,
+        stream: 'stderr',
+        data
+      })
+      return
+    }
+
+    if (!state.sessionId) {
+      state.stderrBuffer += data
+      const match = state.stderrBuffer.match(/session id:\s*([0-9a-fA-F-]+)/i)
+      if (match && match[1]) {
+        state.sessionId = match[1]
+        dispatchEvent(targetContentsId, {
+          type: 'session',
+          jobId,
+          sessionId: state.sessionId
+        } as CodexEvent)
+      }
+    }
+
+    // Append to per-job stderr line buffer and emit complete lines
+    const buffer = state.stderrLineBuffer + data
+    const lines = buffer.split(/\r?\n/)
+    state.stderrLineBuffer = lines.pop() ?? ''
+    for (const line of lines) {
+      const text = line + '\n'
+      dispatchEvent(targetContentsId, {
+        type: 'log',
+        jobId,
+        stream: 'stderr',
+        data: text
+      })
+    }
+  })
+
+  child.on('error', (error) => {
+    dispatchEvent(targetContentsId, {
+      type: 'error',
+      jobId,
+      message: isErrorLike(error) ? error.message : `${engine} process error`
+    })
+    notifyRunResult(targetContentsId, {
+      ok: false,
+      durationMs: undefined,
+      code: undefined,
+      cwd: repoRoot
+    })
+  })
+
+  child.on('close', (code, signal) => {
+    const state = jobStates.get(jobId)
+
+    // Flush any remaining partial lines so they are not lost
+    if (state) {
+      if (state.stdoutLineBuffer) {
+        dispatchEvent(targetContentsId, {
+          type: 'log',
+          jobId,
+          stream: 'stdout',
+          data: state.stdoutLineBuffer
+        })
+      }
+      if (state.stderrLineBuffer) {
+        dispatchEvent(targetContentsId, {
+          type: 'log',
+          jobId,
+          stream: 'stderr',
+          data: state.stderrLineBuffer
+        })
+      }
+    }
+
+    runningProcesses.delete(jobId)
+    jobStates.delete(jobId)
+    dispatchEvent(targetContentsId, {
+      type: 'exit',
+      jobId,
+      code,
+      signal,
+      durationMs: Date.now() - startedAt
+    })
+    notifyRunResult(targetContentsId, {
+      ok: (code ?? 1) === 0,
+      durationMs: Date.now() - startedAt,
+      code: code ?? undefined,
+      cwd: repoRoot
+    })
+  })
+
+  try {
+    child.stdin.write(prompt)
+    child.stdin.end()
+  } catch (err) {
+    dispatchEvent(targetContentsId, {
+      type: 'error',
+      jobId,
+      message: err instanceof Error ? err.message : `Failed to pass prompt to ${engine}`
+    })
+    try {
+      child.kill()
+    } catch {
+      void 0
+    }
+  }
+
+  return { jobId }
+}
+
+export function cancelCodex(jobId: string): { ok: boolean } {
+  const child = runningProcesses.get(jobId)
+  if (!child) return { ok: false }
+  try {
+    const killed = child.kill()
+    return { ok: killed }
+  } catch {
+    return { ok: false }
+  }
+}
