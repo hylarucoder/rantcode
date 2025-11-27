@@ -128,7 +128,7 @@
 
 ### 7.1 Codex Runner (`agents/codex/runner.ts`)
 
-- **职责**：启动 Codex CLI 子进程，解析 JSONL 事件流，转换为 `CodexEvent`。
+- **职责**：启动 Codex CLI 子进程，解析 JSONL 事件流，转换为 `AgentEvent`。
 - **生命周期**：`run` → `onEvent(callback)` → 事件循环 → `exit` / `cancel`。
 - **事件类型**：`session` / `log` / `error` / `exit` / 其他。
 

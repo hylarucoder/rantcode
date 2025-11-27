@@ -12,7 +12,7 @@ Workspace 视图的状态现在拆分为两个 Zustand store：
 - **持久化压力大**：每次消息/日志更新都会把完整 `sessions` 数组写回 `localStorage`，聊天记录越多，写入越慢。
 - **Store 过于粗粒度**：预览面板（`selectedDocPath`、TOC 展开状态）与聊天 session 混在一个 slice，任何小变更都需要复制整个 `workspaces` 对象。
 - **确保初始化需要调用方配合**：调用方必须显式调用 `ensure(workspaceId)`，否则 store 可能是 `undefined`，容易遗漏。
-- **测试空白**：没有单元测试覆盖 `applyCodexEvent`（运行日志合并）、预览持久化等关键路径。
+- **测试空白**：没有单元测试覆盖 `applyAgentEvent`（运行日志合并）、预览持久化等关键路径。
 
 本笔记记录优化方向与测试计划，方便后续迭代。
 
@@ -57,7 +57,7 @@ Workspace 视图的状态现在拆分为两个 Zustand store：
 
 #### Store 层
 
-- `applyCodexEvent`：模拟 `log` / `error` / `exit` 事件，确认 message 状态与日志追加正确。
+- `applyAgentEvent`：模拟 `log` / `error` / `exit` 事件，确认 message 状态与日志追加正确。
 - `persist` 行为：mock `localStorage`，验证重新 hydrate 后 `rightTab`、`previewTocOpen`、`selectedDocPath` 保持。
 - `automatic ensure`：挂载 `useWorkspaceChat`/`Preview` hook 并读取 state，确认无需显式 `ensure` 也能拿到默认 session。
 
@@ -72,7 +72,7 @@ Workspace 视图的状态现在拆分为两个 Zustand store：
 
 - 通过 React Testing Library / Playwright：
   - 选择 SpecExplorer 中的文件 -> 右侧预览更新 -> 切换 tab -> 切换 workspace -> 状态恢复。
-  - 发送 Codex 请求后，模拟 `CodexEvent` 推送，确保右侧 conversation log 正常展示。
+  - 发送 Codex 请求后，模拟 `AgentEvent` 推送，确保右侧 conversation log 正常展示。
 
 ## 落地步骤建议
 

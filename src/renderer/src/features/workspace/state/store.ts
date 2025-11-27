@@ -2,40 +2,40 @@ import { useCallback, useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import type { ChatMessage, ChatSession, RightPanelTab } from '@/features/workspace/types'
-import type { CodexEvent } from '@shared/types/webui'
+import type { Message, Session, RightPanelTab, AgentSessionMap } from '@/features/workspace/types'
+import type { AgentEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
 
 // 稳定的空列表，避免 selector 在工作区未初始化时返回新引用导致不必要的重渲染
-const EMPTY_SESSIONS: ChatSession[] = []
+const EMPTY_SESSIONS: Session[] = []
 
 // oRPC sessions namespace type
 type SessionsNamespace = {
-  list: { call: (input: { projectId: string }) => Promise<ChatSession[]> }
-  create: { call: (input: { projectId: string; title?: string }) => Promise<ChatSession> }
+  list: { call: (input: { projectId: string }) => Promise<Session[]> }
+  create: { call: (input: { projectId: string; title?: string }) => Promise<Session> }
   update: {
     call: (input: {
       projectId: string
       sessionId: string
       title?: string
-      codexSessionId?: string
-    }) => Promise<ChatSession>
+      agentSessions?: AgentSessionMap
+    }) => Promise<Session>
   }
   delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
   appendMessages: {
     call: (input: {
       projectId: string
       sessionId: string
-      messages: ChatMessage[]
-    }) => Promise<ChatSession>
+      messages: Message[]
+    }) => Promise<Session>
   }
   updateMessage: {
     call: (input: {
       projectId: string
       sessionId: string
       messageId: string
-      patch: Partial<ChatMessage>
-    }) => Promise<ChatSession>
+      patch: Partial<Message>
+    }) => Promise<Session>
   }
 }
 
@@ -45,7 +45,7 @@ function getSessionsApi(): SessionsNamespace | null {
 }
 
 type ChatProjectState = {
-  sessions: ChatSession[]
+  sessions: Session[]
   activeSessionId: string | null
   // 添加索引：jobId -> { sessionId, messageIndex }
   // 使用对象而不是 Map，因为 Map 不能被序列化
@@ -64,15 +64,15 @@ interface ChatStoreState {
   projects: Record<string, ChatProjectState>
   ensure: (projectId: string, initializer?: () => Partial<ChatProjectState>) => void
   loadFromBackend: (projectId: string) => Promise<void>
-  setSessions: (projectId: string, sessions: ChatSession[]) => void
+  setSessions: (projectId: string, sessions: Session[]) => void
   setActiveSessionId: (projectId: string, sessionId: string) => void
-  addSession: (projectId: string, session: ChatSession) => void
+  addSession: (projectId: string, session: Session) => void
   removeSession: (projectId: string, sessionId: string) => void
   updateSessionTitle: (projectId: string, sessionId: string, title: string) => void
-  appendMessages: (projectId: string, sessionId: string, messages: ChatMessage[]) => void
-  applyCodexEvent: (projectId: string, event: CodexEvent) => void
+  appendMessages: (projectId: string, sessionId: string, messages: Message[]) => void
+  applyAgentEvent: (projectId: string, event: AgentEvent) => void
   // 新增：批量应用多个 Codex 事件，减少 React 重渲染次数
-  applyCodexEventsBatch: (projectId: string, events: CodexEvent[]) => void
+  applyAgentEventsBatch: (projectId: string, events: AgentEvent[]) => void
   // 将本地状态同步到后端
   syncToBackend: (projectId: string, sessionId: string) => Promise<void>
   reset: (projectId: string) => void
@@ -102,7 +102,7 @@ const defaultPreviewProjectState = (): PreviewProjectState => ({
 
 // 构建 jobId -> message 索引
 function buildJobIndex(
-  session: ChatSession,
+  session: Session,
   sessionId: string,
   index: Record<string, { sessionId: string; messageIndex: number }>
 ) {
@@ -122,11 +122,11 @@ function buildJobIndex(
  * @returns 是否找到并更新了消息
  */
 function updateMessageByJobId(
-  sessions: ChatSession[],
+  sessions: Session[],
   jobId: string,
   updateFn: (
-    session: ChatSession,
-    message: ChatMessage,
+    session: Session,
+    message: Message,
     messageIndex: number
   ) => { shouldUpdateIndex: boolean; isSessionEvent?: boolean; sessionId?: string },
   options?: { workspace?: ChatProjectState }
@@ -137,9 +137,12 @@ function updateMessageByJobId(
       const message = session.messages[messageIndex]
       const result = updateFn(session, message, messageIndex)
 
-      // 如果是会话标识事件，更新会话级别的 codexSessionId
-      if (result.isSessionEvent && result.sessionId) {
-        session.codexSessionId = result.sessionId
+      // 如果是会话标识事件，更新会话级别的 agentSessions
+      if (result.isSessionEvent && result.sessionId && message.agent) {
+        if (!session.agentSessions) {
+          session.agentSessions = {}
+        }
+        session.agentSessions[message.agent] = result.sessionId
       }
 
       // 更新索引
@@ -155,7 +158,7 @@ function updateMessageByJobId(
   return false
 }
 
-function applyEventToMessage(msg: ChatMessage, event: CodexEvent): ChatMessage {
+function applyEventToMessage(msg: Message, event: AgentEvent): Message {
   if (!msg.jobId || msg.jobId !== event.jobId) return msg
   switch (event.type) {
     case 'session':
@@ -330,7 +333,7 @@ export const useProjectChatStore = create<ChatStoreState>()(
             // 触发观察 sessions 的组件更新（例如让消息列表实时刷新）
             ws.version += 1
           }),
-        applyCodexEvent: (projectId, event) =>
+        applyAgentEvent: (projectId, event) =>
           set((state) => {
             const ws = state.projects[projectId]
             if (!ws) return
@@ -378,14 +381,17 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
             const updatedMsg = applyEventToMessage(msg, event)
             Object.assign(msg, updatedMsg)
-            // 如果是会话标识事件，同时写回会话级 codexSessionId，便于下次 resume
-            if (event.type === 'session' && event.sessionId) {
-              session.codexSessionId = event.sessionId
+            // 如果是会话标识事件，同时写回会话级 agentSessions，便于下次 resume
+            if (event.type === 'session' && event.sessionId && msg.agent) {
+              if (!session.agentSessions) {
+                session.agentSessions = {}
+              }
+              session.agentSessions[msg.agent] = event.sessionId
             }
             // 消息内容发生变化，递增版本触发 UI 更新
             ws.version += 1
           }),
-        applyCodexEventsBatch: (projectId, events) =>
+        applyAgentEventsBatch: (projectId, events) =>
           set((state) => {
             const ws = state.projects[projectId]
             if (!ws) return
@@ -433,8 +439,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
               const updatedMsg = applyEventToMessage(msg, event)
               Object.assign(msg, updatedMsg)
-              if (event.type === 'session' && event.sessionId) {
-                session.codexSessionId = event.sessionId
+              if (event.type === 'session' && event.sessionId && msg.agent) {
+                if (!session.agentSessions) {
+                  session.agentSessions = {}
+                }
+                session.agentSessions[msg.agent] = event.sessionId
               }
             })
             // 批量事件处理后，仅递增一次版本，减少渲染次数
@@ -452,12 +461,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
           if (!session) return
 
           try {
-            // 先更新 session 的基本信息（包括 codexSessionId）
+            // 先更新 session 的基本信息（包括 agentSessions）
             await api.update.call({
               projectId,
               sessionId,
               title: session.title,
-              codexSessionId: session.codexSessionId
+              agentSessions: session.agentSessions
             })
             // 然后同步所有消息（使用 appendMessages 会重复，所以这里只更新整个 session）
             // 由于后端没有 replaceMessages API，我们通过删除再创建的方式实现
@@ -547,8 +556,8 @@ export function useProjectChat(projectId: string) {
   const removeSessionStore = useProjectChatStore((s) => s.removeSession)
   const updateSessionTitleStore = useProjectChatStore((s) => s.updateSessionTitle)
   const appendMessagesStore = useProjectChatStore((s) => s.appendMessages)
-  const applyCodexEvent = useProjectChatStore((s) => s.applyCodexEvent)
-  const applyCodexEventsBatch = useProjectChatStore((s) => s.applyCodexEventsBatch)
+  const applyAgentEvent = useProjectChatStore((s) => s.applyAgentEvent)
+  const applyAgentEventsBatch = useProjectChatStore((s) => s.applyAgentEventsBatch)
   const syncToBackend = useProjectChatStore((s) => s.syncToBackend)
 
   // 首次加载：从后端读取 sessions
@@ -564,7 +573,7 @@ export function useProjectChat(projectId: string) {
   // 创建 session 并同步到后端
   // 重要：先在后端创建，使用后端返回的 ID，确保前后端 ID 一致
   const addSession = useCallback(
-    async (sessionInput: Omit<ChatSession, 'id'> & { id?: string }) => {
+    async (sessionInput: Omit<Session, 'id'> & { id?: string }) => {
       const api = getSessionsApi()
       if (api) {
         try {
@@ -595,7 +604,7 @@ export function useProjectChat(projectId: string) {
         } catch (err) {
           console.error('[sessions] Failed to create session in backend:', err)
           // 后端失败时，仍然在本地创建（使用传入的 ID 或生成新的）
-          const localSession: ChatSession = {
+          const localSession: Session = {
             id: sessionInput.id || crypto.randomUUID(),
             title: sessionInput.title,
             messages: sessionInput.messages || []
@@ -605,7 +614,7 @@ export function useProjectChat(projectId: string) {
         }
       } else {
         // 没有 API 时，在本地创建
-        const localSession: ChatSession = {
+        const localSession: Session = {
           id: sessionInput.id || crypto.randomUUID(),
           title: sessionInput.title,
           messages: sessionInput.messages || []
@@ -651,7 +660,7 @@ export function useProjectChat(projectId: string) {
 
   // 添加消息并同步到后端
   const appendMessages = useCallback(
-    async (sessionId: string, messages: ChatMessage[]) => {
+    async (sessionId: string, messages: Message[]) => {
       appendMessagesStore(projectId, sessionId, messages)
       // 异步同步到后端
       const api = getSessionsApi()
@@ -676,15 +685,15 @@ export function useProjectChat(projectId: string) {
     activeSessionId,
     ensure,
     reload,
-    setSessions: (sessions: ChatSession[]) => setSessions(projectId, sessions),
+    setSessions: (sessions: Session[]) => setSessions(projectId, sessions),
     setActiveSessionId: (id: string) => setActiveSessionId(projectId, id),
     addSession,
     removeSession,
     updateSessionTitle,
     appendMessages,
-    applyCodexEvent: (event: CodexEvent) => applyCodexEvent(projectId, event),
+    applyAgentEvent: (event: AgentEvent) => applyAgentEvent(projectId, event),
     // 批量应用事件，减少渲染次数
-    applyCodexEventsBatch: (events: CodexEvent[]) => applyCodexEventsBatch(projectId, events),
+    applyAgentEventsBatch: (events: AgentEvent[]) => applyAgentEventsBatch(projectId, events),
     // 手动同步到后端
     syncToBackend: (sessionId: string) => syncToBackend(projectId, sessionId)
   }

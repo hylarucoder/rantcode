@@ -64,7 +64,7 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 |------|------|
 | 项目管理 | 完整 CRUD + 状态管理 + API Hooks |
 | 多 Agent 支持 | Codex / Claude Code (GLM/Official) / Kimi CLI |
-| 会话系统 | ChatSession 类型 + 消息列表 + 本地持久化 |
+| 会话系统 | Session 类型 + 消息列表 + 本地持久化 |
 | Git 集成 | GitPanel 支持 unified/split diff 查看 |
 | Markdown 预览 | 代码高亮 + Mermaid 图表渲染 |
 | Provider 配置 | Settings 页面完整配置管理 |

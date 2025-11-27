@@ -89,7 +89,7 @@ flowchart LR
 - **Main Process (`src/main/`)**
   - 负责应用生命周期管理、窗口创建（`windowService`）、单实例锁以及崩溃上报（`crashReporter`）。
   - 通过 `orpcBridge` 暴露系统、文件、项目、settings 等 RPC 能力给渲染层。
-  - `agents/` + `codexRunner.ts` 封装了对本地 Codex CLI 的调用与事件流（`CodexEvent`）。
+  - `agents/` + `codexRunner.ts` 封装了对本地 Codex CLI 的调用与事件流（`AgentEvent`）。
   - `docsWatcher.ts` 监控工作区的 `docs/` 目录变更，并经由 notify 通道推送到前端。
 
 - **Preload (`src/preload/`)**
@@ -115,7 +115,7 @@ flowchart LR
     - `projects.ts`：**新增**项目状态管理，与 Projects 页面配合使用。
 
 - **Shared (`src/shared/`)**
-  - `types/webui.ts`：前后端共享的领域模型，如 `ProjectInfo` / `TaskItem` / `SpecDocMeta` / `CodexRunOptions` / `CodexEvent` 等。
+  - `types/webui.ts`：前后端共享的领域模型，如 `ProjectInfo` / `TaskItem` / `SpecDocMeta` / `AgentRunOptions` / `AgentEvent` 等。
   - 为 main / preload / renderer 提供统一的类型契约和 oRPC schema。
 
 ## 3. Workspace 视图内部交互
@@ -143,11 +143,11 @@ sequenceDiagram
   Preload->>Main: orpc 调用 agents
   Main->>CLI: 启动 Codex CLI
 
-  loop CodexEvent 流
-    CLI-->>Main: CodexEvent
+  loop AgentEvent 流
+    CLI-->>Main: AgentEvent
     Main-->>Preload: notify(event)
     Preload-->>SessionsView: subscribe(handler)
-    SessionsView->>ChatStore: applyCodexEventsBatch()
+    SessionsView->>ChatStore: applyAgentEventsBatch()
     ChatStore-->>SessionsView: 更新 messages
   end
 
@@ -157,15 +157,16 @@ sequenceDiagram
 
 要点：
 
-- **ChatSession**（`features/workspace/types.ts`）是左侧「会话」列表中的实体，用于管理多轮对话分组；
-  - 每个会话可以持有一个 `codexSessionId`，和底层 Codex 的 session 绑定。
+- **Session**（`features/workspace/types.ts`）是左侧「会话」列表中的实体，用于管理多轮对话分组；
+  - 每个会话持有一个 `agentSessions` 映射（`Record<Agent, string>`），存储各 Agent 的 sessionId，支持同一会话切换不同 Agent 时保持各自上下文。
   - `useWorkspaceChat` store 负责在 workspace 维度下持久化这些会话（localStorage）。
 - **API Hooks 系统**：
   - `workspace/api/hooks.ts` 提供了完整的会话管理 hooks（`useSessionsQuery`、`useCreateSessionMutation`、`useAppendMessagesMutation` 等）。
   - 这些 hooks 基于 React Query，自动处理缓存、失效策略和与后端的同步。
-- **Codex 会话绑定**：
-  - Codex 在某次 job 期间发送 `type: 'session'` 事件时，store 会把 `event.sessionId` 记到对应 ChatSession 的 `codexSessionId` 字段；
-  - 之后同一 ChatSession 内的新请求会把这个 `codexSessionId` 作为 `CodexRunOptions` 传给 Main→Codex，使 CLI 端能够做上下文续写（如果需要）。
+- **Agent 会话绑定**：
+  - 当 Agent 在某次 job 期间发送 `type: 'session'` 事件时，store 会根据消息中的 `agent` 字段，将 `event.sessionId` 写入对应 Session 的 `agentSessions[agent]`；
+  - 之后同一 Session 内使用该 Agent 发送新请求时，会从 `agentSessions[agent]` 读取 sessionId 作为 `AgentRunOptions` 传给 Main→Agent，使 CLI 端能够做上下文续写。
+  - 这支持在同一会话中切换不同 Agent，每个 Agent 保持独立的上下文。
 - **重构后的架构优势**：
   - **关注点分离**：`ProjectPage` 处理项目级上下文，`SessionsView` 处理聊天逻辑，`WorkspaceLayout` 处理布局和多视图切换。
   - **可扩展性**：通过 `ActivityBar` 可以轻松添加新的视图（如已实现的 Git 集成）。
@@ -182,11 +183,11 @@ sequenceDiagram
   - 目前主要体现在 `FsTreeNode` / `FsFile` 以及前端 `docs` store 对 docs 路径的管理。
   - 后续可以在 main 侧显式维护 DocRef 表，以支持更精细的「某一节 spec / task」级引用。
 - `Session`
-  - 当前 Workspace 中的 `ChatSession` 已经通过 **API Hooks 系统** 与后端同步，部分实现了数据模型中的 Session 概念。
+  - 当前 Workspace 中的 `Session` 已经通过 **API Hooks 系统** 与后端同步，部分实现了数据模型中的 Session 概念。
   - **实现状态**：本地状态管理完善，后端会话存储通过 oRPC sessions 命名空间实现。
   - 后续如需跨设备/实例持久化，可以在 main 侧增加 Session 实体存储，与 Task / DocRef 建立外键关系。
 - `Job`
-  - 对应 Codex CLI 的一次执行回合：在前端里是 `ChatMessage` 中的 assistant 消息（带 `jobId` 和 `status`），在 main/CLI 侧是 `CodexRunOptions.jobId` + 事件流。
+  - 对应 Codex CLI 的一次执行回合：在前端里是 `Message` 中的 assistant 消息（带 `jobId` 和 `status`），在 main/CLI 侧是 `AgentRunOptions.jobId` + 事件流。
 - **Git 集成**（**新增实现**）
   - `GitPanel` 组件提供了完整的 Git 状态查看和 diff 功能。
   - 支持 unified/split 两种 diff 视图模式。

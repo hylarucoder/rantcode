@@ -5,7 +5,7 @@ import { constants as fsConstants } from 'node:fs'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { claudeVendorRunInputSchema } from '../../../shared/orpc/schemas'
-import type { CodexEvent, CodexRunOptions } from '../../../shared/types/webui'
+import type { AgentEvent, AgentRunOptions } from '../../../shared/types/webui'
 import { notifyCodex } from '../../notifyBridge'
 import { findExecutable, AGENT_CONFIGS } from '../detect'
 import type { Agent } from '../../../shared/agents'
@@ -61,7 +61,7 @@ interface ClaudeCodeJobState {
 const runningProcesses = new Map<string, ChildProcessWithoutNullStreams>()
 const jobStates = new Map<string, ClaudeCodeJobState>()
 
-function dispatchEvent(targetId: number, payload: CodexEvent): void {
+function dispatchEvent(targetId: number, payload: AgentEvent): void {
   notifyCodex(targetId, payload)
 }
 
@@ -102,7 +102,7 @@ function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[]
  */
 export async function runClaudeCodeStreaming(
   targetContentsId: number,
-  payload: CodexRunOptions
+  payload: AgentRunOptions
 ): Promise<{ jobId: string }> {
   const prompt = payload?.prompt?.trim()
   if (!prompt) {

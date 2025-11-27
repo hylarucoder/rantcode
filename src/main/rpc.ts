@@ -15,8 +15,8 @@ import type {
 } from '../shared/types/webui'
 import type { z } from 'zod'
 import type {
-  chatSessionSchema,
-  chatMessageSchema,
+  sessionSchema,
+  messageSchema,
   createSessionInputSchema,
   updateSessionInputSchema,
   deleteSessionInputSchema,
@@ -27,8 +27,8 @@ import type {
 } from '../shared/orpc/schemas'
 
 // Session types
-export type ChatSession = z.infer<typeof chatSessionSchema>
-export type ChatMessage = z.infer<typeof chatMessageSchema>
+export type Session = z.infer<typeof sessionSchema>
+export type Message = z.infer<typeof messageSchema>
 export type CreateSessionInput = z.infer<typeof createSessionInputSchema>
 export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>
 export type DeleteSessionInput = z.infer<typeof deleteSessionInputSchema>
@@ -663,12 +663,12 @@ function getSessionsStorePath(projectId: string): string {
   return path.join(userData, 'sessions', `${projectId}.json`)
 }
 
-async function readSessions(projectId: string): Promise<ChatSession[]> {
+async function readSessions(projectId: string): Promise<Session[]> {
   const file = getSessionsStorePath(projectId)
   const t0 = Date.now()
   try {
     const raw = await fs.readFile(file, 'utf8')
-    const parsed = JSON.parse(raw) as ChatSession[]
+    const parsed = JSON.parse(raw) as Session[]
     const dt = Date.now() - t0
     if (!Array.isArray(parsed)) {
       sessionStoreLog.warn('sessions store invalid payload', {
@@ -707,7 +707,7 @@ async function readSessions(projectId: string): Promise<ChatSession[]> {
   }
 }
 
-async function writeSessions(projectId: string, sessions: ChatSession[]): Promise<void> {
+async function writeSessions(projectId: string, sessions: Session[]): Promise<void> {
   const file = getSessionsStorePath(projectId)
   const t0 = Date.now()
   const payload = JSON.stringify(sessions, null, 2)
@@ -737,7 +737,7 @@ async function writeSessions(projectId: string, sessions: ChatSession[]): Promis
 }
 
 export class SessionService {
-  async list(input: ListSessionsInput): Promise<ChatSession[]> {
+  async list(input: ListSessionsInput): Promise<Session[]> {
     const t0 = Date.now()
     const result = await readSessions(input.projectId)
     const dt = Date.now() - t0
@@ -748,15 +748,15 @@ export class SessionService {
     return result
   }
 
-  async get(input: GetSessionInput): Promise<ChatSession | null> {
+  async get(input: GetSessionInput): Promise<Session | null> {
     const sessions = await readSessions(input.projectId)
     return sessions.find((s) => s.id === input.sessionId) ?? null
   }
 
-  async create(input: CreateSessionInput): Promise<ChatSession> {
+  async create(input: CreateSessionInput): Promise<Session> {
     const sessions = await readSessions(input.projectId)
     const now = new Date().toISOString()
-    const session: ChatSession = {
+    const session: Session = {
       id: randomUUID(),
       title: input.title?.trim() || `Session ${sessions.length + 1}`,
       messages: [],
@@ -768,7 +768,7 @@ export class SessionService {
     return session
   }
 
-  async update(input: UpdateSessionInput): Promise<ChatSession> {
+  async update(input: UpdateSessionInput): Promise<Session> {
     const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {
@@ -781,8 +781,8 @@ export class SessionService {
         session.title = trimmed
       }
     }
-    if (input.codexSessionId !== undefined) {
-      session.codexSessionId = input.codexSessionId
+    if (input.agentSessions !== undefined) {
+      session.agentSessions = input.agentSessions
     }
     session.updatedAt = new Date().toISOString()
     sessions[idx] = session
@@ -800,7 +800,7 @@ export class SessionService {
     return { ok: true }
   }
 
-  async appendMessages(input: AppendMessagesInput): Promise<ChatSession> {
+  async appendMessages(input: AppendMessagesInput): Promise<Session> {
     const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {
@@ -814,7 +814,7 @@ export class SessionService {
     return session
   }
 
-  async updateMessage(input: UpdateMessageInput): Promise<ChatSession> {
+  async updateMessage(input: UpdateMessageInput): Promise<Session> {
     const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {

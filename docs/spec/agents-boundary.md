@@ -19,10 +19,10 @@
 - 入口位置：`src/preload/index.ts:55` 暴露 `window.api`
 - 类型声明：`src/preload/index.d.ts:14`
 - Agents API：`window.api.agents`
-  - `run(opts)`：`opts` 为 `CodexRunOptions`（在 `src/shared/orpc/schemas.ts:88` 声明输入 schema），可附带 `vendor?: 'codex' | 'claude-code' | 'kimi-cli'`（在 preload 做了简化包装）。
+  - `run(opts)`：`opts` 为 `AgentRunOptions`（在 `src/shared/orpc/schemas.ts:88` 声明输入 schema），可附带 `vendor?: 'codex' | 'claude-code' | 'kimi-cli'`（在 preload 做了简化包装）。
   - `subscribe(handler)`：订阅 `codex` 主题事件，返回 `unsubscribe()`。
   - `vendor[v].run(opts)`：按指定 vendor 运行（语义等同于 `run({ vendor: v, ... })`）。
-- 事件类型：`CodexEvent`（见 `src/shared/types/webui.ts`）。常见事件：
+- 事件类型：`AgentEvent`（见 `src/shared/types/webui.ts`）。常见事件：
   - `start`：包含 `jobId`、命令行与 `cwd`。
   - `log`：`stream: 'stdout' | 'stderr'`、文本块（按行拼接，结尾含 `\n`）。
   - `session`：解析到会话 ID（Codex CLI 的 stderr 启动信息）。
@@ -32,7 +32,7 @@
 ## 主进程实现边界
 - oRPC Handler：`src/main/orpcBridge.ts:440` `codex.run`（静态导入 `runCodex`）。
 - 执行器：`src/main/codexRunner.ts:1`
-  - 解析 `CodexRunOptions` → 定位工作目录（`resolveWorkspaceRoot`，见 `src/main/rpc.ts:151`）。
+  - 解析 `AgentRunOptions` → 定位工作目录（`resolveWorkspaceRoot`，见 `src/main/rpc.ts:151`）。
   - 根据 `engine`（vendor）与参数构造最终命令行（`buildCodexArgs`）。
   - `spawn` 子进程，分别处理 `stdout`/`stderr`，按“完整行”分发 `log` 事件。
   - 追踪 `jobId` 与 `sessionId`，在 `exit` 时清理状态，发出最终 `exit` 事件。

@@ -9,7 +9,7 @@
   1. `useWorkspaceChatStore` reducer
      - `addSession`：确保新会话追加并自动激活。
      - `appendMessages`：验证 messages 追加顺序、不会影响其他 session。
-     - `applyCodexEvent`：模拟 `log`/`error`/`exit` 事件，断言 message status/logs 按预期更新。
+     - `applyAgentEvent`：模拟 `log`/`error`/`exit` 事件，断言 message status/logs 按预期更新。
      - `persist`：mock `localStorage`，序列化到字符串后恢复，确认 `sessions`/`activeSessionId` 保持。
   2. `useWorkspacePreviewStore` reducer
      - `setSelectedDocPath`/`setRightTab` 等操作不会覆盖其他 workspace 的状态。

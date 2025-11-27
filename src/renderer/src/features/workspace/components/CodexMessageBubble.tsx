@@ -5,7 +5,7 @@ import { renderMarkdownToHtml } from '@/lib/markdown'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import { ExecLogConversation } from '@/features/logs'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
-import type { ChatMessage } from '@/features/workspace/types'
+import type { Message } from '@/features/workspace/types'
 import type { ThemeMode } from '@/types/theme'
 import { AGENT_UI_LIST } from '@shared/agents'
 
@@ -48,7 +48,7 @@ const MarkdownContent = memo(function MarkdownContent({
   return <div ref={containerRef} className="markdown-body mt-2 max-h-96 overflow-auto text-xs" />
 })
 
-export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
+export function CodexMessageBubble({ msg }: { msg: Message }) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
   const themeMode = useThemeMode()
   const [logTab, setLogTab] = useState<'exec' | 'conversation'>('conversation')

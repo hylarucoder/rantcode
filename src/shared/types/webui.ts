@@ -162,7 +162,8 @@ export type DocsWatcherEvent =
 
 import type { Agent } from '../agents'
 
-export interface CodexRunOptions {
+/** Agent 执行选项 */
+export interface AgentRunOptions {
   agent?: Agent
   projectId?: string
   prompt: string
@@ -172,7 +173,8 @@ export interface CodexRunOptions {
   sessionId?: string
 }
 
-export type CodexEvent =
+/** Agent 执行事件流 */
+export type AgentEvent =
   | {
       type: 'start'
       jobId: string

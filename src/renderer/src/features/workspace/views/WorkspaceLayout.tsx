@@ -13,16 +13,16 @@ import { KanbanPanel } from '@/features/workspace/components/KanbanPanel'
 import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
-import type { CodexRunOptions } from '@shared/types/webui'
+import type { AgentRunOptions } from '@shared/types/webui'
 import { CodexMessageBubble } from '@/features/workspace/components/CodexMessageBubble'
 import { UserMessageBubble } from '@/features/workspace/components/UserMessageBubble'
 import { AssistantMessageBubble } from '@/features/workspace/components/AssistantMessageBubble'
-import type { ChatMessage, ChatSession } from '@/features/workspace/types'
+import type { Message, Session } from '@/features/workspace/types'
 import type { PreviewTocItem } from '@/features/preview'
 
 // moved to features/workspace/components/CodexMessageBubble
 
-function renderBubble(msg: ChatMessage) {
+function renderBubble(msg: Message) {
   const isUser = msg.role === 'user'
   const isCodex = msg.role === 'assistant' && !!msg.jobId
   if (isCodex) {
@@ -58,18 +58,18 @@ export function WorkspaceLayout({
   onRemoveProject
 }: {
   project: ProjectInfo
-  sessions: ChatSession[]
+  sessions: Session[]
   activeSessionId: string
   onSelectSession: (id: string) => void
   onNewSession: () => void
-  messages: ChatMessage[]
+  messages: Message[]
   input: string
   onInputChange: (v: string) => void
   onSend: () => void
   isRunning: boolean
   onInterrupt: () => void
-  agent: NonNullable<CodexRunOptions['agent']>
-  onAgentChange: (a: NonNullable<CodexRunOptions['agent']>) => void
+  agent: NonNullable<AgentRunOptions['agent']>
+  onAgentChange: (a: NonNullable<AgentRunOptions['agent']>) => void
   onDocChange: (doc: SpecDocMeta | null) => void
   previewDocPath: string | null
   previewHtml: string | null
@@ -173,7 +173,7 @@ export function WorkspaceLayout({
                 </span>
                 .
               </p>
-              <MessageList<ChatMessage> messages={messages} renderMessage={renderBubble} />
+              <MessageList<Message> messages={messages} renderMessage={renderBubble} />
               <Composer
                 value={input}
                 onChange={onInputChange}

@@ -8,14 +8,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { CodexRunOptions } from '@shared/types/webui'
+import type { AgentRunOptions } from '@shared/types/webui'
 
 interface AssistantPanelProps {
-  agent: NonNullable<CodexRunOptions['agent']>
-  onAgentChange: (agent: NonNullable<CodexRunOptions['agent']>) => void
+  agent: NonNullable<AgentRunOptions['agent']>
+  onAgentChange: (agent: NonNullable<AgentRunOptions['agent']>) => void
 }
 
-const agents: { id: NonNullable<CodexRunOptions['agent']>; name: string; description: string }[] = [
+const agents: { id: NonNullable<AgentRunOptions['agent']>; name: string; description: string }[] = [
   {
     id: 'claude-code-glm',
     name: 'Claude Code (GLM)',

@@ -29,7 +29,7 @@ oRPC 规范
 
 Notify（消息端口）
 - 建立：`orpc:notify-connect` 单独创建一个 MessagePort，服务端主导向渲染端发送事件。
-- 主题：`docs`、`codex` 等，载荷由对应模块定义（DocsWatcherEvent、CodexEvent）。
+- 主题：`docs`、`codex` 等，载荷由对应模块定义（DocsWatcherEvent、AgentEvent）。
 - 方向：服务端 → 渲染端（单向）；渲染端只订阅不发送。
 
 Settings（读写与应用）

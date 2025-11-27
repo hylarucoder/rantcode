@@ -3,14 +3,14 @@ import type { WebContents } from 'electron'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
-import type { CodexEvent, CodexRunOptions } from '../../../shared/types/webui'
+import type { AgentEvent, AgentRunOptions } from '../../../shared/types/webui'
 import { resolveProjectRoot } from '../../rpc'
 import { isErrorLike } from '../../../shared/utils/errorLike'
 import { buildCodexArgs } from './cli'
 import { findExecutable, AGENT_CONFIGS } from '../detect'
 import { runClaudeCodeStreaming, cancelClaudeCode } from '../claudecode'
 
-type ExecAgent = NonNullable<CodexRunOptions['agent']>
+type ExecAgent = NonNullable<AgentRunOptions['agent']>
 
 const runningProcesses = new Map<string, ChildProcessWithoutNullStreams>()
 
@@ -35,7 +35,7 @@ function getWebContents(targetId: number): WebContents | null {
 
 import { notifyCodex } from '../../notifyBridge'
 
-function dispatchEvent(targetId: number, payload: CodexEvent): void {
+function dispatchEvent(targetId: number, payload: AgentEvent): void {
   notifyCodex(targetId, payload)
 }
 
@@ -75,7 +75,7 @@ function notifyRunResult(
 
 export async function runCodex(
   targetContentsId: number,
-  payload: CodexRunOptions
+  payload: AgentRunOptions
 ): Promise<{ jobId: string }> {
   const prompt = payload?.prompt?.trim()
   if (!prompt) {
@@ -193,7 +193,7 @@ export async function runCodex(
           type: 'session',
           jobId,
           sessionId: state.sessionId
-        } as CodexEvent)
+        } as AgentEvent)
       }
     }
 

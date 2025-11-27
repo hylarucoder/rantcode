@@ -146,8 +146,8 @@ export const codexAgentTestResultSchema = z.object({
   output: z.string().optional()
 })
 
-// Codex run input
-export const codexRunInputSchema = z.object({
+/** Agent 执行输入 */
+export const agentRunInputSchema = z.object({
   agent: z.enum(AGENT_VALUES).optional(),
   projectId: z.string().optional(),
   prompt: z.string().min(1),
@@ -222,21 +222,23 @@ export const gitStatusInputSchema = z.object({
   projectId: z.string()
 })
 
-// Chat session schemas (persistent sessions)
-export const chatLogEntrySchema = z.object({
+// Session & Message schemas
+/** 日志条目 */
+export const logEntrySchema = z.object({
   id: z.string(),
   stream: z.enum(['stdout', 'stderr']),
   text: z.string(),
   timestamp: z.number().optional()
 })
 
-export const chatMessageSchema = z.object({
+/** 消息 */
+export const messageSchema = z.object({
   id: z.string(),
   role: z.enum(['user', 'assistant']),
   content: z.string(),
   jobId: z.string().optional(),
   status: z.enum(['running', 'success', 'error']).optional(),
-  logs: z.array(chatLogEntrySchema).optional(),
+  logs: z.array(logEntrySchema).optional(),
   output: z.string().optional(),
   errorMessage: z.string().optional(),
   sessionId: z.string().optional(),
@@ -244,11 +246,18 @@ export const chatMessageSchema = z.object({
   agent: z.string().optional()
 })
 
-export const chatSessionSchema = z.object({
+/**
+ * 各 agent 的 sessionId 映射，支持同一会话切换不同 agent 时保持各自上下文
+ * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
+ */
+export const agentSessionMapSchema = z.record(z.enum(AGENT_VALUES), z.string())
+
+/** 会话 */
+export const sessionSchema = z.object({
   id: z.string(),
   title: z.string(),
-  messages: z.array(chatMessageSchema),
-  codexSessionId: z.string().optional(),
+  messages: z.array(messageSchema),
+  agentSessions: agentSessionMapSchema.optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 })
@@ -262,7 +271,7 @@ export const updateSessionInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
   title: z.string().optional(),
-  codexSessionId: z.string().optional()
+  agentSessions: agentSessionMapSchema.optional()
 })
 
 export const deleteSessionInputSchema = z.object({
@@ -273,14 +282,14 @@ export const deleteSessionInputSchema = z.object({
 export const appendMessagesInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
-  messages: z.array(chatMessageSchema)
+  messages: z.array(messageSchema)
 })
 
 export const updateMessageInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
   messageId: z.string(),
-  patch: chatMessageSchema.partial()
+  patch: messageSchema.partial()
 })
 
 export const listSessionsInputSchema = z.object({

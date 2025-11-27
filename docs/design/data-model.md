@@ -158,7 +158,7 @@ interface Session {
   - QA Session：纯问答，不改代码。
 - 真正与 coding agent 强绑定的是 Job（下一节）。
 - **当前实现**：
-  - ✅ 前端 `ChatSession` 类型和 UI 组件完整实现
+  - ✅ 前端 `Session` 类型和 UI 组件完整实现
   - ✅ `features/workspace/api/hooks.ts` 提供完整的后端同步 API
   - ✅ `workspace/state/store.ts` 提供本地状态管理
   - ⚠️ 与 Task 的关联待实现
@@ -219,7 +219,7 @@ interface Job {
   - 每一个 Job 都有完整的 `intent + contextDocs`；
   - 不依赖前一个 Job 的对话历史，因此可重放、可在不同模型上复跑。
 - **当前实现**：
-  - ✅ `ChatMessage` 中的 `jobId` 和 `status` 字段实现 Job 跟踪
+  - ✅ `Message` 中的 `jobId` 和 `status` 字段实现 Job 跟踪
   - ✅ Codex CLI 执行和事件流处理完整实现
   - ✅ 系统通知集成（成功/失败提示）
   - ⚠️ 结构化 Job 实体和持久化存储待完善
@@ -282,8 +282,8 @@ interface ModelConfig {
 | 实体 | 状态 | 主要实现 |
 |------|------|----------|
 | **Project** | ✅ 已实现 | `features/projects/` + `projects/api/hooks.ts` |
-| **Session** | 🚧 部分实现 | `ChatSession` 类型 + API Hooks + 状态管理 |
-| **Job** | 🚧 部分实现 | `ChatMessage.jobId` + Codex 执行 + 事件流 |
+| **Session** | 🚧 部分实现 | `Session` 类型 + API Hooks + 状态管理 |
+| **Job** | 🚧 部分实现 | `Message.jobId` + Codex 执行 + 事件流 |
 | **Provider/Model** | ✅ 已实现 | Settings 页面完整配置管理 |
 | **Task** | ⚠️ 设计阶段 | 数据模型完成，UI 和存储待实现 |
 | **DocRef** | ⚠️ 设计阶段 | 概念设计，文件系统 API 部分支持 |

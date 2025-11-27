@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useProjectChatStore, useProjectPreviewStore } from './store'
-import type { ChatSession } from '@/features/workspace/types'
-import type { CodexEvent } from '@shared/types/webui'
+import type { Session } from '@/features/workspace/types'
+import type { AgentEvent } from '@shared/types/webui'
 
 const PROJECT_ID = 'project-test'
 
-const baseSession: ChatSession = {
+const baseSession: Session = {
   id: 'session-1',
   title: 'Session 1',
   messages: [
@@ -56,40 +56,40 @@ describe('useProjectChatStore', () => {
     }))
 
     // log 事件只更新 logs 数组
-    const logEvent: CodexEvent = {
+    const logEvent: AgentEvent = {
       type: 'log',
       jobId: 'job-1',
       stream: 'stdout',
       data: 'echo'
     }
 
-    chatStore.applyCodexEvent(PROJECT_ID, logEvent)
+    chatStore.applyAgentEvent(PROJECT_ID, logEvent)
 
     const afterLog = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterLog?.logs).toHaveLength(1)
     expect(afterLog?.logs?.[0].text).toBe('echo')
 
     // text 事件更新 output
-    const textEvent: CodexEvent = {
+    const textEvent: AgentEvent = {
       type: 'text',
       jobId: 'job-1',
       text: 'Hello world',
       delta: false
     }
 
-    chatStore.applyCodexEvent(PROJECT_ID, textEvent)
+    chatStore.applyAgentEvent(PROJECT_ID, textEvent)
 
     const afterText = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterText?.output).toBe('Hello world')
 
-    const exitEvent: CodexEvent = {
+    const exitEvent: AgentEvent = {
       type: 'exit',
       jobId: 'job-1',
       code: 0,
       signal: null,
       durationMs: 5
     }
-    chatStore.applyCodexEvent(PROJECT_ID, exitEvent)
+    chatStore.applyAgentEvent(PROJECT_ID, exitEvent)
 
     const afterExit = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterExit?.status).toBe('success')

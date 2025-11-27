@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { ChatSession } from '@/features/workspace/types'
+import type { Session } from '@/features/workspace/types'
 
 export function SessionList({
   sessions,
@@ -8,7 +8,7 @@ export function SessionList({
   onSelect,
   onNew
 }: {
-  sessions: ChatSession[]
+  sessions: Session[]
   activeId?: string | null
   onSelect: (id: string) => void
   onNew: () => void

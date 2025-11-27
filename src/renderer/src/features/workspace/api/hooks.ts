@@ -2,35 +2,35 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { orpc } from '@/lib/orpcQuery'
 import type { z } from 'zod'
 import type {
-  chatSessionSchema,
+  sessionSchema,
   createSessionInputSchema,
   updateSessionInputSchema,
   deleteSessionInputSchema,
   appendMessagesInputSchema,
   updateMessageInputSchema
 } from '@shared/orpc/schemas'
-// 内部使用的 API 类型（与 types.ts 的 ChatSession 结构兼容）
-type ApiChatSession = z.infer<typeof chatSessionSchema>
+// 内部使用的 API 类型（与 types.ts 的 Session 结构兼容）
+type ApiSession = z.infer<typeof sessionSchema>
 
 type SessionsNamespace = {
-  list: { call: (input: { projectId: string }) => Promise<ApiChatSession[]> }
+  list: { call: (input: { projectId: string }) => Promise<ApiSession[]> }
   get: {
-    call: (input: { projectId: string; sessionId: string }) => Promise<ApiChatSession | null>
+    call: (input: { projectId: string; sessionId: string }) => Promise<ApiSession | null>
   }
   create: {
-    call: (input: z.infer<typeof createSessionInputSchema>) => Promise<ApiChatSession>
+    call: (input: z.infer<typeof createSessionInputSchema>) => Promise<ApiSession>
   }
   update: {
-    call: (input: z.infer<typeof updateSessionInputSchema>) => Promise<ApiChatSession>
+    call: (input: z.infer<typeof updateSessionInputSchema>) => Promise<ApiSession>
   }
   delete: {
     call: (input: z.infer<typeof deleteSessionInputSchema>) => Promise<{ ok: boolean }>
   }
   appendMessages: {
-    call: (input: z.infer<typeof appendMessagesInputSchema>) => Promise<ApiChatSession>
+    call: (input: z.infer<typeof appendMessagesInputSchema>) => Promise<ApiSession>
   }
   updateMessage: {
-    call: (input: z.infer<typeof updateMessageInputSchema>) => Promise<ApiChatSession>
+    call: (input: z.infer<typeof updateMessageInputSchema>) => Promise<ApiSession>
   }
 }
 

@@ -49,18 +49,20 @@ interface AgentUIConfig {
 |------|------|
 | 接收 prompt | 从用户消息中获取任务指令 |
 | 执行代码任务 | 调用底层 CLI 工具执行代码生成/修改 |
-| 产生事件流 | 输出 `CodexEvent` 流（start/log/exit/session/error） |
+| 产生事件流 | 输出 `AgentEvent` 流（start/log/exit/session/error） |
 | 管理会话上下文 | 可选支持 session 续写（通过 sessionId） |
 
-### 1.3 Agent 事件（CodexEvent）
+### 1.3 Agent 事件（AgentEvent）
 
 ```ts
-type CodexEvent =
+type AgentEvent =
   | { type: 'start'; jobId: string; command: string[]; cwd: string }
   | { type: 'log'; jobId: string; stream: 'stdout' | 'stderr'; data: string }
   | { type: 'exit'; jobId: string; code: number | null; signal: string | null; durationMs: number }
   | { type: 'session'; jobId: string; sessionId: string }
   | { type: 'error'; jobId: string; message: string }
+  | { type: 'text'; jobId: string; text: string; delta?: boolean }
+  | { type: 'claude_message'; jobId: string; messageType: string; content?: string; raw?: unknown }
 ```
 
 ---
@@ -72,11 +74,17 @@ Session 是用户与 Agent 交互的一个对话线程，用于组织和管理�
 ### 2.1 类型定义
 
 ```ts
+/**
+ * 各 Agent 的 sessionId 映射，支持同一会话切换不同 agent 时保持各自上下文
+ * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
+ */
+type AgentSessionMap = Partial<Record<Agent, string>>
+
 interface Session {
   id: string                    // 唯一标识（UUID 或时间戳）
   title: string                 // 会话标题，如 "重构登录页"
   messages: Message[]           // 消息列表
-  agentSessionId?: string       // 底层 Agent 的 session id（用于上下文续写）
+  agentSessions?: AgentSessionMap // 各 agent 的 sessionId 映射（用于上下文续写）
   createdAt?: number            // 创建时间戳
   updatedAt?: number            // 最后更新时间戳
 }
@@ -91,10 +99,10 @@ interface Session {
 └──────────┘     └───────────┘     └──────────┘
                        │
                        ▼
-                 ┌───────────┐
-                 │  绑定     │
-                 │ AgentSID  │
-                 └───────────┘
+                 ┌─────────────────┐
+                 │  绑定各 Agent   │
+                 │  的 SessionId   │
+                 └─────────────────┘
 ```
 
 ### 2.3 Session 行为
@@ -105,19 +113,32 @@ interface Session {
 | `select` | 切换当前活跃会话 |
 | `rename` | 修改会话标题 |
 | `delete` | 删除会话及其所有消息 |
-| `bindAgent` | 当 Agent 返回 session 事件时，绑定 agentSessionId |
+| `bindAgent` | 当 Agent 返回 session 事件时，将 sessionId 写入 agentSessions[agent] |
 
 ### 2.4 上下文续写
 
-当 Session 已绑定 `agentSessionId` 时，后续请求会带上该 id，使 Agent CLI 能够续写上下文：
+当 Session 中某个 Agent 已绑定 sessionId 时（存储在 `agentSessions[agent]`），后续使用该 Agent 发送请求会带上对应的 sessionId，使 Agent CLI 能够续写上下文：
 
 ```ts
 interface AgentRunOptions {
+  agent: Agent
   prompt: string
-  sessionId?: string  // 来自 Session.agentSessionId
+  sessionId?: string  // 来自 Session.agentSessions[agent]
   // ...
 }
+
+// 使用示例：
+const agentSessionId = activeSession?.agentSessions?.[currentAgent]
+run({
+  agent: currentAgent,
+  prompt: userInput,
+  sessionId: agentSessionId  // 根据当前 agent 获取对应的 sessionId
+})
 ```
+
+这样设计的好处：
+- 同一会话中可以切换不同的 Agent，每个 Agent 保持独立的上下文
+- 切换回之前用过的 Agent 时，可以继续之前的上下文
 
 ---
 
@@ -177,12 +198,12 @@ User 发送 prompt
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐     CodexEvent: log
+┌─────────────────┐     AgentEvent: log
 │ Assistant Msg   │◀────────────────────┐
 │ status: running │                     │
 │ logs: []        │─────────────────────┘
 └────────┬────────┘
-         │ CodexEvent: exit
+         │ AgentEvent: exit
          ▼
 ┌─────────────────┐
 │ Assistant Msg   │
@@ -201,7 +222,7 @@ User 发送 prompt
 └──────────┘                 └──────────────┘              │  Runner  │
                                     │                      └────┬─────┘
                                     │                           │
-                              appendMessages()             CodexEvent
+                              appendMessages()             AgentEvent
                                     │                           │
                                     ▼                           ▼
                              ┌──────────────┐          ┌──────────────┐
@@ -242,7 +263,9 @@ User 发送 prompt
 | Agent | `src/shared/agents.ts` |
 | Session | `src/renderer/src/features/workspace/types.ts` |
 | Message | `src/renderer/src/features/workspace/types.ts` |
-| CodexEvent | `src/shared/types/webui.ts` |
+| LogEntry | `src/renderer/src/features/workspace/types.ts` |
+| AgentEvent | `src/shared/types/webui.ts` |
+| AgentRunOptions | `src/shared/types/webui.ts` |
 
 ---
 

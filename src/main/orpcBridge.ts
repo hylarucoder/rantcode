@@ -40,12 +40,12 @@ import {
   codexAgentConfigSchema,
   codexAgentTestResultSchema,
   generalSettingsSchema,
-  codexRunInputSchema,
+  agentRunInputSchema,
   gitStatusInputSchema,
   gitStatusSchema,
   gitDiffInputSchema,
   gitDiffSchema,
-  chatSessionSchema,
+  sessionSchema,
   createSessionInputSchema,
   updateSessionInputSchema,
   deleteSessionInputSchema,
@@ -280,7 +280,7 @@ export function setupOrpcBridge(): void {
     },
     codex: {
       run: os
-        .input(codexRunInputSchema)
+        .input(agentRunInputSchema)
         .output(z.object({ jobId: z.string() }))
         .handler(async ({ input }) => {
           const win = BrowserWindow.getFocusedWindow()
@@ -431,19 +431,19 @@ export function setupOrpcBridge(): void {
     sessions: {
       list: os
         .input(listSessionsInputSchema)
-        .output(chatSessionSchema.array())
+        .output(sessionSchema.array())
         .handler(withInputErrorHandler('sessions.list', (input) => sessionSvc.list(input))),
       get: os
         .input(getSessionInputSchema)
-        .output(chatSessionSchema.nullable())
+        .output(sessionSchema.nullable())
         .handler(withInputErrorHandler('sessions.get', (input) => sessionSvc.get(input))),
       create: os
         .input(createSessionInputSchema)
-        .output(chatSessionSchema)
+        .output(sessionSchema)
         .handler(withInputErrorHandler('sessions.create', (input) => sessionSvc.create(input))),
       update: os
         .input(updateSessionInputSchema)
-        .output(chatSessionSchema)
+        .output(sessionSchema)
         .handler(withInputErrorHandler('sessions.update', (input) => sessionSvc.update(input))),
       delete: os
         .input(deleteSessionInputSchema)
@@ -451,7 +451,7 @@ export function setupOrpcBridge(): void {
         .handler(withInputErrorHandler('sessions.delete', (input) => sessionSvc.delete(input))),
       appendMessages: os
         .input(appendMessagesInputSchema)
-        .output(chatSessionSchema)
+        .output(sessionSchema)
         .handler(
           withInputErrorHandler('sessions.appendMessages', (input) =>
             sessionSvc.appendMessages(input)
@@ -459,7 +459,7 @@ export function setupOrpcBridge(): void {
         ),
       updateMessage: os
         .input(updateMessageInputSchema)
-        .output(chatSessionSchema)
+        .output(sessionSchema)
         .handler(
           withInputErrorHandler('sessions.updateMessage', (input) =>
             sessionSvc.updateMessage(input)

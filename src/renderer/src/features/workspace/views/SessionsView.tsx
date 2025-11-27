@@ -6,10 +6,10 @@ import { useCodexRunner } from '@/features/workspace/hooks/useCodexRunner'
 import { usePreviewDocument } from '@/features/preview'
 import { useProjectChat, useProjectPreview } from '@/features/workspace/state/store'
 import { useProjects } from '@/state/projects'
-import type { CodexEvent, CodexRunOptions } from '@shared/types/webui'
+import type { AgentEvent, AgentRunOptions } from '@shared/types/webui'
 import { toast } from 'sonner'
 import { useSfx } from '@/hooks/useSfx'
-import type { ChatMessage, ChatSession } from '@/features/workspace/types'
+import type { Message, Session } from '@/features/workspace/types'
 import { playAudioFx } from '@/lib/audioFx'
 
 interface SessionsViewProps {
@@ -41,7 +41,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
   // 如果没有任何 session，自动创建一个
   useEffect(() => {
     if (sessions.length === 0 && projectId) {
-      const defaultSession: ChatSession = {
+      const defaultSession: Session = {
         id: `session-${Date.now()}`,
         title: 'New Session',
         messages: [
@@ -56,7 +56,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
     }
   }, [sessions.length, projectId, chat])
   const [input, setInput] = useState('')
-  const [agent, setAgent] = useState<NonNullable<CodexRunOptions['agent']>>('claude-code-glm')
+  const [agent, setAgent] = useState<NonNullable<AgentRunOptions['agent']>>('claude-code-glm')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
 
   const {
@@ -86,10 +86,10 @@ export default function SessionsView({ project }: SessionsViewProps) {
     const targetSessionId = activeSession?.id ?? sessions[0]?.id
     if (!targetSessionId) return
 
-    const userMsg: ChatMessage = { id: `user-${Date.now()}`, role: 'user', content: value }
+    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: value }
     const jobId =
       typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `codex-${Date.now()}`
-    const assistantMsg: ChatMessage = {
+    const assistantMsg: Message = {
       id: `assistant-${jobId}`,
       role: 'assistant',
       content: '',
@@ -108,14 +108,15 @@ export default function SessionsView({ project }: SessionsViewProps) {
 
     if (!run) return
 
-    const sessionCodexId = activeSession?.codexSessionId
+    // 根据当前选择的 agent 获取对应的 sessionId，用于上下文续写
+    const agentSessionId = activeSession?.agentSessions?.[agent]
     setRunningJobId(jobId)
     run({
       agent,
       projectId: project.id,
       prompt: value,
       jobId,
-      sessionId: sessionCodexId
+      sessionId: agentSessionId
     }).catch(() => {
       setRunningJobId(null)
       // On error, a subsequent Codex 'error' event will update the assistant message via store
@@ -123,7 +124,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
   }
 
   const handleNewSession = async () => {
-    const newSession: ChatSession = {
+    const newSession: Session = {
       id: `session-${Date.now()}`,
       title: `Session ${sessions.length + 1}`,
       messages: []
@@ -148,16 +149,16 @@ export default function SessionsView({ project }: SessionsViewProps) {
 
   // Subscribe to Codex events
   useEffect(() => {
-    const queueRef = { current: [] as CodexEvent[] }
+    const queueRef = { current: [] as AgentEvent[] }
     let scheduled = false
     const flush = () => {
       scheduled = false
       const batch = queueRef.current
       if (batch.length === 0) return
-      chat.applyCodexEventsBatch(batch)
+      chat.applyAgentEventsBatch(batch)
       queueRef.current = []
     }
-    const unsubscribe = subscribe((event: CodexEvent) => {
+    const unsubscribe = subscribe((event: AgentEvent) => {
       if (event.type === 'exit') {
         const ok = (event.code ?? 1) === 0
         const ms = typeof event.durationMs === 'number' ? `${event.durationMs}ms` : ''

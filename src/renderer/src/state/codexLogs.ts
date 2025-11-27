@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import type { CodexEvent } from '@shared/types/webui'
+import type { AgentEvent } from '@shared/types/webui'
 
 export interface ExecLogEntry {
   id: string
@@ -12,7 +12,7 @@ export interface ExecLogEntry {
 
 interface CodexLogState {
   entries: ExecLogEntry[]
-  appendFromEvent: (event: CodexEvent) => void
+  appendFromEvent: (event: AgentEvent) => void
   clear: () => void
 }
 
@@ -42,11 +42,11 @@ export function useCodexLogSubscription(): void {
 
   useEffect(() => {
     const w = window as unknown as {
-      agents?: { subscribe?: (h: (e: CodexEvent) => void) => () => void }
+      agents?: { subscribe?: (h: (e: AgentEvent) => void) => () => void }
     }
     const codexBridge = w.agents
     if (!codexBridge?.subscribe) return undefined
-    const unsubscribe = codexBridge.subscribe((event: CodexEvent) => {
+    const unsubscribe = codexBridge.subscribe((event: AgentEvent) => {
       appendFromEvent(event)
     })
     return () => {

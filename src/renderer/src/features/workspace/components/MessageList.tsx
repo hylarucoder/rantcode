@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
-import type { ChatMessage as BaseMessage } from '@/features/workspace/types'
+import type { Message as BaseMessage } from '@/features/workspace/types'
 
 export function MessageList<T extends BaseMessage>({
   messages,

@@ -21,12 +21,12 @@ import {
   codexAgentConfigSchema,
   codexAgentTestResultSchema,
   generalSettingsSchema,
-  codexRunInputSchema,
+  agentRunInputSchema,
   gitStatusInputSchema,
   gitStatusSchema,
   gitDiffInputSchema,
   gitDiffSchema,
-  chatSessionSchema,
+  sessionSchema,
   createSessionInputSchema,
   updateSessionInputSchema,
   deleteSessionInputSchema,
@@ -108,7 +108,7 @@ export const contract = oc.router({
       )
   },
   codex: {
-    run: oc.input(codexRunInputSchema).output(z.object({ jobId: z.string() })),
+    run: oc.input(agentRunInputSchema).output(z.object({ jobId: z.string() })),
     cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() }))
   },
   app: {
@@ -127,13 +127,13 @@ export const contract = oc.router({
     diff: oc.input(gitDiffInputSchema).output(gitDiffSchema)
   },
   sessions: {
-    list: oc.input(listSessionsInputSchema).output(chatSessionSchema.array()),
-    get: oc.input(getSessionInputSchema).output(chatSessionSchema.nullable()),
-    create: oc.input(createSessionInputSchema).output(chatSessionSchema),
-    update: oc.input(updateSessionInputSchema).output(chatSessionSchema),
+    list: oc.input(listSessionsInputSchema).output(sessionSchema.array()),
+    get: oc.input(getSessionInputSchema).output(sessionSchema.nullable()),
+    create: oc.input(createSessionInputSchema).output(sessionSchema),
+    update: oc.input(updateSessionInputSchema).output(sessionSchema),
     delete: oc.input(deleteSessionInputSchema).output(okResponseSchema),
-    appendMessages: oc.input(appendMessagesInputSchema).output(chatSessionSchema),
-    updateMessage: oc.input(updateMessageInputSchema).output(chatSessionSchema)
+    appendMessages: oc.input(appendMessagesInputSchema).output(sessionSchema),
+    updateMessage: oc.input(updateMessageInputSchema).output(sessionSchema)
   }
 }) satisfies AnyContractRouter
 
