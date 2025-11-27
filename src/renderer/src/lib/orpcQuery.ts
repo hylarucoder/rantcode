@@ -5,9 +5,12 @@ import type { RantcodeContract } from '@shared/orpc/contract'
 
 const link = {
   call(path: readonly string[], input: unknown): Promise<unknown> {
-    const call = (window as unknown as { api?: { orpcCall?: Function } }).api?.orpcCall
+    const call = (
+      window as unknown as {
+        api?: { orpcCall?: (path: readonly string[], input: unknown) => Promise<unknown> }
+      }
+    ).api?.orpcCall
     if (typeof call !== 'function') {
-      // eslint-disable-next-line no-console
       console.error('[oRPC] window.api.orpcCall is unavailable')
       throw new Error('window.api.orpcCall is unavailable. Ensure preload exposed it.')
     }

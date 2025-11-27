@@ -1,56 +1,60 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import type { ProjectInfo } from '@/types'
 import { WorkspaceLayout } from '@/features/workspace/views/WorkspaceLayout'
-import { WorkspaceProvider } from '@/state/workspace'
 import { useCodexRunner } from '@/features/workspace/hooks/useCodexRunner'
 import { usePreviewDocument } from '@/features/preview'
 import { useWorkspaceChat, useWorkspacePreview } from '@/features/workspace/state/store'
+import { useProjects } from '@/state/projects'
 import type { CodexEvent, CodexRunOptions } from '@shared/types/webui'
 import { toast } from 'sonner'
 import { useSfx } from '@/hooks/useSfx'
 import type { ChatMessage, ChatSession } from '@/features/workspace/types'
 import { playAudioFx } from '@/lib/audioFx'
 
-/**
- * Temporary workspace view wrapper.
- * Step 1: act as a façade to legacy ProjectDetailShell to enable gradual refactor.
- * Step 2: replace internals with split components (SessionList/MessageList/Composer/RightPanel).
- */
-const INITIAL_SESSIONS: ChatSession[] = [
-  {
-    id: 'default',
-    title: 'Getting started',
-    messages: [
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: 'You can ask questions about this project, its docs, or files.'
-      }
-    ]
-  }
-]
-
-// Codex event application is handled in the workspace store.
-
-interface WorkspacePageProps {
+interface SessionsViewProps {
   project: ProjectInfo
-  onRemoveProject?: () => void
 }
 
-export default function WorkspacePage({ project, onRemoveProject }: WorkspacePageProps) {
+/**
+ * SessionsView - 会话列表与聊天视图
+ * 从原 WorkspacePage 抽取的核心聊天功能
+ */
+export default function SessionsView({ project }: SessionsViewProps) {
+  const navigate = useNavigate()
+  const { removeProject } = useProjects()
+
   const workspaceId = project.id
   const chat = useWorkspaceChat(workspaceId)
   const { selectedDocPath, setSelectedDocPath, previewTocOpen, setPreviewTocOpen } =
     useWorkspacePreview(workspaceId)
-  // ensure initial workspace/chat state
+
+  // ensure workspace state exists (sessions will be loaded from backend via useWorkspaceChat hook)
   useEffect(() => {
-    chat.ensure(workspaceId, () => ({
-      sessions: INITIAL_SESSIONS.slice(),
-      activeSessionId: INITIAL_SESSIONS[0]?.id ?? null
-    }))
-  }, [workspaceId])
+    if (!workspaceId) return
+    chat.ensure(workspaceId)
+  }, [workspaceId, chat])
+
   const sessions = chat.sessions
-  const activeSessionId = chat.activeSessionId ?? sessions[0]?.id ?? 'default'
+  const activeSessionId = chat.activeSessionId ?? sessions[0]?.id ?? null
+
+  // 如果没有任何 session，自动创建一个
+  useEffect(() => {
+    if (sessions.length === 0 && workspaceId) {
+      const defaultSession: ChatSession = {
+        id: `session-${Date.now()}`,
+        title: 'New Session',
+        messages: [
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: 'You can ask questions about this project, its docs, or files.'
+          }
+        ]
+      }
+      void chat.addSession(defaultSession)
+    }
+  }, [sessions.length, workspaceId, chat])
   const [input, setInput] = useState('')
   const [agent, setAgent] = useState<NonNullable<CodexRunOptions['agent']>>('claude-code-glm')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
@@ -75,8 +79,8 @@ export default function WorkspacePage({ project, onRemoveProject }: WorkspacePag
   const { run, subscribe, cancel } = useCodexRunner()
   const { play: playSfx } = useSfx()
 
-  const handleSend = () => {
-    if (runningJobId) return
+  const handleSend = async () => {
+    if (runningJobId || !project) return
     const value = input.trim()
     if (!value) return
     const targetSessionId = activeSession?.id ?? sessions[0]?.id
@@ -97,7 +101,7 @@ export default function WorkspacePage({ project, onRemoveProject }: WorkspacePag
       agent
     }
 
-    chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
+    await chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
     // 会话开始：播放开始音效（若启用）
     playAudioFx('start')
     setInput('')
@@ -118,18 +122,28 @@ export default function WorkspacePage({ project, onRemoveProject }: WorkspacePag
     })
   }
 
-  const handleNewSession = () => {
+  const handleNewSession = async () => {
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: `Session ${sessions.length + 1}`,
       messages: []
     }
-    chat.addSession(newSession)
+    await chat.addSession(newSession)
   }
 
   const handleInterrupt = () => {
     if (!runningJobId || !cancel) return
     void cancel(runningJobId)
+  }
+
+  const handleRemoveProject = async () => {
+    if (!project) return
+    const ok = window.confirm(
+      `确定要从列表中移除 ${project.name || project.repoPath} 吗？文件仍保留在磁盘上。`
+    )
+    if (!ok) return
+    await removeProject(project.id)
+    navigate('/')
   }
 
   // Subscribe to Codex events
@@ -177,32 +191,30 @@ export default function WorkspacePage({ project, onRemoveProject }: WorkspacePag
   }, [subscribe])
 
   return (
-    <WorkspaceProvider workspaceId={project.id}>
-      <WorkspaceLayout
-        project={project}
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onSelectSession={(id) => chat.setActiveSessionId(id)}
-        onNewSession={handleNewSession}
-        messages={messages}
-        input={input}
-        onInputChange={setInput}
-        onSend={handleSend}
-        isRunning={!!runningJobId}
-        onInterrupt={handleInterrupt}
-        agent={agent}
-        onAgentChange={setAgent}
-        onDocChange={handlePreviewDocChange}
-        previewDocPath={selectedDocPath}
-        previewHtml={previewHtml}
-        previewRendering={previewRendering}
-        previewRef={previewRef}
-        previewToc={previewToc}
-        onTocClick={handlePreviewTocClick}
-        previewTocOpen={previewTocOpen}
-        onTogglePreviewToc={setPreviewTocOpen}
-        onRemoveProject={onRemoveProject}
-      />
-    </WorkspaceProvider>
+    <WorkspaceLayout
+      project={project}
+      sessions={sessions}
+      activeSessionId={activeSessionId}
+      onSelectSession={(id) => chat.setActiveSessionId(id)}
+      onNewSession={handleNewSession}
+      messages={messages}
+      input={input}
+      onInputChange={setInput}
+      onSend={handleSend}
+      isRunning={!!runningJobId}
+      onInterrupt={handleInterrupt}
+      agent={agent}
+      onAgentChange={setAgent}
+      onDocChange={handlePreviewDocChange}
+      previewDocPath={selectedDocPath}
+      previewHtml={previewHtml}
+      previewRendering={previewRendering}
+      previewRef={previewRef}
+      previewToc={previewToc}
+      onTocClick={handlePreviewTocClick}
+      previewTocOpen={previewTocOpen}
+      onTogglePreviewToc={setPreviewTocOpen}
+      onRemoveProject={handleRemoveProject}
+    />
   )
 }

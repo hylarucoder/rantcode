@@ -27,4 +27,3 @@ export function parseConversationLog(text: string): ConversationSession[] {
   // 没有匹配的格式
   return []
 }
-

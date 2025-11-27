@@ -68,8 +68,9 @@ function dispatchEvent(targetId: number, payload: CodexEvent): void {
 /**
  * 构建 Claude Code CLI 的默认参数
  * 确保包含 --print, --dangerously-skip-permissions, --output-format stream-json, --verbose
+ * 如果提供了 sessionId，添加 --resume 参数以恢复会话
  */
-function buildClaudeCodeArgs(extraArgs?: string[]): string[] {
+function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[] {
   const args = Array.isArray(extraArgs)
     ? extraArgs.filter((s) => typeof s === 'string' && s.length > 0)
     : []
@@ -86,6 +87,11 @@ function buildClaudeCodeArgs(extraArgs?: string[]): string[] {
   }
   if (!args.includes('--verbose')) {
     args.push('--verbose')
+  }
+
+  // 如果有 sessionId，添加 --resume 参数以恢复会话上下文
+  if (sessionId && !args.includes('--resume') && !args.includes('-r')) {
+    args.push('--resume', sessionId)
   }
 
   return args
@@ -110,7 +116,8 @@ export async function runClaudeCodeStreaming(
 
   const bin = await findExecutable(agent)
   const agentConfig = AGENT_CONFIGS[agent]
-  const args = buildClaudeCodeArgs(payload.extraArgs)
+  // 如果有 sessionId，使用 --resume 恢复会话上下文
+  const args = buildClaudeCodeArgs(payload.extraArgs, payload.sessionId)
 
   // 构建环境变量
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }

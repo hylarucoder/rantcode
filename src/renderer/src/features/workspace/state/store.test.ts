@@ -48,13 +48,14 @@ describe('useWorkspaceChatStore', () => {
     expect(workspace?.activeSessionId).toBe(baseSession.id)
   })
 
-  it('applies codex log and exit events to assistant message', () => {
+  it('applies codex log, text and exit events to assistant message', () => {
     const chatStore = useWorkspaceChatStore.getState()
     chatStore.ensure(WORKSPACE_ID, () => ({
       sessions: [baseSession],
       activeSessionId: baseSession.id
     }))
 
+    // log 事件只更新 logs 数组
     const logEvent: CodexEvent = {
       type: 'log',
       jobId: 'job-1',
@@ -67,7 +68,21 @@ describe('useWorkspaceChatStore', () => {
     const afterLog =
       useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]?.sessions[0].messages[0]
     expect(afterLog?.logs).toHaveLength(1)
-    expect(afterLog?.output).toContain('echo')
+    expect(afterLog?.logs?.[0].text).toBe('echo')
+
+    // text 事件更新 output
+    const textEvent: CodexEvent = {
+      type: 'text',
+      jobId: 'job-1',
+      text: 'Hello world',
+      delta: false
+    }
+
+    chatStore.applyCodexEvent(WORKSPACE_ID, textEvent)
+
+    const afterText =
+      useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]?.sessions[0].messages[0]
+    expect(afterText?.output).toBe('Hello world')
 
     const exitEvent: CodexEvent = {
       type: 'exit',

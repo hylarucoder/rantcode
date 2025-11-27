@@ -247,13 +247,7 @@ export default function TTSSettings() {
                 )}
               />
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={test}
-                disabled={!canTest}
-                className="gap-2"
-              >
+              <Button type="button" size="sm" onClick={test} disabled={!canTest} className="gap-2">
                 <Play className="h-3.5 w-3.5" />
                 试听
               </Button>
@@ -264,7 +258,8 @@ export default function TTSSettings() {
         <div className="mt-6 pt-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech 作为基础播报与试听。
+            云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech
+            作为基础播报与试听。
           </p>
         </div>
       </CardContent>

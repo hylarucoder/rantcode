@@ -42,9 +42,7 @@ export function MessageList<T extends BaseMessage>({
       prevLenRef.current = len
       return
     }
-    const added = messages.slice(prevLen) as Array<
-      BaseMessage & { role?: string | undefined }
-    >
+    const added = messages.slice(prevLen) as Array<BaseMessage & { role?: string | undefined }>
     prevLenRef.current = len
     const hasNewUserMessage = added.some((m) => m.role === 'user')
     if (!hasNewUserMessage) return

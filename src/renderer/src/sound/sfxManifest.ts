@@ -6,4 +6,3 @@ export const sfxDefaults: Record<SfxKey, string> = {
   error: new URL('../assets/sfx/error.wav', import.meta.url).toString(),
   notify: new URL('../assets/sfx/notify.wav', import.meta.url).toString()
 }
-

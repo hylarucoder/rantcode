@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { FolderOpen, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,11 +16,8 @@ import { Input } from '@/components/ui/input'
 import { useProjects } from '@/state/projects'
 import type { ProjectInfo } from '@/types'
 
-interface ProjectsPageProps {
-  onOpenProject?: (project: ProjectInfo) => void
-}
-
-export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
+export default function ProjectsPage() {
+  const navigate = useNavigate()
   const { projects, loading, addProject, removeProject, pickRepoPath } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -28,7 +26,10 @@ export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
   const [repoPath, setRepoPath] = useState('')
   const [repoPathError, setRepoPathError] = useState<string | null>(null)
   const isEmptyStateLoading = loading && projects.length === 0
-  const prevLoading = useRef<{ loading: boolean; count: number }>({ loading, count: projects.length })
+  const prevLoading = useRef<{ loading: boolean; count: number }>({
+    loading,
+    count: projects.length
+  })
 
   useEffect(() => {
     const previous = prevLoading.current
@@ -60,7 +61,7 @@ export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
       setModalOpen(false)
       setName('')
       setRepoPath('')
-      onOpenProject?.(project)
+      navigate(`/project/${project.id}`)
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to add project'
@@ -87,7 +88,7 @@ export default function ProjectsPage({ onOpenProject }: ProjectsPageProps) {
   }
 
   const openProject = (project: ProjectInfo) => {
-    onOpenProject?.(project)
+    navigate(`/project/${project.id}`)
   }
 
   return (

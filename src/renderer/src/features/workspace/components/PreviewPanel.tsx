@@ -80,9 +80,7 @@ export default function PreviewPanel({
             </span>
             <div className="flex-1 min-h-0 overflow-y-auto pr-1">
               {rendering && <p className="text-xs text-muted-foreground">Rendering preview…</p>}
-              {!rendering && (
-                <PreviewMarkdownContent html={html} previewRef={previewRef} />
-              )}
+              {!rendering && <PreviewMarkdownContent html={html} previewRef={previewRef} />}
             </div>
           </>
         )}

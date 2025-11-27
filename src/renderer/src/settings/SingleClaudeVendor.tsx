@@ -17,7 +17,18 @@ import {
   FormMessage,
   FormDescription
 } from '@/components/ui/form'
-import { Save, TestTube2, Pin, PinOff, Eye, EyeOff, Sparkles, Terminal, Key, Cpu } from 'lucide-react'
+import {
+  Save,
+  TestTube2,
+  Pin,
+  PinOff,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Terminal,
+  Key,
+  Cpu
+} from 'lucide-react'
 import { useClaudeVendorsQuery, useSetClaudeVendorsMutation } from '@/features/settings'
 import { useRunClaudePromptMutation } from '@/features/settings/api/hooks'
 import {
@@ -387,9 +398,7 @@ export default function SingleClaudeVendor({
                       </Button>
                     </div>
                   </FormControl>
-                  {fieldState.error && (
-                    <FormMessage>{fieldState.error.message}</FormMessage>
-                  )}
+                  {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                   <FormDescription className="sr-only">Vendor API Key</FormDescription>
                 </FormItem>
               )}
@@ -424,9 +433,7 @@ export default function SingleClaudeVendor({
                         </SelectContent>
                       </Select>
                     )}
-                    {fieldState.error && (
-                      <FormMessage>{fieldState.error.message}</FormMessage>
-                    )}
+                    {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                   </FormItem>
                 )}
               />

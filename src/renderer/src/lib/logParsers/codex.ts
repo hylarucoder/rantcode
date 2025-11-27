@@ -247,4 +247,3 @@ export function parseCodexLog(text: string): ConversationSession[] | null {
 
   return sessions.length > 0 ? sessions : null
 }
-

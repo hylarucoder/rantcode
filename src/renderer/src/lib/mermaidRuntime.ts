@@ -200,21 +200,25 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
     })
   } catch (e) {
     // 顶层失败（import/initialize），为所有容器输出错误块
-    // eslint-disable-next-line no-console
+
     console.error('Mermaid bootstrap failed:', e)
     const escapeHtml = (s: string) =>
       s
         .replaceAll(/&/g, '&amp;')
         .replaceAll(/</g, '&lt;')
         .replaceAll(/>/g, '&gt;')
-        .replaceAll(/\"/g, '&quot;')
+        .replaceAll(/"/g, '&quot;')
         .replaceAll(/'/g, '&#39;')
     const message = (e instanceof Error ? e.message : String(e)) || 'Unknown error'
-    const stack = (e instanceof Error && e.stack ? e.stack : message)
+    const stack = e instanceof Error && e.stack ? e.stack : message
     containers.forEach((el) => {
       const raw = el.textContent ?? ''
       el.innerHTML = `
-        <div class=\"mermaid-error\" role=\"alert\">\n          <div><strong>Mermaid 初始化失败：</strong>${escapeHtml(message)}</div>\n          <pre class=\"mermaid-error-msg\">${escapeHtml(stack)}</pre>\n          <pre><code class=\"language-mermaid-source\">${escapeHtml(raw)}</code></pre>\n        </div>
+        <div class="mermaid-error" role="alert">
+          <div><strong>Mermaid 初始化失败：</strong>${escapeHtml(message)}</div>
+          <pre class="mermaid-error-msg">${escapeHtml(stack)}</pre>
+          <pre><code class="language-mermaid-source">${escapeHtml(raw)}</code></pre>
+        </div>
       `
       el.setAttribute('data-mermaid-processed', 'error')
     })
@@ -263,7 +267,7 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
           return
         }
         // 首次失败，短暂等待下一帧后重试，避免瞬态错误引起闪烁
-        // eslint-disable-next-line no-console
+
         console.warn('Mermaid first attempt failed, retrying…', err1)
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
         // 重试前再次检查可见性
@@ -276,19 +280,23 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
             return
           }
           // 仍失败：用 error 包裹并附上源码与错误详情
-          // eslint-disable-next-line no-console
+
           console.error('Mermaid render error (after retry):', err2)
           const escapeHtml = (s: string) =>
             s
               .replaceAll(/&/g, '&amp;')
               .replaceAll(/</g, '&lt;')
               .replaceAll(/>/g, '&gt;')
-              .replaceAll(/\"/g, '&quot;')
+              .replaceAll(/"/g, '&quot;')
               .replaceAll(/'/g, '&#39;')
           const message = (err2 instanceof Error ? err2.message : String(err2)) || 'Unknown error'
-          const stack = (err2 instanceof Error && err2.stack ? err2.stack : message)
+          const stack = err2 instanceof Error && err2.stack ? err2.stack : message
           el.innerHTML = `
-            <div class=\"mermaid-error\" role=\"alert\">\n              <div><strong>Mermaid 解析失败：</strong>${escapeHtml(message)}</div>\n              <pre class=\"mermaid-error-msg\">${escapeHtml(stack)}</pre>\n              <pre><code class=\"language-mermaid-source\">${escapeHtml(chartRaw)}</code></pre>\n            </div>
+            <div class="mermaid-error" role="alert">
+              <div><strong>Mermaid 解析失败：</strong>${escapeHtml(message)}</div>
+              <pre class="mermaid-error-msg">${escapeHtml(stack)}</pre>
+              <pre><code class="language-mermaid-source">${escapeHtml(chartRaw)}</code></pre>
+            </div>
           `
           el.setAttribute('data-mermaid-processed', 'error')
         }

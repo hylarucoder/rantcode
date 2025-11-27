@@ -1,7 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarClock, FileDiff, MessageSquare, Puzzle, Terminal } from 'lucide-react'
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  CircleCheck,
+  CircleDot,
+  CircleX,
+  FileDiff,
+  FileText,
+  MessageSquare,
+  Puzzle,
+  Search,
+  Terminal
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { parseConversationLog, type LogEvent } from '@/lib/conversationLog'
+import {
+  parseConversationLog,
+  type LogEvent,
+  type ToolCallData,
+  type TodoItem
+} from '@/lib/conversationLog'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 
 interface ExecLogEntry {
@@ -43,6 +62,157 @@ function Badge({ children, className = '' }: { children: string; className?: str
   )
 }
 
+/** 将毫秒转换为人类可读的时间格式 */
+function humanizeDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  const mins = Math.floor(ms / 60_000)
+  const secs = Math.round((ms % 60_000) / 1000)
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`
+  const hours = Math.floor(mins / 60)
+  const remainMins = mins % 60
+  return remainMins > 0 ? `${hours}h ${remainMins}m` : `${hours}h`
+}
+
+/** 渲染 TodoWrite 工具的结构化数据 */
+function TodoWriteRenderer({ data }: { data: Extract<ToolCallData, { kind: 'todo_write' }> }) {
+  const statusIcon = (status: TodoItem['status']) => {
+    switch (status) {
+      case 'completed':
+        return <CircleCheck className="h-3 w-3 text-emerald-500" />
+      case 'in_progress':
+        return <CircleDot className="h-3 w-3 text-blue-500" />
+      case 'cancelled':
+        return <CircleX className="h-3 w-3 text-muted-foreground" />
+      default:
+        return <Circle className="h-3 w-3 text-muted-foreground" />
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      {data.merge !== undefined && (
+        <div className="text-[10px] text-muted-foreground">
+          merge: {data.merge ? 'true' : 'false'}
+        </div>
+      )}
+      {data.todos.map((todo, i) => (
+        <div key={todo.id ?? i} className="flex items-start gap-1.5">
+          {statusIcon(todo.status)}
+          <span
+            className={cn(
+              'text-[11px]',
+              todo.status === 'completed' && 'text-muted-foreground line-through',
+              todo.status === 'cancelled' && 'text-muted-foreground line-through'
+            )}
+          >
+            {todo.content}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** 渲染文件操作工具的简洁显示 */
+function FileOpRenderer({ data }: { data: ToolCallData }) {
+  switch (data.kind) {
+    case 'read':
+      return (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <FileText className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono truncate">{data.filePath}</span>
+          {(data.offset || data.limit) && (
+            <span className="text-muted-foreground">
+              ({data.offset ?? 0}:{data.limit ?? '∞'})
+            </span>
+          )}
+        </div>
+      )
+    case 'edit':
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <FileText className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono truncate">{data.filePath}</span>
+          </div>
+          {data.oldString && (
+            <CollapsibleText text={`- ${data.oldString}\n+ ${data.newString ?? ''}`} lines={6} />
+          )}
+        </div>
+      )
+    case 'glob':
+      return (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <Search className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono">{data.pattern}</span>
+        </div>
+      )
+    case 'grep':
+      return (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <Search className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono">{data.pattern}</span>
+          {data.path && <span className="text-muted-foreground">in {data.path}</span>}
+        </div>
+      )
+    case 'bash':
+      return (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <Terminal className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono truncate">{data.command}</span>
+        </div>
+      )
+    default:
+      return null
+  }
+}
+
+/** 可折叠的工具调用参数 */
+function CollapsibleToolArgs({ argsText, data }: { argsText: string; data?: ToolCallData }) {
+  const [open, setOpen] = useState(false)
+
+  // 如果有结构化数据，优先使用语义化渲染
+  if (data) {
+    if (data.kind === 'todo_write') {
+      return <TodoWriteRenderer data={data} />
+    }
+    if (data.kind !== 'generic') {
+      return <FileOpRenderer data={data} />
+    }
+  }
+
+  // 对于 generic 或无结构化数据的情况，显示可折叠的 JSON
+  const lines = argsText.split('\n').length
+  const isLong = lines > 8 || argsText.length > 400
+
+  if (!isLong) {
+    return (
+      <div className="whitespace-pre-wrap font-mono text-[11px] leading-snug opacity-80">
+        {argsText}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {open ? '收起参数' : `展开参数 (${lines} 行)`}
+      </button>
+      {open && (
+        <div className="mt-1 whitespace-pre-wrap font-mono text-[11px] leading-snug opacity-80">
+          {argsText}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EventItem({ ev }: { ev: LogEvent }) {
   switch (ev.type) {
     case 'session_start':
@@ -50,6 +220,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
         <div className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
           <CalendarClock className="h-3 w-3" />
           <span>Session</span>
+          {ev.meta.parentSessionId && <Badge className="bg-blue-500/20">resumed</Badge>}
           {ev.meta.model && <Badge className="bg-accent/40">{ev.meta.model}</Badge>}
           {ev.meta.sessionId && <span className="truncate">{ev.meta.sessionId}</span>}
         </div>
@@ -105,7 +276,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
               {ev.ok ? 'OK' : 'FAIL'}
             </Badge>
             {typeof ev.durationMs === 'number' && (
-              <span className="text-muted-foreground">{ev.durationMs}ms</span>
+              <span className="text-muted-foreground">{humanizeDuration(ev.durationMs)}</span>
             )}
           </div>
           {ev.text && <CollapsibleText text={ev.text} />}
@@ -119,11 +290,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
             <span>tool</span>
             <Badge className="bg-accent/40">{ev.name}</Badge>
           </div>
-          {ev.argsText && (
-            <div className="whitespace-pre-wrap font-mono text-[12px] leading-snug">
-              {ev.argsText}
-            </div>
-          )}
+          {ev.argsText && <CollapsibleToolArgs argsText={ev.argsText} data={ev.data} />}
         </div>
       )
     case 'tool_result':
@@ -139,7 +306,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
               {ev.ok ? 'OK' : `Exit ${ev.code ?? '?'}`}
             </Badge>
             {typeof ev.durationMs === 'number' && (
-              <span className="text-muted-foreground">{ev.durationMs}ms</span>
+              <span className="text-muted-foreground">{humanizeDuration(ev.durationMs)}</span>
             )}
           </div>
           {ev.text && <CollapsibleText text={ev.text} />}

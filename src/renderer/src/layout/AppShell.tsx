@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Outlet, useNavigate, useParams } from 'react-router'
 import {
   ChevronDown,
   FolderOpen,
@@ -18,10 +19,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { useProjects } from '@/state/projects'
-import { WorkspacePage } from '@/features/workspace'
-import { ProjectsPage } from '@/features/projects'
 import { useAppStore } from '@/state/app'
-import SettingsPage from '@/settings/SettingsPage'
 import { setRootDarkWithNoTransition } from '@/lib/theme'
 import { useSfx } from '@/hooks/useSfx'
 import {
@@ -35,18 +33,26 @@ type GeneralSettings = z.infer<typeof generalSettingsSchema>
 type Theme = GeneralSettings['theme']
 
 export default function AppShell() {
+  const { projectId } = useParams<{ projectId?: string }>()
   const activeProjectId = useAppStore((s) => s.activeProjectId)
   const setActiveProjectId = useAppStore((s) => s.setActiveProjectId)
   const { projects, removeProject, loading } = useProjects()
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const activeProject = projects.find((p) => p.id === (projectId ?? activeProjectId)) ?? null
   const hasProjects = projects.length > 0
   const { data: generalSettings } = useGeneralSettingsQuery()
   const setGeneralSettings = useSetGeneralSettingsMutation()
   const [isDark, setIsDark] = useState<boolean>(() =>
     typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : true
   )
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const navigate = useNavigate()
   const { play: playSfx } = useSfx()
+
+  // 同步 URL 参数到 app store
+  useEffect(() => {
+    if (projectId && projectId !== activeProjectId) {
+      setActiveProjectId(projectId)
+    }
+  }, [projectId, activeProjectId, setActiveProjectId])
 
   // 同步 electron-store 的 theme 设置到本地状态
   useEffect(() => {
@@ -60,10 +66,11 @@ export default function AppShell() {
   // 如果当前选中的项目已不存在（被删除或列表还未包含），清空选择，避免卡在无效 id
   useEffect(() => {
     if (loading) return
-    if (activeProjectId && !activeProject) {
+    if (projectId && !projects.find((p) => p.id === projectId)) {
+      navigate('/', { replace: true })
       setActiveProjectId(null)
     }
-  }, [loading, activeProjectId, activeProject, setActiveProjectId])
+  }, [loading, projectId, projects, navigate, setActiveProjectId])
 
   const activeLabel = useMemo(() => {
     if (activeProject) return activeProject.name || activeProject.repoPath
@@ -78,6 +85,27 @@ export default function AppShell() {
       }
     ).orpc
     void bridge?.(['app', 'toggleMaximize'], undefined)
+  }
+
+  const handleSelectProject = (id: string) => {
+    setActiveProjectId(id)
+    navigate(`/project/${id}`)
+  }
+
+  const handleManageProjects = () => {
+    setActiveProjectId(null)
+    navigate('/')
+  }
+
+  const handleRemoveCurrentProject = async () => {
+    if (!activeProject) return
+    const ok = window.confirm(
+      `Remove ${activeProject.name || activeProject.repoPath} from rantcode? Files stay on disk.`
+    )
+    if (!ok) return
+    await removeProject(activeProject.id)
+    setActiveProjectId(null)
+    navigate('/')
   }
 
   return (
@@ -111,11 +139,11 @@ export default function AppShell() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {projects.map((project) => {
-                const isActive = project.id === activeProjectId
+                const isActive = project.id === (projectId ?? activeProjectId)
                 return (
                   <DropdownMenuItem
                     key={project.id}
-                    onClick={() => setActiveProjectId(project.id)}
+                    onClick={() => handleSelectProject(project.id)}
                     className="flex items-center justify-between gap-2"
                   >
                     <div className="flex min-w-0 flex-col">
@@ -140,7 +168,7 @@ export default function AppShell() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="flex items-center gap-2 text-xs"
-                onClick={() => setActiveProjectId(null)}
+                onClick={handleManageProjects}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add or manage projects…
@@ -149,14 +177,9 @@ export default function AppShell() {
                 <DropdownMenuItem
                   variant="destructive"
                   className="flex items-center gap-2 text-xs"
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault()
-                    const ok = window.confirm(
-                      `Remove ${activeProject.name || activeProject.repoPath} from rantcode? Files stay on disk.`
-                    )
-                    if (!ok) return
-                    await removeProject(activeProject.id)
-                    setActiveProjectId(null)
+                    void handleRemoveCurrentProject()
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -172,7 +195,7 @@ export default function AppShell() {
               size="icon"
               className="h-7 w-7 rounded-full text-muted-foreground hover:bg-accent/40"
               onPointerDown={() => playSfx('click')}
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => navigate('/settings/general')}
             >
               <SettingsIcon className="h-4 w-4" />
               <span className="sr-only">Open settings</span>
@@ -199,23 +222,7 @@ export default function AppShell() {
         </div>
       </div>
       <div className="flex-1 min-h-0">
-        {settingsOpen ? (
-          <SettingsPage onClose={() => setSettingsOpen(false)} />
-        ) : activeProject ? (
-          <WorkspacePage
-            project={activeProject}
-            onRemoveProject={async () => {
-              const ok = window.confirm(
-                `确定要从列表中移除 ${activeProject.name || activeProject.repoPath} 吗？文件仍保留在磁盘上。`
-              )
-              if (!ok) return
-              await removeProject(activeProject.id)
-              setActiveProjectId(null)
-            }}
-          />
-        ) : (
-          <ProjectsPage onOpenProject={(project) => setActiveProjectId(project.id)} />
-        )}
+        <Outlet />
       </div>
     </div>
   )

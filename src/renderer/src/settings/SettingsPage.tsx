@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
@@ -62,7 +63,8 @@ const SOUNDS_ITEMS: { key: SoundsItem; label: string; icon: React.ReactNode }[] 
   { key: 'tts', label: '语音播报', icon: <Mic className="h-3.5 w-3.5" /> }
 ]
 
-export default function SettingsPage({ onClose }: { onClose?: () => void }) {
+export default function SettingsPage() {
+  const navigate = useNavigate()
   const [cat, setCat] = useState<Cat>('agents')
   const [agentsItem, setAgentsItem] = useState<AgentsItem>('kimi')
   const [soundsItem, setSoundsItem] = useState<SoundsItem>('audioFx')
@@ -89,7 +91,7 @@ export default function SettingsPage({ onClose }: { onClose?: () => void }) {
             size="icon"
             variant="ghost"
             className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive"
-            onClick={onClose}
+            onClick={() => navigate('/')}
             aria-label="Close settings"
           >
             <X className="h-4 w-4" />

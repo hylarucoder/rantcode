@@ -1,5 +1,8 @@
 export { WorkspaceLayout } from './views/WorkspaceLayout'
-export { default as WorkspacePage } from './views/WorkspacePage'
+export { default as ProjectPage } from './views/ProjectPage'
+export { default as SessionsView } from './views/SessionsView'
+// 保留 WorkspacePage 别名以兼容
+export { default as WorkspacePage } from './views/ProjectPage'
 
 export { SessionList } from './components/SessionList'
 export { MessageList } from './components/MessageList'
@@ -11,8 +14,10 @@ export { default as PreviewPanel } from './components/PreviewPanel'
 export { CodexMessageBubble } from './components/CodexMessageBubble'
 export { AssistantMessageBubble } from './components/AssistantMessageBubble'
 export { UserMessageBubble } from './components/UserMessageBubble'
+export { GitPanel } from './components/GitPanel'
 
 export * from './hooks/useCodexRunner'
 export * from '../preview'
 export * from './state/store'
 export * from './types'
+export * from './api/hooks'

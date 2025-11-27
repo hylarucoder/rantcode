@@ -51,7 +51,7 @@ const MarkdownContent = memo(function MarkdownContent({
 export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
   const themeMode = useThemeMode()
-  const [logTab, setLogTab] = useState<'exec' | 'conversation'>('exec')
+  const [logTab, setLogTab] = useState<'exec' | 'conversation'>('conversation')
   const hasLogs = (msg.logs?.length ?? 0) > 0
   const execScrollRef = useRef<HTMLDivElement | null>(null)
   const trimmedOutput = (msg.output ?? '').trim()
@@ -130,8 +130,7 @@ export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
         </div>
         <div className="mt-1.5 border-t border-border/50 pt-1.5">
           <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground">
-            <span>日志</span>
-            <div className="ml-2 inline-flex gap-1">
+            <div className="inline-flex gap-1">
               <button
                 type="button"
                 onClick={() => setLogTab('exec')}

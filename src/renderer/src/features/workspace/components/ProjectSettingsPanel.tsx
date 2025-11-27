@@ -60,7 +60,12 @@ export function ProjectSettingsPanel({ project, onRemoveProject }: ProjectSettin
               移除后文件仍保留在磁盘上，不会删除。
             </p>
           </div>
-          <Button variant="destructive" size="sm" className="shrink-0 gap-2" onClick={onRemoveProject}>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={onRemoveProject}
+          >
             <Trash2 className="h-4 w-4" />
             移除项目
           </Button>
@@ -69,4 +74,3 @@ export function ProjectSettingsPanel({ project, onRemoveProject }: ProjectSettin
     </div>
   )
 }
-

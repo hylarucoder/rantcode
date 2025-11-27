@@ -106,24 +106,43 @@ class SoundManager {
     this.ensure()
     const ctx = this._ctx!
     const dest = this._master!
-    const url = this.getUrlForKey(key)
-    if (url) {
-      void this.playUrl(ctx, dest, key, url)
+
+    // Try to get URL from cache, or load defaults and retry
+    const tryPlay = () => {
+      const url = this.getUrlForKey(key)
+      if (url) {
+        void this.playUrl(ctx, dest, key, url)
+      } else {
+        // synth fallback (should rarely happen)
+        this.playSynth(key, ctx, dest)
+      }
+    }
+
+    if (this._sfxDefaults) {
+      tryPlay()
     } else {
-      // synth fallback (should rarely happen)
-      this.playSynth(key, ctx, dest)
+      // Load defaults first, then play
+      void this.loadDefaults().then(tryPlay)
     }
   }
+
+  private _sfxDefaults: Record<SfxKey, string> | null = null
 
   private getUrlForKey(key: SfxKey): string | null {
     const o = (this._state.overrides || {})[key]?.src
     if (o) return o
+    // Use cached defaults or return null (async load will populate later)
+    return this._sfxDefaults?.[key] ?? null
+  }
+
+  /** Load sfxDefaults asynchronously to avoid require() */
+  async loadDefaults(): Promise<void> {
+    if (this._sfxDefaults) return
     try {
-      // defer import to avoid module cycle at load
-      const { sfxDefaults } = require('@/sound/sfxManifest') as typeof import('./sfxManifest')
-      return sfxDefaults[key]
+      const mod = await import('./sfxManifest')
+      this._sfxDefaults = mod.sfxDefaults
     } catch {
-      return null
+      // ignore load failures
     }
   }
 

@@ -35,14 +35,30 @@ flowchart LR
 
         subgraph Views["Feature Views"]
           PROJECTS["Projects 页面"]
-          WORKSPACE["Workspace 视图\nExplorer + Chat + Preview"]
+          WORKSPACE["ProjectPage + SessionsView\n项目工作区"]
           LOGS["Logs / Conversation 视图"]
           SETTINGS_VIEW["Settings 视图"]
         end
 
+        subgraph WorkspaceComponents["Workspace 组件"]
+          WORKSPACE_LAYOUT["WorkspaceLayout\n布局管理器"]
+          ACTIVITY_BAR["ActivityBar\n活动切换栏"]
+          SESSIONS_VIEW["SessionsView\n会话视图"]
+          GIT_PANEL["GitPanel\nGit 集成面板"]
+          ASSISTANT_PANEL["AssistantPanel\n助手配置面板"]
+          MESSAGE_LIST["MessageList\n消息列表"]
+          COMPOSER["Composer\n输入组件"]
+        end
+
+        subgraph APIHooks["API Hooks 系统"]
+          WORKSPACE_HOOKS["workspace/api/hooks.ts\n会话管理 hooks"]
+          SETTINGS_HOOKS["settings/api/hooks.ts\n设置管理 hooks"]
+          PROJECTS_HOOKS["projects/api/hooks.ts\n项目管理 hooks"]
+        end
+
         subgraph State["前端状态"]
-          WS_STORE["workspace chat/preview store\nZustand"]
-          DOCS_STATE["docs state\n文件树与内容缓存"]
+          WS_STORE["workspace/state/store.ts\nZustand 会话状态"]
+          PROJECTS_STORE["state/projects.ts\n项目状态管理"]
         end
       end
     end
@@ -83,17 +99,20 @@ flowchart LR
 
 - **Renderer (`src/renderer/`)**
   - `App.tsx` 作为入口，挂载路由、全局样式、通知 (`sonner`)、React Query 等。
-  - `features/projects`：项目列表视图，对应 main 侧的 Project 服务（新增/更新/删除项目）。
-  - `features/workspace`：单个 Project 的工作台视图，内部又拆为：
-    - `WorkspacePage`：组合 WorkspaceLayout、hooks 与 stores 的页面容器。
-    - `WorkspaceLayout`：布局（左侧会话列表 + 中间 Chat + 右侧 Preview/日志）。
-    - `components/SessionList` + `MessageList` + `Composer` + `RightPanel` 等 UI 组件。
+  - `features/projects`：项目列表视图，包含项目管理 hooks (`projects/api/hooks.ts`) 和状态管理 (`state/projects.ts`)。
+  - `features/workspace`：重构后的项目工作区，内部拆分为：
+    - `views/ProjectPage.tsx`：项目容器组件，提供项目级别上下文和错误处理。
+    - `views/SessionsView.tsx`：核心会话与聊天功能，从原 WorkspacePage 抽取。
+    - `views/WorkspaceLayout.tsx`：布局管理器，支持多视图切换（会话/助手/文档/Git/设置）。
+    - `components/`：包含 `ActivityBar`、`GitPanel`、`SessionList`、`MessageList`、`Composer` 等UI组件。
+    - `api/hooks.ts`：**新增 API Hooks 系统**，提供会话管理的 React Query hooks（list/create/update/delete/appendMessages）。
+    - `state/store.ts`：使用 Zustand 管理 chat sessions / messages、右侧 preview 状态等。
+  - `features/settings`：设置管理，包含 `api/hooks.ts` 等专门的 API hooks。
   - `features/spec`：Explorer / Diff / Work 视图，对 `docs/` 和 Git diff 做 UI 呈现。
   - `features/logs` + `conversation/`：解析 `conversation.log`，以 Session/事件流形式展示 Codex CLI 的执行记录。
   - `state/`：
     - `workspace`：提供 `WorkspaceProvider` 与 `useWorkspace`，统一 workspaceId 上下文。
-    - `docs`：通过 orpc.fs 维护 docs 目录的文件树与内容缓存。
-    - `workspace/state/store.ts`：使用 Zustand 管理 chat sessions / messages、右侧 preview 状态等。
+    - `projects.ts`：**新增**项目状态管理，与 Projects 页面配合使用。
 
 - **Shared (`src/shared/`)**
   - `types/webui.ts`：前后端共享的领域模型，如 `ProjectInfo` / `TaskItem` / `SpecDocMeta` / `CodexRunOptions` / `CodexEvent` 等。
@@ -107,7 +126,8 @@ flowchart LR
 sequenceDiagram
   actor User
   participant Composer
-  participant WorkspacePage
+  participant SessionsView
+  participant WorkspaceHooks
   participant ChatStore
   participant CodexRunner
   participant Preload
@@ -116,9 +136,9 @@ sequenceDiagram
 
   User->>Composer: 输入问题
   User->>Composer: Cmd+Enter 发送
-  Composer->>WorkspacePage: onSend()
-  WorkspacePage->>ChatStore: appendMessages()
-  WorkspacePage->>CodexRunner: run(opts)
+  Composer->>SessionsView: onSend()
+  SessionsView->>ChatStore: appendMessages()
+  SessionsView->>CodexRunner: run(opts)
   CodexRunner->>Preload: window.api.agents.run()
   Preload->>Main: orpc 调用 agents
   Main->>CLI: 启动 Codex CLI
@@ -126,12 +146,13 @@ sequenceDiagram
   loop CodexEvent 流
     CLI-->>Main: CodexEvent
     Main-->>Preload: notify(event)
-    Preload-->>WorkspacePage: subscribe(handler)
-    WorkspacePage->>ChatStore: applyCodexEventsBatch()
-    ChatStore-->>WorkspacePage: 更新 messages
+    Preload-->>SessionsView: subscribe(handler)
+    SessionsView->>ChatStore: applyCodexEventsBatch()
+    ChatStore-->>SessionsView: 更新 messages
   end
 
-  WorkspacePage-->>Composer: 渲染消息列表
+  SessionsView-->>Composer: 渲染消息列表
+  Note over SessionsView: 通过 API Hooks 与后端同步会话状态
 ```
 
 要点：
@@ -139,9 +160,16 @@ sequenceDiagram
 - **ChatSession**（`features/workspace/types.ts`）是左侧「会话」列表中的实体，用于管理多轮对话分组；
   - 每个会话可以持有一个 `codexSessionId`，和底层 Codex 的 session 绑定。
   - `useWorkspaceChat` store 负责在 workspace 维度下持久化这些会话（localStorage）。
+- **API Hooks 系统**：
+  - `workspace/api/hooks.ts` 提供了完整的会话管理 hooks（`useSessionsQuery`、`useCreateSessionMutation`、`useAppendMessagesMutation` 等）。
+  - 这些 hooks 基于 React Query，自动处理缓存、失效策略和与后端的同步。
 - **Codex 会话绑定**：
   - Codex 在某次 job 期间发送 `type: 'session'` 事件时，store 会把 `event.sessionId` 记到对应 ChatSession 的 `codexSessionId` 字段；
   - 之后同一 ChatSession 内的新请求会把这个 `codexSessionId` 作为 `CodexRunOptions` 传给 Main→Codex，使 CLI 端能够做上下文续写（如果需要）。
+- **重构后的架构优势**：
+  - **关注点分离**：`ProjectPage` 处理项目级上下文，`SessionsView` 处理聊天逻辑，`WorkspaceLayout` 处理布局和多视图切换。
+  - **可扩展性**：通过 `ActivityBar` 可以轻松添加新的视图（如已实现的 Git 集成）。
+  - **类型安全**：API Hooks 提供了完整的类型支持和自动补全。
 
 ## 4. 文档驱动与数据模型的映射
 
@@ -149,14 +177,20 @@ sequenceDiagram
 
 - `Project`（数据模型）
   - 对应 main 侧的项目服务 + `ProjectInfo` 类型，渲染层通过 Projects 页面管理。
+  - **新增**：`state/projects.ts` 提供了项目状态管理，`projects/api/hooks.ts` 提供了 API 集成。
 - `DocRef`
   - 目前主要体现在 `FsTreeNode` / `FsFile` 以及前端 `docs` store 对 docs 路径的管理。
   - 后续可以在 main 侧显式维护 DocRef 表，以支持更精细的「某一节 spec / task」级引用。
 - `Session`
-  - 当前 Workspace 中的 `ChatSession` 可以视为数据模型中 Session 的一个 UI 实现版本（围绕“实现/review/补文档”等回合聚合 Codex job）。
+  - 当前 Workspace 中的 `ChatSession` 已经通过 **API Hooks 系统** 与后端同步，部分实现了数据模型中的 Session 概念。
+  - **实现状态**：本地状态管理完善，后端会话存储通过 oRPC sessions 命名空间实现。
   - 后续如需跨设备/实例持久化，可以在 main 侧增加 Session 实体存储，与 Task / DocRef 建立外键关系。
 - `Job`
   - 对应 Codex CLI 的一次执行回合：在前端里是 `ChatMessage` 中的 assistant 消息（带 `jobId` 和 `status`），在 main/CLI 侧是 `CodexRunOptions.jobId` + 事件流。
+- **Git 集成**（**新增实现**）
+  - `GitPanel` 组件提供了完整的 Git 状态查看和 diff 功能。
+  - 支持 unified/split 两种 diff 视图模式。
+  - 实时监控文件变更，区分已暂存和未暂存文件。
 
 ## 5. 后续可以扩展的方向
 

@@ -20,7 +20,19 @@ import {
   codexAgentConfigSchema,
   codexAgentTestResultSchema,
   generalSettingsSchema,
-  codexRunInputSchema
+  codexRunInputSchema,
+  gitStatusInputSchema,
+  gitStatusSchema,
+  gitDiffInputSchema,
+  gitDiffSchema,
+  chatSessionSchema,
+  createSessionInputSchema,
+  updateSessionInputSchema,
+  deleteSessionInputSchema,
+  appendMessagesInputSchema,
+  updateMessageInputSchema,
+  listSessionsInputSchema,
+  getSessionInputSchema
 } from './schemas'
 
 // Shared type-only oRPC contract for full inference on client and server.
@@ -95,9 +107,7 @@ export const contract = oc.router({
   },
   codex: {
     run: oc.input(codexRunInputSchema).output(z.object({ jobId: z.string() })),
-    cancel: oc
-      .input(z.object({ jobId: z.string() }))
-      .output(z.object({ ok: z.boolean() }))
+    cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() }))
   },
   app: {
     getGeneral: oc.output(generalSettingsSchema),
@@ -109,6 +119,19 @@ export const contract = oc.router({
       .input(z.object({ workspaceId: z.string().optional() }))
       .output(z.object({ ok: z.boolean(), error: z.string().optional() })),
     unsubscribe: oc.input(z.object({ workspaceId: z.string().optional() })).output(z.void())
+  },
+  git: {
+    status: oc.input(gitStatusInputSchema).output(gitStatusSchema),
+    diff: oc.input(gitDiffInputSchema).output(gitDiffSchema)
+  },
+  sessions: {
+    list: oc.input(listSessionsInputSchema).output(chatSessionSchema.array()),
+    get: oc.input(getSessionInputSchema).output(chatSessionSchema.nullable()),
+    create: oc.input(createSessionInputSchema).output(chatSessionSchema),
+    update: oc.input(updateSessionInputSchema).output(chatSessionSchema),
+    delete: oc.input(deleteSessionInputSchema).output(okResponseSchema),
+    appendMessages: oc.input(appendMessagesInputSchema).output(chatSessionSchema),
+    updateMessage: oc.input(updateMessageInputSchema).output(chatSessionSchema)
   }
 }) satisfies AnyContractRouter
 

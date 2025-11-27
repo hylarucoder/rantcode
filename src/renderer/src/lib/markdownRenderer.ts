@@ -314,10 +314,7 @@ async function getProcessor(mode: ThemeMode): Promise<MarkdownProcessor> {
           'style'
         ],
         defs: [...(((ds.attributes as AttrMap)?.defs ?? []) as string[])],
-        clipPath: [
-          ...(((ds.attributes as AttrMap)?.clipPath ?? []) as string[]),
-          'id'
-        ],
+        clipPath: [...(((ds.attributes as AttrMap)?.clipPath ?? []) as string[]), 'id'],
         pattern: [
           ...(((ds.attributes as AttrMap)?.pattern ?? []) as string[]),
           'id',
@@ -327,10 +324,7 @@ async function getProcessor(mode: ThemeMode): Promise<MarkdownProcessor> {
           'x',
           'y'
         ],
-        style: [
-          ...(((ds.attributes as AttrMap)?.style ?? []) as string[]),
-          'type'
-        ]
+        style: [...(((ds.attributes as AttrMap)?.style ?? []) as string[]), 'type']
       }
     }
     const base = unified()

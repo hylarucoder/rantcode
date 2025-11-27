@@ -8,6 +8,7 @@ import { RightPanel } from '@/features/workspace/components/RightPanel'
 import { ActivityBar, type ActivityView } from '@/features/workspace/components/ActivityBar'
 import { AssistantPanel } from '@/features/workspace/components/AssistantPanel'
 import { ProjectSettingsPanel } from '@/features/workspace/components/ProjectSettingsPanel'
+import { GitPanel } from '@/features/workspace/components/GitPanel'
 import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
@@ -106,6 +107,18 @@ export function WorkspaceLayout({
       default:
         return null
     }
+  }
+
+  // Git 视图是全屏的
+  if (activeView === 'git') {
+    return (
+      <div className="flex h-full min-h-0">
+        <ActivityBar activeView={activeView} onViewChange={setActiveView} />
+        <div className="flex-1 overflow-hidden">
+          <GitPanel workspaceId={project.id} />
+        </div>
+      </div>
+    )
   }
 
   // 设置视图是全屏的

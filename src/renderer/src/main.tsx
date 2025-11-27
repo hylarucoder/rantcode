@@ -1,5 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { HashRouter } from 'react-router'
 import App from './App'
 import './index.css'
 import { ensureMarkdownPipelinePreloaded } from './lib/markdown'
@@ -34,7 +35,9 @@ const queryClient = new QueryClient()
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <HashRouter>
+        <App />
+      </HashRouter>
     </QueryClientProvider>
   </React.StrictMode>
 )

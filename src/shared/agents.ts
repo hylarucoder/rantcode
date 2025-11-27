@@ -28,4 +28,3 @@ export const AGENT_UI_LIST: AgentUIConfig[] = [
 
 /** 所有 agent 值的数组，用于 zod schema */
 export const AGENT_VALUES = AGENT_UI_LIST.map((e) => e.value) as [Agent, ...Agent[]]
-

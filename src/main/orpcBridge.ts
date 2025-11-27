@@ -9,7 +9,7 @@ import { ServerPeer } from '@orpc/standard-server-peer'
 import type { EncodedMessage } from '@orpc/standard-server-peer'
 import { createServerPeerHandleRequestFn } from '@orpc/server/standard-peer'
 import type { Context } from '@orpc/server'
-import { SystemService, FsService, ProjectService } from './rpc'
+import { SystemService, FsService, ProjectService, GitService, SessionService } from './rpc'
 import { addDocsSubscriber, removeDocsSubscriber } from './docsWatcher'
 import { registerNotifyPort, unregisterNotifyPort } from './notifyBridge'
 import { loggerService } from './services/loggerService'
@@ -39,7 +39,19 @@ import {
   codexAgentConfigSchema,
   codexAgentTestResultSchema,
   generalSettingsSchema,
-  codexRunInputSchema
+  codexRunInputSchema,
+  gitStatusInputSchema,
+  gitStatusSchema,
+  gitDiffInputSchema,
+  gitDiffSchema,
+  chatSessionSchema,
+  createSessionInputSchema,
+  updateSessionInputSchema,
+  deleteSessionInputSchema,
+  appendMessagesInputSchema,
+  updateMessageInputSchema,
+  listSessionsInputSchema,
+  getSessionInputSchema
 } from '../shared/orpc/schemas'
 import { spawn } from 'node:child_process'
 import {
@@ -63,6 +75,8 @@ export function setupOrpcBridge(): void {
   const system = new SystemService()
   const fsSvc = new FsService()
   const projects = new ProjectService()
+  const gitSvc = new GitService()
+  const sessionSvc = new SessionService()
 
   const orpcLog = loggerService.child('orpc')
 
@@ -236,9 +250,7 @@ export function setupOrpcBridge(): void {
         })
     },
     vendors: {
-      getClaudeCode: os
-        .output(claudeVendorsCatalogSchema)
-        .handler(async () => vendorsStore.read()),
+      getClaudeCode: os.output(claudeVendorsCatalogSchema).handler(async () => vendorsStore.read()),
       setClaudeCode: os
         .input(claudeVendorsCatalogSchema)
         .output(claudeVendorsCatalogSchema)
@@ -400,6 +412,54 @@ export function setupOrpcBridge(): void {
             // ignore
           }
         })
+    },
+    git: {
+      status: os
+        .input(gitStatusInputSchema)
+        .output(gitStatusSchema)
+        .handler(withInputErrorHandler('git.status', (input) => gitSvc.status(input))),
+      diff: os
+        .input(gitDiffInputSchema)
+        .output(gitDiffSchema)
+        .handler(withInputErrorHandler('git.diff', (input) => gitSvc.diff(input)))
+    },
+    sessions: {
+      list: os
+        .input(listSessionsInputSchema)
+        .output(chatSessionSchema.array())
+        .handler(withInputErrorHandler('sessions.list', (input) => sessionSvc.list(input))),
+      get: os
+        .input(getSessionInputSchema)
+        .output(chatSessionSchema.nullable())
+        .handler(withInputErrorHandler('sessions.get', (input) => sessionSvc.get(input))),
+      create: os
+        .input(createSessionInputSchema)
+        .output(chatSessionSchema)
+        .handler(withInputErrorHandler('sessions.create', (input) => sessionSvc.create(input))),
+      update: os
+        .input(updateSessionInputSchema)
+        .output(chatSessionSchema)
+        .handler(withInputErrorHandler('sessions.update', (input) => sessionSvc.update(input))),
+      delete: os
+        .input(deleteSessionInputSchema)
+        .output(okResponseSchema)
+        .handler(withInputErrorHandler('sessions.delete', (input) => sessionSvc.delete(input))),
+      appendMessages: os
+        .input(appendMessagesInputSchema)
+        .output(chatSessionSchema)
+        .handler(
+          withInputErrorHandler('sessions.appendMessages', (input) =>
+            sessionSvc.appendMessages(input)
+          )
+        ),
+      updateMessage: os
+        .input(updateMessageInputSchema)
+        .output(chatSessionSchema)
+        .handler(
+          withInputErrorHandler('sessions.updateMessage', (input) =>
+            sessionSvc.updateMessage(input)
+          )
+        )
     }
   })
 

@@ -30,4 +30,3 @@ export async function writeClaudeTokens(tokens: ClaudeTokens): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true })
   await fs.writeFile(file, JSON.stringify(tokens, null, 2), 'utf8')
 }
-

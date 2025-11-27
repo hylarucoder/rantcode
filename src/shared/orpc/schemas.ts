@@ -171,6 +171,120 @@ export const claudeTokensSchema = z.object({
   minmax: z.string().optional()
 })
 
+// Git status and diff schemas
+export const gitFileStatusSchema = z.object({
+  path: z.string(),
+  status: z.enum(['modified', 'added', 'deleted', 'renamed', 'copied', 'untracked', 'unmerged']),
+  staged: z.boolean()
+})
+
+export const gitStatusSchema = z.object({
+  branch: z.string().optional(),
+  ahead: z.number().int().optional(),
+  behind: z.number().int().optional(),
+  files: z.array(gitFileStatusSchema)
+})
+
+export const gitDiffInputSchema = z.object({
+  workspaceId: z.string(),
+  path: z.string().optional(),
+  staged: z.boolean().optional()
+})
+
+export const gitDiffSchema = z.object({
+  files: z.array(
+    z.object({
+      path: z.string(),
+      oldPath: z.string().optional(),
+      additions: z.number().int(),
+      deletions: z.number().int(),
+      hunks: z.array(
+        z.object({
+          oldStart: z.number().int(),
+          oldLines: z.number().int(),
+          newStart: z.number().int(),
+          newLines: z.number().int(),
+          content: z.string()
+        })
+      )
+    })
+  )
+})
+
+export const gitStatusInputSchema = z.object({
+  workspaceId: z.string()
+})
+
+// Chat session schemas (persistent sessions)
+export const chatLogEntrySchema = z.object({
+  id: z.string(),
+  stream: z.enum(['stdout', 'stderr']),
+  text: z.string(),
+  timestamp: z.number().optional()
+})
+
+export const chatMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  jobId: z.string().optional(),
+  status: z.enum(['running', 'success', 'error']).optional(),
+  logs: z.array(chatLogEntrySchema).optional(),
+  output: z.string().optional(),
+  errorMessage: z.string().optional(),
+  sessionId: z.string().optional(),
+  startedAt: z.number().optional(),
+  agent: z.string().optional()
+})
+
+export const chatSessionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  messages: z.array(chatMessageSchema),
+  codexSessionId: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional()
+})
+
+export const createSessionInputSchema = z.object({
+  workspaceId: z.string(),
+  title: z.string().optional()
+})
+
+export const updateSessionInputSchema = z.object({
+  workspaceId: z.string(),
+  sessionId: z.string(),
+  title: z.string().optional(),
+  codexSessionId: z.string().optional()
+})
+
+export const deleteSessionInputSchema = z.object({
+  workspaceId: z.string(),
+  sessionId: z.string()
+})
+
+export const appendMessagesInputSchema = z.object({
+  workspaceId: z.string(),
+  sessionId: z.string(),
+  messages: z.array(chatMessageSchema)
+})
+
+export const updateMessageInputSchema = z.object({
+  workspaceId: z.string(),
+  sessionId: z.string(),
+  messageId: z.string(),
+  patch: chatMessageSchema.partial()
+})
+
+export const listSessionsInputSchema = z.object({
+  workspaceId: z.string()
+})
+
+export const getSessionInputSchema = z.object({
+  workspaceId: z.string(),
+  sessionId: z.string()
+})
+
 // App-level general settings (UI prefs; non-sensitive)
 export const generalSettingsSchema = z.object({
   language: z.union([z.literal('zh-CN'), z.literal('en-US')]).default('zh-CN'),

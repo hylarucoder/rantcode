@@ -50,9 +50,11 @@ export function useRemoveProjectMutation() {
 }
 
 export async function pickRepoPath(): Promise<string | null> {
-  const api = (window as unknown as {
-    api?: { projects?: { pickRepoPath: () => Promise<{ path: string } | null> } }
-  }).api
+  const api = (
+    window as unknown as {
+      api?: { projects?: { pickRepoPath: () => Promise<{ path: string } | null> } }
+    }
+  ).api
   const bridge = api?.projects
   if (!bridge?.pickRepoPath) {
     throw new Error('projects bridge is unavailable')

@@ -17,10 +17,7 @@ declare global {
   interface Window {
     api: {
       electron: ElectronAPI
-      orpcCall: (
-        path: readonly string[],
-        input: unknown
-      ) => Promise<unknown>
+      orpcCall: (path: readonly string[], input: unknown) => Promise<unknown>
       agents: AgentsBridge
       docs: DocsBridge
       projects: ProjectsBridge

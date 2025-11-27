@@ -1,7 +1,7 @@
-import { MessageSquare, Bot, FileText, Settings } from 'lucide-react'
+import { MessageSquare, Bot, FileText, Settings, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type ActivityView = 'sessions' | 'assistant' | 'docs' | 'settings'
+export type ActivityView = 'sessions' | 'assistant' | 'docs' | 'git' | 'settings'
 
 interface ActivityBarProps {
   activeView: ActivityView
@@ -12,6 +12,7 @@ const activities: { id: ActivityView; icon: typeof MessageSquare; label: string 
   { id: 'sessions', icon: MessageSquare, label: '会话' },
   { id: 'assistant', icon: Bot, label: '助手' },
   { id: 'docs', icon: FileText, label: '文档' },
+  { id: 'git', icon: GitBranch, label: 'Git' },
   { id: 'settings', icon: Settings, label: '设置' }
 ]
 
@@ -46,4 +47,3 @@ export function ActivityBar({ activeView, onViewChange }: ActivityBarProps) {
     </div>
   )
 }
-

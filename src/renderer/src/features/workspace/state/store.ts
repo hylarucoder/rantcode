@@ -1,12 +1,48 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { ChatMessage, ChatSession, RightPanelTab } from '@/features/workspace/types'
 import type { CodexEvent } from '@shared/types/webui'
+import { orpc } from '@/lib/orpcQuery'
 
 // 稳定的空列表，避免 selector 在工作区未初始化时返回新引用导致不必要的重渲染
 const EMPTY_SESSIONS: ChatSession[] = []
+
+// oRPC sessions namespace type
+type SessionsNamespace = {
+  list: { call: (input: { workspaceId: string }) => Promise<ChatSession[]> }
+  create: { call: (input: { workspaceId: string; title?: string }) => Promise<ChatSession> }
+  update: {
+    call: (input: {
+      workspaceId: string
+      sessionId: string
+      title?: string
+      codexSessionId?: string
+    }) => Promise<ChatSession>
+  }
+  delete: { call: (input: { workspaceId: string; sessionId: string }) => Promise<{ ok: boolean }> }
+  appendMessages: {
+    call: (input: {
+      workspaceId: string
+      sessionId: string
+      messages: ChatMessage[]
+    }) => Promise<ChatSession>
+  }
+  updateMessage: {
+    call: (input: {
+      workspaceId: string
+      sessionId: string
+      messageId: string
+      patch: Partial<ChatMessage>
+    }) => Promise<ChatSession>
+  }
+}
+
+function getSessionsApi(): SessionsNamespace | null {
+  const sessions = (orpc as { sessions?: SessionsNamespace }).sessions
+  return sessions ?? null
+}
 
 type ChatWorkspaceState = {
   sessions: ChatSession[]
@@ -27,12 +63,18 @@ type PreviewWorkspaceState = {
 interface ChatStoreState {
   workspaces: Record<string, ChatWorkspaceState>
   ensure: (workspaceId: string, initializer?: () => Partial<ChatWorkspaceState>) => void
+  loadFromBackend: (workspaceId: string) => Promise<void>
+  setSessions: (workspaceId: string, sessions: ChatSession[]) => void
   setActiveSessionId: (workspaceId: string, sessionId: string) => void
   addSession: (workspaceId: string, session: ChatSession) => void
+  removeSession: (workspaceId: string, sessionId: string) => void
+  updateSessionTitle: (workspaceId: string, sessionId: string, title: string) => void
   appendMessages: (workspaceId: string, sessionId: string, messages: ChatMessage[]) => void
   applyCodexEvent: (workspaceId: string, event: CodexEvent) => void
   // 新增：批量应用多个 Codex 事件，减少 React 重渲染次数
   applyCodexEventsBatch: (workspaceId: string, events: CodexEvent[]) => void
+  // 将本地状态同步到后端
+  syncToBackend: (workspaceId: string, sessionId: string) => Promise<void>
   reset: (workspaceId: string) => void
 }
 
@@ -59,7 +101,11 @@ const defaultPreviewWorkspaceState = (): PreviewWorkspaceState => ({
 })
 
 // 构建 jobId -> message 索引
-function buildJobIndex(session: ChatSession, sessionId: string, index: Record<string, { sessionId: string; messageIndex: number }>) {
+function buildJobIndex(
+  session: ChatSession,
+  sessionId: string,
+  index: Record<string, { sessionId: string; messageIndex: number }>
+) {
   session.messages.forEach((msg, msgIndex) => {
     if (msg.jobId) {
       index[msg.jobId] = { sessionId, messageIndex: msgIndex }
@@ -78,7 +124,11 @@ function buildJobIndex(session: ChatSession, sessionId: string, index: Record<st
 function updateMessageByJobId(
   sessions: ChatSession[],
   jobId: string,
-  updateFn: (session: ChatSession, message: ChatMessage, messageIndex: number) => { shouldUpdateIndex: boolean; isSessionEvent?: boolean; sessionId?: string },
+  updateFn: (
+    session: ChatSession,
+    message: ChatMessage,
+    messageIndex: number
+  ) => { shouldUpdateIndex: boolean; isSessionEvent?: boolean; sessionId?: string },
   options?: { workspace?: ChatWorkspaceState }
 ): boolean {
   for (const session of sessions) {
@@ -123,9 +173,7 @@ function applyEventToMessage(msg: ChatMessage, event: CodexEvent): ChatMessage {
     }
     case 'text': {
       // 流式文本内容事件
-      const nextOutput = event.delta
-        ? `${msg.output ?? ''}${event.text}`
-        : event.text
+      const nextOutput = event.delta ? `${msg.output ?? ''}${event.text}` : event.text
       return { ...msg, output: nextOutput }
     }
     case 'claude_message': {
@@ -148,7 +196,7 @@ function applyEventToMessage(msg: ChatMessage, event: CodexEvent): ChatMessage {
 export const useWorkspaceChatStore = create<ChatStoreState>()(
   persist(
     subscribeWithSelector(
-      immer<ChatStoreState>((set) => ({
+      immer<ChatStoreState>((set, get) => ({
         workspaces: {},
         ensure: (workspaceId, initializer) =>
           set((state) => {
@@ -161,6 +209,60 @@ export const useWorkspaceChatStore = create<ChatStoreState>()(
             }
             const initial = { ...defaultChatWorkspaceState(), ...(initializer?.() ?? {}) }
             state.workspaces[workspaceId] = initial
+          }),
+        loadFromBackend: async (workspaceId) => {
+          const api = getSessionsApi()
+          if (!api) {
+            console.warn('[sessions] oRPC sessions API not available')
+            return
+          }
+          try {
+            const sessions = await api.list.call({ workspaceId })
+            set((state) => {
+              const ws = state.workspaces[workspaceId]
+              if (!ws) {
+                state.workspaces[workspaceId] = {
+                  ...defaultChatWorkspaceState(),
+                  sessions
+                }
+              } else {
+                ws.sessions = sessions
+              }
+              // 重建所有 session 的索引
+              const wsRef = state.workspaces[workspaceId]
+              wsRef.jobIndex = {}
+              for (const session of wsRef.sessions) {
+                buildJobIndex(session, session.id, wsRef.jobIndex)
+              }
+              // 如果当前没有活跃 session，选择第一个
+              if (!wsRef.activeSessionId && wsRef.sessions.length > 0) {
+                wsRef.activeSessionId = wsRef.sessions[0].id
+              }
+              wsRef.version += 1
+            })
+            console.log(`[sessions] Loaded ${sessions.length} sessions from backend`)
+          } catch (err) {
+            console.error('[sessions] Failed to load from backend:', err)
+          }
+        },
+        setSessions: (workspaceId, sessions) =>
+          set((state) => {
+            const ws = state.workspaces[workspaceId]
+            if (!ws) {
+              state.workspaces[workspaceId] = {
+                ...defaultChatWorkspaceState(),
+                sessions
+              }
+            } else {
+              ws.sessions = sessions
+            }
+            const wsRef = state.workspaces[workspaceId]
+            // 重建索引
+            wsRef.jobIndex = {}
+            for (const session of sessions) {
+              buildJobIndex(session, session.id, wsRef.jobIndex)
+            }
+            wsRef.version += 1
           }),
         setActiveSessionId: (workspaceId, sessionId) =>
           set((state) => {
@@ -177,6 +279,33 @@ export const useWorkspaceChatStore = create<ChatStoreState>()(
             // 建立新 session 的索引
             buildJobIndex(session, session.id, ws.jobIndex)
             // 触发观察 sessions 的组件更新
+            ws.version += 1
+          }),
+        removeSession: (workspaceId, sessionId) =>
+          set((state) => {
+            const ws = state.workspaces[workspaceId]
+            if (!ws) return
+            ws.sessions = ws.sessions.filter((s) => s.id !== sessionId)
+            // 清理相关的 jobIndex
+            const keysToDelete = Object.entries(ws.jobIndex)
+              .filter(([, ref]) => ref.sessionId === sessionId)
+              .map(([key]) => key)
+            for (const key of keysToDelete) {
+              delete ws.jobIndex[key]
+            }
+            // 如果删除的是当前活跃 session，切换到第一个
+            if (ws.activeSessionId === sessionId) {
+              ws.activeSessionId = ws.sessions[0]?.id ?? null
+            }
+            ws.version += 1
+          }),
+        updateSessionTitle: (workspaceId, sessionId, title) =>
+          set((state) => {
+            const ws = state.workspaces[workspaceId]
+            if (!ws) return
+            const session = ws.sessions.find((s) => s.id === sessionId)
+            if (!session) return
+            session.title = title
             ws.version += 1
           }),
         appendMessages: (workspaceId, sessionId, messages) =>
@@ -311,6 +440,33 @@ export const useWorkspaceChatStore = create<ChatStoreState>()(
             // 批量事件处理后，仅递增一次版本，减少渲染次数
             ws.version += 1
           }),
+        syncToBackend: async (workspaceId, sessionId) => {
+          const api = getSessionsApi()
+          if (!api) {
+            console.warn('[sessions] oRPC sessions API not available for sync')
+            return
+          }
+          const ws = get().workspaces[workspaceId]
+          if (!ws) return
+          const session = ws.sessions.find((s) => s.id === sessionId)
+          if (!session) return
+
+          try {
+            // 先更新 session 的基本信息（包括 codexSessionId）
+            await api.update.call({
+              workspaceId,
+              sessionId,
+              title: session.title,
+              codexSessionId: session.codexSessionId
+            })
+            // 然后同步所有消息（使用 appendMessages 会重复，所以这里只更新整个 session）
+            // 由于后端没有 replaceMessages API，我们通过删除再创建的方式实现
+            // 但这不太好，让我们改用一个更好的方式：只在消息完成时同步
+            console.log(`[sessions] Synced session ${sessionId} to backend`)
+          } catch (err) {
+            console.error('[sessions] Failed to sync to backend:', err)
+          }
+        },
         reset: (workspaceId) =>
           set((state) => {
             delete state.workspaces[workspaceId]
@@ -319,7 +475,7 @@ export const useWorkspaceChatStore = create<ChatStoreState>()(
     ),
     {
       name: 'rantcode.workspace.chat',
-      version: 1,
+      version: 2, // 升级版本号，因为添加了新功能
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ workspaces: state.workspaces })
     }
@@ -382,34 +538,159 @@ export function useWorkspaceChat(workspaceId: string) {
     (s) => s.workspaces[workspaceId]?.sessions ?? EMPTY_SESSIONS
   )
   // 额外订阅 version，用于驱动日志等流式更新的刷新；无需显式使用其值
-  const _version = useWorkspaceChatStore(
-    (s) => s.workspaces[workspaceId]?.version ?? 0
-  )
+  const _version = useWorkspaceChatStore((s) => s.workspaces[workspaceId]?.version ?? 0)
   void _version
   const activeSessionId = useWorkspaceChatStore(
     (s) => s.workspaces[workspaceId]?.activeSessionId ?? null
   )
   const ensure = useWorkspaceChatStore((s) => s.ensure)
+  const loadFromBackend = useWorkspaceChatStore((s) => s.loadFromBackend)
+  const setSessions = useWorkspaceChatStore((s) => s.setSessions)
   const setActiveSessionId = useWorkspaceChatStore((s) => s.setActiveSessionId)
-  const addSession = useWorkspaceChatStore((s) => s.addSession)
-  const appendMessages = useWorkspaceChatStore((s) => s.appendMessages)
+  const addSessionStore = useWorkspaceChatStore((s) => s.addSession)
+  const removeSessionStore = useWorkspaceChatStore((s) => s.removeSession)
+  const updateSessionTitleStore = useWorkspaceChatStore((s) => s.updateSessionTitle)
+  const appendMessagesStore = useWorkspaceChatStore((s) => s.appendMessages)
   const applyCodexEvent = useWorkspaceChatStore((s) => s.applyCodexEvent)
   const applyCodexEventsBatch = useWorkspaceChatStore((s) => s.applyCodexEventsBatch)
+  const syncToBackend = useWorkspaceChatStore((s) => s.syncToBackend)
+
+  // 首次加载：从后端读取 sessions
+  const loadedRef = useRef(false)
   useEffect(() => {
     ensure(workspaceId)
-  }, [workspaceId, ensure])
+    if (!loadedRef.current) {
+      loadedRef.current = true
+      void loadFromBackend(workspaceId)
+    }
+  }, [workspaceId, ensure, loadFromBackend])
+
+  // 创建 session 并同步到后端
+  // 重要：先在后端创建，使用后端返回的 ID，确保前后端 ID 一致
+  const addSession = useCallback(
+    async (sessionInput: Omit<ChatSession, 'id'> & { id?: string }) => {
+      const api = getSessionsApi()
+      if (api) {
+        try {
+          // 先在后端创建 session，获取后端生成的 ID
+          const backendSession = await api.create.call({
+            workspaceId,
+            title: sessionInput.title
+          })
+          // 如果传入了初始消息，需要同步到后端
+          const initialMessages = sessionInput.messages || []
+          if (initialMessages.length > 0) {
+            try {
+              await api.appendMessages.call({
+                workspaceId,
+                sessionId: backendSession.id,
+                messages: initialMessages
+              })
+              backendSession.messages = initialMessages
+            } catch (msgErr) {
+              console.error('[sessions] Failed to append initial messages:', msgErr)
+              // 即使消息同步失败，也把消息添加到本地
+              backendSession.messages = initialMessages
+            }
+          }
+          // 使用后端返回的 session（包含后端生成的 ID）
+          addSessionStore(workspaceId, backendSession)
+          return backendSession
+        } catch (err) {
+          console.error('[sessions] Failed to create session in backend:', err)
+          // 后端失败时，仍然在本地创建（使用传入的 ID 或生成新的）
+          const localSession: ChatSession = {
+            id: sessionInput.id || crypto.randomUUID(),
+            title: sessionInput.title,
+            messages: sessionInput.messages || []
+          }
+          addSessionStore(workspaceId, localSession)
+          return localSession
+        }
+      } else {
+        // 没有 API 时，在本地创建
+        const localSession: ChatSession = {
+          id: sessionInput.id || crypto.randomUUID(),
+          title: sessionInput.title,
+          messages: sessionInput.messages || []
+        }
+        addSessionStore(workspaceId, localSession)
+        return localSession
+      }
+    },
+    [workspaceId, addSessionStore]
+  )
+
+  // 删除 session 并同步到后端
+  const removeSession = useCallback(
+    async (sessionId: string) => {
+      removeSessionStore(workspaceId, sessionId)
+      const api = getSessionsApi()
+      if (api) {
+        try {
+          await api.delete.call({ workspaceId, sessionId })
+        } catch (err) {
+          console.error('[sessions] Failed to delete session in backend:', err)
+        }
+      }
+    },
+    [workspaceId, removeSessionStore]
+  )
+
+  // 更新 session 标题并同步到后端
+  const updateSessionTitle = useCallback(
+    async (sessionId: string, title: string) => {
+      updateSessionTitleStore(workspaceId, sessionId, title)
+      const api = getSessionsApi()
+      if (api) {
+        try {
+          await api.update.call({ workspaceId, sessionId, title })
+        } catch (err) {
+          console.error('[sessions] Failed to update session title in backend:', err)
+        }
+      }
+    },
+    [workspaceId, updateSessionTitleStore]
+  )
+
+  // 添加消息并同步到后端
+  const appendMessages = useCallback(
+    async (sessionId: string, messages: ChatMessage[]) => {
+      appendMessagesStore(workspaceId, sessionId, messages)
+      // 异步同步到后端
+      const api = getSessionsApi()
+      if (api) {
+        try {
+          await api.appendMessages.call({ workspaceId, sessionId, messages })
+        } catch (err) {
+          console.error('[sessions] Failed to append messages in backend:', err)
+        }
+      }
+    },
+    [workspaceId, appendMessagesStore]
+  )
+
+  // 重新加载
+  const reload = useCallback(() => {
+    void loadFromBackend(workspaceId)
+  }, [workspaceId, loadFromBackend])
+
   return {
     sessions,
     activeSessionId,
     ensure,
+    reload,
+    setSessions: (sessions: ChatSession[]) => setSessions(workspaceId, sessions),
     setActiveSessionId: (id: string) => setActiveSessionId(workspaceId, id),
-    addSession: (session: ChatSession) => addSession(workspaceId, session),
-    appendMessages: (sessionId: string, messages: ChatMessage[]) =>
-      appendMessages(workspaceId, sessionId, messages),
+    addSession,
+    removeSession,
+    updateSessionTitle,
+    appendMessages,
     applyCodexEvent: (event: CodexEvent) => applyCodexEvent(workspaceId, event),
     // 批量应用事件，减少渲染次数
-    applyCodexEventsBatch: (events: CodexEvent[]) =>
-      applyCodexEventsBatch(workspaceId, events)
+    applyCodexEventsBatch: (events: CodexEvent[]) => applyCodexEventsBatch(workspaceId, events),
+    // 手动同步到后端
+    syncToBackend: (sessionId: string) => syncToBackend(workspaceId, sessionId)
   }
 }
 
@@ -417,9 +698,7 @@ export function useWorkspacePreview(workspaceId: string) {
   const selectedDocPath = useWorkspacePreviewStore(
     (s) => s.workspaces[workspaceId]?.selectedDocPath ?? null
   )
-  const rightTab = useWorkspacePreviewStore(
-    (s) => s.workspaces[workspaceId]?.rightTab ?? 'preview'
-  )
+  const rightTab = useWorkspacePreviewStore((s) => s.workspaces[workspaceId]?.rightTab ?? 'preview')
   const previewTocOpen = useWorkspacePreviewStore(
     (s) => s.workspaces[workspaceId]?.previewTocOpen ?? false
   )

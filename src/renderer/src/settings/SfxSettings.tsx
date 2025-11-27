@@ -155,7 +155,8 @@ export default function SfxSettings() {
         <div className="mt-6 pt-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            默认使用内置 WAV 文件；你也可以为某个键选择自定义音频覆盖。首次用户手势会自动解锁音频上下文。
+            默认使用内置 WAV
+            文件；你也可以为某个键选择自定义音频覆盖。首次用户手势会自动解锁音频上下文。
           </p>
         </div>
       </CardContent>
