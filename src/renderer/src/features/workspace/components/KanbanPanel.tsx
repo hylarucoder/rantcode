@@ -1,23 +1,28 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  Plus,
   MoreHorizontal,
   GripVertical,
   CheckCircle2,
   Circle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { useFsTreeQuery } from '@/features/spec/api/hooks'
+import { fetchFile } from '@/features/spec/api/fs'
+import type { FsTreeNode } from '@/types'
 
 // Task 类型定义（与 docs/design/data-model.md 对齐）
 type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked'
@@ -29,8 +34,9 @@ interface Task {
   status: TaskStatus
   priority?: TaskPriority
   owner?: string
-  createdAt: string
-  updatedAt: string
+  filePath: string // 对应的文件路径
+  createdAt?: string
+  updatedAt?: string
 }
 
 // 列配置
@@ -48,84 +54,131 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
   P2: { label: 'P2', color: 'bg-slate-500/20 text-slate-600 dark:text-slate-400' }
 }
 
+// 解析 frontmatter
+function parseFrontmatter(content: string): Record<string, string> {
+  const match = content.match(/^---\s*\n([\s\S]*?)\n---/)
+  if (!match) return {}
+
+  const frontmatter: Record<string, string> = {}
+  const lines = match[1].split('\n')
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':')
+    if (colonIndex > 0) {
+      const key = line.slice(0, colonIndex).trim()
+      const value = line
+        .slice(colonIndex + 1)
+        .trim()
+        .replace(/^['"]|['"]$/g, '')
+      frontmatter[key] = value
+    }
+  }
+  return frontmatter
+}
+
+// 从文件名生成标题
+function titleFromFilename(filename: string): string {
+  return filename
+    .replace(/\.md$/, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 interface KanbanPanelProps {
   workspaceId: string
 }
 
-export function KanbanPanel({ workspaceId: _workspaceId }: KanbanPanelProps) {
-  // workspaceId 将用于后续持久化任务数据
-  void _workspaceId
-  // 本地状态管理（后续可接入持久化）
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: '实现用户登录功能',
-      status: 'in-progress',
-      priority: 'P0',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      title: '修复首页加载缓慢问题',
-      status: 'backlog',
-      priority: 'P1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '3',
-      title: '添加单元测试',
-      status: 'review',
-      priority: 'P2',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ])
-
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [addingToColumn, setAddingToColumn] = useState<TaskStatus | null>(null)
+export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
 
-  // 按状态分组任务
-  const tasksByStatus = columns.reduce(
-    (acc, col) => {
-      acc[col.id] = tasks.filter((t) => t.status === col.id)
-      return acc
-    },
-    {} as Record<TaskStatus, Task[]>
-  )
+  // 获取 docs/task 目录树
+  const taskTreeQuery = useFsTreeQuery({
+    base: 'docs',
+    depth: 2,
+    workspaceId,
+    enabled: !!workspaceId
+  })
 
-  // 添加任务
-  const addTask = (status: TaskStatus) => {
-    if (!newTaskTitle.trim()) return
-    const now = new Date().toISOString()
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      title: newTaskTitle.trim(),
-      status,
-      priority: 'P2',
-      createdAt: now,
-      updatedAt: now
-    }
-    setTasks((prev) => [...prev, newTask])
-    setNewTaskTitle('')
-    setAddingToColumn(null)
-  }
+  // 从目录树中提取 task 文件
+  const taskFiles = useMemo(() => {
+    const root = taskTreeQuery.data as FsTreeNode | null
+    if (!root?.children) return []
 
-  // 移动任务
-  const moveTask = (taskId: string, newStatus: TaskStatus) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t
-      )
+    // 找到 task 目录
+    const taskDir = root.children.find(
+      (child) => child?.dir && (child.name === 'task' || child.path?.endsWith('/task'))
     )
-  }
+    if (!taskDir?.children) return []
 
-  // 删除任务
-  const deleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
-  }
+    // 过滤出 .md 文件（排除 README）
+    return taskDir.children
+      .filter(
+        (child) =>
+          child &&
+          !child.dir &&
+          child.name?.endsWith('.md') &&
+          child.name.toLowerCase() !== 'readme.md'
+      )
+      .map((child) => ({
+        name: child.name || '',
+        path: child.path || `task/${child.name}`
+      }))
+  }, [taskTreeQuery.data])
+
+  // 加载任务文件内容
+  const loadTasks = useCallback(async () => {
+    if (!workspaceId || taskFiles.length === 0) {
+      setTasks([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const loadedTasks: Task[] = []
+
+    for (const file of taskFiles) {
+      try {
+        const { content } = await fetchFile({
+          base: 'docs',
+          path: file.path,
+          workspaceId
+        })
+
+        const fm = parseFrontmatter(content)
+        const task: Task = {
+          id: file.path,
+          title: fm.title || titleFromFilename(file.name),
+          status: (fm.status as TaskStatus) || 'backlog',
+          priority: fm.priority as TaskPriority | undefined,
+          owner: fm.owner,
+          filePath: file.path
+        }
+        loadedTasks.push(task)
+      } catch (err) {
+        console.warn(`Failed to load task file: ${file.path}`, err)
+      }
+    }
+
+    setTasks(loadedTasks)
+    setLoading(false)
+  }, [workspaceId, taskFiles])
+
+  // 文件变化时重新加载
+  useEffect(() => {
+    void loadTasks()
+  }, [loadTasks])
+
+  // 按状态分组任务
+  const tasksByStatus = useMemo(() => {
+    return columns.reduce(
+      (acc, col) => {
+        acc[col.id] = tasks.filter((t) => t.status === col.id)
+        return acc
+      },
+      {} as Record<TaskStatus, Task[]>
+    )
+  }, [tasks])
 
   // 拖拽处理
   const handleDragStart = (task: Task) => {
@@ -138,9 +191,17 @@ export function KanbanPanel({ workspaceId: _workspaceId }: KanbanPanelProps) {
 
   const handleDrop = (status: TaskStatus) => {
     if (draggedTask && draggedTask.status !== status) {
-      moveTask(draggedTask.id, status)
+      // 更新本地状态（实际更新需要修改文件）
+      setTasks((prev) => prev.map((t) => (t.id === draggedTask.id ? { ...t, status } : t)))
+      // TODO: 更新文件的 frontmatter
     }
     setDraggedTask(null)
+  }
+
+  // 在编辑器中打开文件
+  const openInEditor = (filePath: string) => {
+    // 通过 window.api 打开文件（如果有实现）
+    console.log('Open in editor:', filePath)
   }
 
   return (
@@ -153,137 +214,164 @@ export function KanbanPanel({ workspaceId: _workspaceId }: KanbanPanelProps) {
             {tasks.length} 个任务
           </span>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={() => void loadTasks()}
+            disabled={loading}
+          >
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            刷新
+          </Button>
+        </div>
       </div>
+
+      {/* Loading state */}
+      {loading && tasks.length === 0 && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin" />
+            <p className="text-sm">加载任务中...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && tasks.length === 0 && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
+            <p className="mb-1 text-sm font-medium">暂无任务</p>
+            <p className="text-xs">
+              在 <code className="rounded bg-muted px-1">docs/task/</code> 目录创建 .md 文件
+            </p>
+            <p className="mt-2 text-xs">
+              文件需要包含 frontmatter:
+              <br />
+              <code className="text-[10px]">status: backlog | in-progress | review | done</code>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Kanban Board */}
-      <div className="flex flex-1 gap-3 overflow-x-auto p-4">
-        {columns.map((column) => {
-          const columnTasks = tasksByStatus[column.id] || []
+      {tasks.length > 0 && (
+        <div className="flex flex-1 gap-3 overflow-x-auto p-4">
+          {columns.map((column) => {
+            const columnTasks = tasksByStatus[column.id] || []
 
-          return (
-            <div
-              key={column.id}
-              className="flex w-72 min-w-[288px] flex-col rounded-lg bg-muted/30"
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(column.id)}
-            >
-              {/* Column Header */}
-              <div className="flex items-center gap-2 px-3 py-2.5">
-                <span className={cn('h-2 w-2 rounded-full', column.color)} />
-                {/* Icon 可用于后续扩展 */}
-                <span className="text-sm font-medium">{column.label}</span>
-                <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {columnTasks.length}
-                </span>
-              </div>
+            return (
+              <div
+                key={column.id}
+                className="flex w-72 min-w-[288px] flex-col rounded-lg bg-muted/30"
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(column.id)}
+              >
+                {/* Column Header */}
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <span className={cn('h-2 w-2 rounded-full', column.color)} />
+                  <span className="text-sm font-medium">{column.label}</span>
+                  <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    {columnTasks.length}
+                  </span>
+                </div>
 
-              {/* Tasks */}
-              <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
-                {columnTasks.map((task) => (
-                  <Card
-                    key={task.id}
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    className={cn(
-                      'group cursor-grab rounded-lg border-border/50 bg-card p-3 shadow-sm transition-all',
-                      'hover:border-border hover:shadow-md',
-                      'active:cursor-grabbing',
-                      draggedTask?.id === task.id && 'opacity-50'
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm leading-snug">{task.title}</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          {task.priority && (
-                            <span
-                              className={cn(
-                                'rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                                priorityConfig[task.priority].color
-                              )}
-                            >
-                              {priorityConfig[task.priority].label}
-                            </span>
-                          )}
+                {/* Tasks */}
+                <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+                  {columnTasks.map((task) => (
+                    <Card
+                      key={task.id}
+                      draggable
+                      onDragStart={() => handleDragStart(task)}
+                      className={cn(
+                        'group cursor-grab rounded-lg border-border/50 bg-card p-3 shadow-sm transition-all',
+                        'hover:border-border hover:shadow-md',
+                        'active:cursor-grabbing',
+                        draggedTask?.id === task.id && 'opacity-50'
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm leading-snug">{task.title}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            {task.priority && (
+                              <span
+                                className={cn(
+                                  'rounded px-1.5 py-0.5 text-[10px] font-semibold',
+                                  priorityConfig[task.priority].color
+                                )}
+                              >
+                                {priorityConfig[task.priority].label}
+                              </span>
+                            )}
+                            {task.owner && (
+                              <span className="truncate text-[10px] text-muted-foreground">
+                                {task.owner}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => openInEditor(task.filePath)}>
+                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                              打开文件
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {columns
+                              .filter((c) => c.id !== task.status)
+                              .map((c) => (
+                                <DropdownMenuItem
+                                  key={c.id}
+                                  onClick={() => {
+                                    setTasks((prev) =>
+                                      prev.map((t) =>
+                                        t.id === task.id ? { ...t, status: c.id } : t
+                                      )
+                                    )
+                                  }}
+                                >
+                                  <span className={cn('mr-2 h-2 w-2 rounded-full', c.color)} />
+                                  移至 {c.label}
+                                </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                          {columns
-                            .filter((c) => c.id !== task.status)
-                            .map((c) => (
-                              <DropdownMenuItem key={c.id} onClick={() => moveTask(task.id, c.id)}>
-                                移至 {c.label}
-                              </DropdownMenuItem>
-                            ))}
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => deleteTask(task.id)}
-                          >
-                            删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))}
 
-                {/* Add Task */}
-                {addingToColumn === column.id ? (
-                  <Card className="rounded-lg border-border/50 bg-card p-2">
-                    <Input
-                      autoFocus
-                      placeholder="输入任务标题..."
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') addTask(column.id)
-                        if (e.key === 'Escape') {
-                          setAddingToColumn(null)
-                          setNewTaskTitle('')
-                        }
-                      }}
-                      onBlur={() => {
-                        if (newTaskTitle.trim()) {
-                          addTask(column.id)
-                        } else {
-                          setAddingToColumn(null)
-                        }
-                      }}
-                      className="h-8 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-                    />
-                  </Card>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="justify-start gap-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setAddingToColumn(column.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    添加任务
-                  </Button>
-                )}
+                  {/* Empty column hint */}
+                  {columnTasks.length === 0 && (
+                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
+                      拖拽任务到此处
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Footer hint */}
       <div className="border-t border-border/50 px-4 py-2">
         <p className="text-xs text-muted-foreground">
-          拖拽卡片移动任务 · 任务将关联到 docs/task/ 中的文档
+          <FileText className="mr-1 inline-block h-3 w-3" />
+          任务来自 <code className="rounded bg-muted px-1">docs/task/*.md</code> · 修改文件
+          frontmatter 中的 <code className="rounded bg-muted px-1">status</code> 字段来移动任务
         </p>
       </div>
     </div>

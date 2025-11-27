@@ -1,3 +1,9 @@
+---
+title: 发布前检查清单
+status: in-progress
+priority: P1
+---
+
 # 发布前检查清单
 
 > 本文档记录 rantcode v1.0.0 发布前需要完成的工作项，按优先级和类别分组。
