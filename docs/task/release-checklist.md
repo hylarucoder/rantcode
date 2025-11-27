@@ -74,14 +74,16 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 
 ### 2.2 待实现功能
 
-#### Task 看板（P1）
+#### Task 看板（P1）✅ 已实现
 
 - **设计状态**：数据模型完成（`docs/design/data-model.md`）
+- **已完成**：
+  - [x] Kanban UI 组件
+  - [x] 从 `docs/task/*.md` 读取任务
+  - [x] 解析 frontmatter（status/priority/owner）
 - **待实现**：
-  - [ ] Task 实体存储（main 侧）
-  - [ ] Kanban UI 组件
+  - [ ] 拖拽后自动更新文件 frontmatter
   - [ ] Session-Task 关联
-  - [ ] 从 `docs/task/*.md` 同步 Task
 
 #### Session 持久化（P2）
 
@@ -91,14 +93,6 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
   - [ ] Session 搜索和过滤
   - [ ] Message 独立存储（外键关联）
   - [ ] 跨设备同步（可选）
-
-#### DocRef 精确引用（P2）
-
-- **设计状态**：概念设计完成
-- **待实现**：
-  - [ ] DocRef 实体与索引
-  - [ ] 文档节级引用（anchor）
-  - [ ] 与 Task/Session/Job 的关联
 
 #### TTS 语音提醒（P2）
 
