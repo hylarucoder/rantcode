@@ -1,10 +1,52 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/hooks/use-theme-mode'
 import { renderMarkdownToHtml } from '@/lib/markdown'
+import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import { ExecLogConversation } from '@/features/logs'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 import type { ChatMessage } from '@/features/workspace/types'
+import type { ThemeMode } from '@/types/theme'
+import { AGENT_UI_LIST } from '@shared/agents'
+
+/**
+ * 独立的 Markdown 渲染组件
+ * 不使用 dangerouslySetInnerHTML，而是在 useEffect 中手动设置 innerHTML
+ * 这样确保只在 html/themeMode 真正变化时才更新 DOM，避免覆盖 mermaid SVG
+ */
+const MarkdownContent = memo(function MarkdownContent({
+  html,
+  themeMode
+}: {
+  html: string
+  themeMode: ThemeMode
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  // 用 ref 跟踪已渲染的 html 和 theme，避免 StrictMode 双重运行导致的覆盖问题
+  const renderedRef = useRef<{ html: string; theme: ThemeMode } | null>(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+
+    // 如果内容和主题都没变，跳过 DOM 更新以保留已渲染的 mermaid SVG
+    if (renderedRef.current?.html === html && renderedRef.current?.theme === themeMode) {
+      return
+    }
+
+    // 更新 DOM
+    container.innerHTML = html
+    renderedRef.current = { html, theme: themeMode }
+
+    // 等待下一帧，确保 DOM 已完全渲染后再调用 mermaid
+    const frameId = requestAnimationFrame(() => {
+      void renderMermaidIn(container, themeMode).catch(() => {})
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [html, themeMode])
+
+  return <div ref={containerRef} className="markdown-body mt-2 max-h-96 overflow-auto text-xs" />
+})
 
 export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
@@ -65,7 +107,7 @@ export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
     <div className="flex justify-start">
       <div className="max-w-[80%] rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Codex
+          {AGENT_UI_LIST.find((a) => a.value === msg.agent)?.label || msg.agent || 'Agent'}
           {msg.sessionId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
               ({msg.sessionId.slice(0, 8)})
@@ -142,11 +184,7 @@ export function CodexMessageBubble({ msg }: { msg: ChatMessage }) {
             <ExecLogConversation logs={msg.logs ?? []} />
           )}
         </div>
-        {displayHtml && (
-          <div className="markdown-body mt-2 max-h-96 overflow-auto text-xs">
-            <div dangerouslySetInnerHTML={{ __html: displayHtml }} />
-          </div>
-        )}
+        {displayHtml && <MarkdownContent html={displayHtml} themeMode={themeMode} />}
         {!displayHtml && trimmedOutput && (
           <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs font-mono">
             {trimmedOutput}

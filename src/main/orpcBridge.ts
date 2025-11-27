@@ -46,10 +46,10 @@ import { spawn } from 'node:child_process'
 import {
   runClaudeOnce as runClaudeOnceFromModule,
   testClaudeVendor as testClaudeVendorFromModule
-} from './vendors/claudeCodeRunner'
+} from './agents/claudecode'
 // Defer loading general settings module to avoid creating store before userData override
 import { detectAll } from './agents/detect'
-import { runCodex, cancelCodex } from './codexRunner'
+import { runCodex, cancelCodex } from './agents/codex'
 import { readGeneralSettings, writeGeneralSettings } from './settings/general'
 
 /**

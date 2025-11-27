@@ -160,8 +160,10 @@ export type DocsWatcherEvent =
       content?: string
     }
 
+import type { Agent } from '../agents'
+
 export interface CodexRunOptions {
-  engine?: 'codex' | 'claude-code' | 'kimi-cli'
+  agent?: Agent
   workspaceId?: string
   prompt: string
   extraArgs?: string[]
@@ -199,4 +201,19 @@ export type CodexEvent =
       type: 'error'
       jobId: string
       message: string
+    }
+  | {
+      // 流式文本内容（从 Claude Code assistant 消息中提取）
+      type: 'text'
+      jobId: string
+      text: string
+      delta?: boolean // true 表示增量文本，false 表示完整文本
+    }
+  | {
+      // Claude Code 特有的结构化消息
+      type: 'claude_message'
+      jobId: string
+      messageType: 'init' | 'assistant' | 'result' | 'user' | 'system'
+      content?: string
+      raw?: unknown // 原始 JSON 数据
     }

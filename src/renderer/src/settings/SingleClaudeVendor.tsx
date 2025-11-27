@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardTitle, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -13,12 +13,11 @@ import {
   Form as UIForm,
   FormField,
   FormItem,
-  FormLabel,
   FormControl,
   FormMessage,
   FormDescription
 } from '@/components/ui/form'
-import { Save, TestTube2, Pin, PinOff, Eye, EyeOff } from 'lucide-react'
+import { Save, TestTube2, Pin, PinOff, Eye, EyeOff, Sparkles, Terminal, Key, Cpu } from 'lucide-react'
 import { useClaudeVendorsQuery, useSetClaudeVendorsMutation } from '@/features/settings'
 import { useRunClaudePromptMutation } from '@/features/settings/api/hooks'
 import {
@@ -66,7 +65,6 @@ export default function SingleClaudeVendor({
   const [config, setConfig] = useState<ClaudeVendorConfig>(defaultConfig)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
-  // removed unused touched state flags
   const [testOutput, setTestOutput] = useState<string | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
   const [testCommand, setTestCommand] = useState<string | null>(null)
@@ -74,18 +72,15 @@ export default function SingleClaudeVendor({
 
   useEffect(() => {
     if (testCommand) {
-      // Log the exact command to DevTools console for visibility
       console.log('[Claude run] Command:', testCommand)
     }
   }, [testCommand])
 
-  // Detect single executable for Claude Code
   const infoQuery = useAgentsInfoQuery()
   const executablePath = (
     infoQuery.data as { claudeCode?: { executablePath?: string } } | undefined
   )?.claudeCode?.executablePath as string | undefined
 
-  // Vendor token (per backend)
   const tokensQuery = useClaudeTokensQuery()
   const setTokens = useSetClaudeTokensMutation()
   const tokens = (tokensQuery.data || {}) as Partial<
@@ -106,7 +101,6 @@ export default function SingleClaudeVendor({
     setConfig((prev) => ({ ...prev, [key]: value }))
   }
 
-  // 单一可执行路径：以探测结果为准
   const binForSave = useMemo(
     () => config.binPath || executablePath || '',
     [config.binPath, executablePath]
@@ -130,11 +124,9 @@ export default function SingleClaudeVendor({
     const catalog = (vendorsQuery.data as Catalog) || {}
     try {
       setSaving(true)
-      // 1) 保存 token（必填）
       const nextTokenVal = (values?.token ?? tokenValue) || ''
       const nextTokens = { ...tokens, [tokenKey]: nextTokenVal }
       await setTokens.mutateAsync(nextTokens)
-      // 2) 保存模型等（若已探测到可执行路径则一并保存）
       if (canPersist) {
         const nextCfg: ClaudeVendorConfig = {
           ...config,
@@ -224,82 +216,150 @@ export default function SingleClaudeVendor({
     })
   }, [tokenValue, config.modelPrimary, config.modelFast, config.vendorKey])
 
+  const vendorColor = {
+    kimi: 'text-blue-500 bg-blue-500/10',
+    glm: 'text-green-500 bg-green-500/10',
+    minmax: 'text-purple-500 bg-purple-500/10',
+    anthropic: 'text-orange-500 bg-orange-500/10',
+    custom: 'text-gray-500 bg-gray-500/10'
+  }
+
   return (
-    <Card className="border-border/70 p-3 w-full">
-      <UIForm form={form}>
-        <div className="mb-2 text-sm font-semibold">{label}</div>
-        <div className="mb-3 flex items-center gap-2">
-          <Button
-            type="submit"
-            size="sm"
-            className="inline-flex items-center gap-1"
-            onClick={form.handleSubmit(async (values) => {
-              await save(values)
-              // 将模型从表单同步到本地 config，以便 UI 立即反映
-              updateField('modelPrimary', values.modelPrimary)
-              updateField('modelFast', values.modelFast || '')
-            })}
-            disabled={saving || !form.formState.isValid}
+    <Card className="border-border/50 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-muted/50 to-transparent">
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${vendorColor[config.vendorKey]}`}
           >
-            <Save className="h-3.5 w-3.5" />
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={config.active ? 'secondary' : 'default'}
-            className="inline-flex items-center gap-1"
-            onClick={() => updateField('active', !config.active)}
-          >
-            {config.active ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-            {config.active ? 'Unpin' : 'Pin as default'}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="inline-flex items-center gap-1"
-            onClick={askWhatModel}
-            disabled={testing || !canPersist || !tokenValue || tokenValue.trim().length === 0}
-          >
-            <TestTube2 className="h-3.5 w-3.5" />
-            {testing ? 'Running…' : 'Ask “你是什么大模型”'}
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Display Name</p>
-            <Input
-              placeholder={label}
-              value={config.displayName || ''}
-              onChange={(e) => updateField('displayName', e.target.value)}
-            />
+            <Sparkles className="h-5 w-5" />
           </div>
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Executable</p>
-            <Input value={binForSave} disabled placeholder="Detecting claude/claude-code…" />
+          <div className="min-w-0">
+            <CardTitle className="text-base truncate">{label}</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {config.vendorKey === 'kimi'
+                ? 'Moonshot AI'
+                : config.vendorKey === 'glm'
+                  ? '智谱 AI'
+                  : config.vendorKey === 'minmax'
+                    ? 'Minimax AI'
+                    : 'Anthropic'}
+            </p>
           </div>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          variant={config.active ? 'default' : 'outline'}
+          className="gap-1.5 shrink-0"
+          onClick={() => updateField('active', !config.active)}
+        >
+          {config.active ? (
+            <>
+              <PinOff className="h-3.5 w-3.5" />
+              已启用
+            </>
+          ) : (
+            <>
+              <Pin className="h-3.5 w-3.5" />
+              启用
+            </>
+          )}
+        </Button>
+      </div>
+      <CardContent className="pt-4">
+        <UIForm form={form}>
+          {/* Action buttons */}
+          <div className="flex gap-2 mb-6 pb-4 border-b border-border/50">
+            <Button
+              type="submit"
+              size="sm"
+              className="gap-1.5"
+              onClick={form.handleSubmit(async (values) => {
+                await save(values)
+                updateField('modelPrimary', values.modelPrimary)
+                updateField('modelFast', values.modelFast || '')
+              })}
+              disabled={saving || !form.formState.isValid}
+            >
+              {saving ? (
+                <>
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  保存中…
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  保存配置
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={askWhatModel}
+              disabled={testing || !canPersist || !tokenValue || tokenValue.trim().length === 0}
+            >
+              {testing ? (
+                <>
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  测试中…
+                </>
+              ) : (
+                <>
+                  <TestTube2 className="h-3.5 w-3.5" />
+                  测试连接
+                </>
+              )}
+            </Button>
+          </div>
 
-        {/* Token per vendor */}
-        <div className="space-y-2 mt-3">
-          <FormItem>
-            <FormLabel>
+          {/* Basic info grid */}
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                显示名称
+              </div>
+              <Input
+                placeholder={label}
+                value={config.displayName || ''}
+                onChange={(e) => updateField('displayName', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Terminal className="h-4 w-4 text-muted-foreground" />
+                可执行路径
+              </div>
+              <Input
+                value={binForSave}
+                disabled
+                placeholder="Detecting claude/claude-code…"
+                className="bg-muted/30"
+              />
+            </div>
+          </div>
+
+          {/* API Key */}
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Key className="h-4 w-4 text-muted-foreground" />
               API Key <span className="text-red-500">*</span>
-            </FormLabel>
+            </div>
             <FormField
               control={form.control}
               name="token"
               render={({ field, fieldState }) => (
-                <>
+                <FormItem>
                   <FormControl>
                     <div className="relative">
                       <Input
                         {...field}
                         id={`${id}-token-input`}
                         type={showApiKey ? 'text' : 'password'}
-                        className="pr-9"
+                        className="pr-10"
                         placeholder={
                           tokenKey === 'kimi'
                             ? 'KIMI_API_KEY'
@@ -309,7 +369,6 @@ export default function SingleClaudeVendor({
                                 ? 'MINMAX_API_KEY'
                                 : 'ANTHROPIC_API_KEY'
                         }
-                        // no-op: removed touched state
                         onChange={(e) => {
                           field.onChange(e)
                           setTokenValue(e.target.value)
@@ -319,7 +378,7 @@ export default function SingleClaudeVendor({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setShowApiKey((v) => !v)}
                         aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
@@ -328,114 +387,132 @@ export default function SingleClaudeVendor({
                       </Button>
                     </div>
                   </FormControl>
-                  <FormMessage>{fieldState.error?.message}</FormMessage>
-                </>
-              )}
-            />
-            <FormDescription className="sr-only">Vendor API Key</FormDescription>
-          </FormItem>
-        </div>
-
-        {/* 只保留模型配置，其他高级项先隐藏以简化体验 */}
-
-        <div className="grid grid-cols-2 gap-4 mt-3">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Primary Model（主要模型）
-            </p>
-            <FormField
-              control={form.control}
-              name="modelPrimary"
-              render={({ field, fieldState }) => (
-                <>
-                  {config.vendorKey === 'custom' ? (
-                    <Input {...field} />
-                  ) : (
-                    <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendorOptions.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {fieldState.error && (
+                    <FormMessage>{fieldState.error.message}</FormMessage>
                   )}
-                  <FormMessage>{fieldState.error?.message}</FormMessage>
-                </>
+                  <FormDescription className="sr-only">Vendor API Key</FormDescription>
+                </FormItem>
               )}
             />
           </div>
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase text-muted-foreground">
-              Fast Model（快速模型，可选）
-            </p>
-            <FormField
-              control={form.control}
-              name="modelFast"
-              render={({ field }) => (
-                <>
-                  {config.vendorKey === 'custom' ? (
-                    <Input {...field} />
-                  ) : (
-                    <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a fast model (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendorOptions.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </>
-              )}
-            />
+
+          {/* Model selection */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Cpu className="h-4 w-4 text-muted-foreground" />
+                主要模型 <span className="text-red-500">*</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="modelPrimary"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    {config.vendorKey === 'custom' ? (
+                      <Input {...field} />
+                    ) : (
+                      <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="选择模型" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendorOptions.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {fieldState.error && (
+                      <FormMessage>{fieldState.error.message}</FormMessage>
+                    )}
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Cpu className="h-4 w-4 text-muted-foreground" />
+                快速模型
+                <span className="text-xs text-muted-foreground font-normal">(可选)</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="modelFast"
+                render={({ field }) => (
+                  <FormItem>
+                    {config.vendorKey === 'custom' ? (
+                      <Input {...field} />
+                    ) : (
+                      <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="选择快速模型（可选）" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendorOptions.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* 环境变量区块暂不展示 */}
-
-        <div className="mt-2 text-xs text-muted-foreground">
+          {/* Last test status */}
           {typeof config.lastTestAt === 'number' && (
-            <span>
-              Last test: {new Date(config.lastTestAt).toLocaleString()} ·{' '}
-              {config.lastTestOk ? 'OK' : 'Fail'}
-            </span>
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${config.lastTestOk ? 'bg-green-500' : 'bg-red-500'}`}
+                ></span>
+                上次测试: {new Date(config.lastTestAt).toLocaleString()} ·{' '}
+                {config.lastTestOk ? '成功' : '失败'}
+              </div>
+            </div>
           )}
-        </div>
-        {(testing || testOutput || testError || testCommand) && (
-          <div className="mt-3">
-            <div className="text-xs font-semibold">Run Output</div>
-            {testing ? (
-              <div className="text-xs text-muted-foreground">Running…</div>
-            ) : (
-              <div className="mt-1">
-                {testCommand && (
-                  <div className="mb-2">
-                    <div className="text-[11px] text-muted-foreground">Command</div>
-                    <pre className="bg-muted/40 border border-border rounded p-2 text-[11px] overflow-auto max-h-24 whitespace-pre-wrap">
-                      {testCommand}
+
+          {/* Test output */}
+          {(testing || testOutput || testError || testCommand) && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="text-sm font-medium mb-3">测试输出</div>
+              {testing ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  运行中…
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {testCommand && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">执行命令</div>
+                      <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-24 whitespace-pre-wrap font-mono">
+                        {testCommand}
+                      </pre>
+                    </div>
+                  )}
+                  {testError && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+                      错误: {testError}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">输出结果</div>
+                    <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-48 whitespace-pre-wrap font-mono">
+                      {testOutput && testOutput.trim().length > 0 ? testOutput : '(无输出)'}
                     </pre>
                   </div>
-                )}
-                {testError && <div className="mb-1 text-xs text-red-500">Error: {testError}</div>}
-                <pre className="bg-accent/20 border border-border rounded p-2 text-xs overflow-auto max-h-48 whitespace-pre-wrap">
-                  {testOutput && testOutput.trim().length > 0 ? testOutput : '(no output)'}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-      </UIForm>
+                </div>
+              )}
+            </div>
+          )}
+        </UIForm>
+      </CardContent>
     </Card>
   )
 }
-
-// removed inline suggestions; now using Select with vendor-specific options

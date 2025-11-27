@@ -6,64 +6,66 @@
 
 ```mermaid
 flowchart LR
-  subgraph OS[操作系统]
-    subgraph ElectronApp[Electron 应用]
-      direction LR
-
-      subgraph Main[Main Process]
+  subgraph OS["操作系统"]
+    subgraph ElectronApp["Electron 应用"]
+      subgraph Main["Main Process"]
         direction TB
-        WM["WindowService<br/>窗口管理"]
-        ORPC["orpcBridge<br/>RPC 网关"]
-        AGENTS["agents / codexRunner<br/>调用本地 Codex CLI"]
-        DOCS["docsWatcher<br/>监控 docs/ 变更"]
-        SETTINGS["settings/*<br/>通用设置与 providers"]
-        SERVICES["services/*<br/>项目、日志等服务"]
+        WM["WindowService\n窗口管理"]
+        ORPC["orpcBridge\nRPC 网关"]
+        AGENTS["agents / codexRunner\n调用本地 Codex CLI"]
+        DOCS["docsWatcher\n监控 docs/ 变更"]
+        SETTINGS["settings/*\n通用设置与 providers"]
+        SERVICES["services/*\n项目、日志等服务"]
       end
 
-      subgraph Preload[Preload Script]
+      subgraph Preload["Preload Script"]
         direction TB
         ORPC_CLIENT["orpc 客户端"]
         BRIDGE_AGENTS["agentsBridge"]
         BRIDGE_DOCS["docsBridge"]
         BRIDGE_PROJECTS["projectsBridge"]
         BRIDGE_LOGGER["loggerBridge"]
-        EXPOSE["window.api<br/>(安全 API 暴露)"]
+        EXPOSE["window.api\n安全 API 暴露"]
       end
 
-      subgraph Renderer[Renderer (React)]
+      subgraph Renderer["Renderer - React"]
         direction TB
-        APP["App.tsx<br/>应用 Shell"]
+        APP["App.tsx\n应用 Shell"]
+        RQ["React Query\n数据获取与缓存"]
 
-        subgraph Views[Feature Views]
+        subgraph Views["Feature Views"]
           PROJECTS["Projects 页面"]
-          WORKSPACE["Workspace 视图<br/>(Explorer + Chat + Preview)"]
+          WORKSPACE["Workspace 视图\nExplorer + Chat + Preview"]
           LOGS["Logs / Conversation 视图"]
           SETTINGS_VIEW["Settings 视图"]
         end
 
-        subgraph State[前端状态]
-          WS_STORE["workspace chat/preview store<br/>(Zustand)"]
-          DOCS_STATE["docs state<br/>(文件树与内容缓存)"]
+        subgraph State["前端状态"]
+          WS_STORE["workspace chat/preview store\nZustand"]
+          DOCS_STATE["docs state\n文件树与内容缓存"]
         end
-
-        RQ["React Query<br/>数据获取与缓存"]
       end
     end
+
+    Repo["本地项目仓库\n代码 + docs/"]
+    Codex["Codex CLI / AI 引擎"]
   end
 
-  %% 连接关系
-  Renderer -- orpc 调用 / 订阅 --> Preload
-  Preload -- IPC + oRPC --> Main
-  Main -- 读写 --> Repo["本地项目仓库<br/>(代码 + docs/)"]
-  Main -- 调用 CLI / 模型 --> Codex[Codex CLI / AI 引擎]
+  %% 层间通信
+  APP -->|orpc 调用| EXPOSE
+  EXPOSE -->|IPC + oRPC| ORPC
 
-  WORKSPACE -- window.api.agents.run --> BRIDGE_AGENTS
-  WORKSPACE -- 文档浏览 / 预览 --> DOCS_STATE
-  DOCS_STATE -- orpc.fs.tree/read --> BRIDGE_DOCS
+  %% 外部资源
+  SERVICES -->|读写| Repo
+  AGENTS -->|调用 CLI| Codex
 
-  PROJECTS -- orpc.projects.* --> BRIDGE_PROJECTS
-  SETTINGS_VIEW -- orpc.app.getGeneral/setGeneral --> ORPC_CLIENT
-  LOGS -- 读取 conversation.log --> Repo
+  %% 功能连接
+  WORKSPACE -->|agents.run| BRIDGE_AGENTS
+  WORKSPACE -->|文档浏览| DOCS_STATE
+  DOCS_STATE -->|fs.tree/read| BRIDGE_DOCS
+  PROJECTS -->|projects.*| BRIDGE_PROJECTS
+  SETTINGS_VIEW -->|app.get/setGeneral| ORPC_CLIENT
+  LOGS -->|读取 log| Repo
 ```
 
 ## 2. 模块职责概览
@@ -104,32 +106,32 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   actor User
-  participant Composer as Composer 输入框
+  participant Composer
   participant WorkspacePage
-  participant ChatStore as useWorkspaceChat (Zustand)
-  participant CodexRunner as useCodexRunner
-  participant Preload as window.api.agents
-  participant Main as main/agents + codexRunner
-  participant CLI as Codex CLI
+  participant ChatStore
+  participant CodexRunner
+  participant Preload
+  participant Main
+  participant CLI
 
-  User->>Composer: 输入问题 / 需求
+  User->>Composer: 输入问题
   User->>Composer: Cmd+Enter 发送
   Composer->>WorkspacePage: onSend()
-  WorkspacePage->>ChatStore: appendMessages(userMsg, assistantMsg[running])
-  WorkspacePage->>CodexRunner: run({ engine, workspaceId, prompt, jobId, sessionId? })
-  CodexRunner->>Preload: window.api.agents.run(opts)
-  Preload->>Main: 通过 orpc 调用 agents 服务
-  Main->>CLI: 启动 Codex CLI 进程
+  WorkspacePage->>ChatStore: appendMessages()
+  WorkspacePage->>CodexRunner: run(opts)
+  CodexRunner->>Preload: window.api.agents.run()
+  Preload->>Main: orpc 调用 agents
+  Main->>CLI: 启动 Codex CLI
 
   loop CodexEvent 流
-    CLI-->>Main: CodexEvent(log/exit/session/error)
+    CLI-->>Main: CodexEvent
     Main-->>Preload: notify(event)
     Preload-->>WorkspacePage: subscribe(handler)
-    WorkspacePage->>ChatStore: applyCodexEventsBatch(events)
-    ChatStore-->>WorkspacePage: 更新 messages 状态
+    WorkspacePage->>ChatStore: applyCodexEventsBatch()
+    ChatStore-->>WorkspacePage: 更新 messages
   end
 
-  WorkspacePage-->>Composer: 渲染最新消息列表 / 状态
+  WorkspacePage-->>Composer: 渲染消息列表
 ```
 
 要点：

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useThemeMode } from '@/hooks/use-theme-mode'
 import { renderMarkdownToHtml } from '@/lib/markdown'
 import { stripFrontmatter } from '@/spec/utils'
-import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import type { SpecDocMeta } from '@/types'
 import type { PreviewTocItem } from './types'
 
@@ -91,8 +90,12 @@ export function usePreviewDocument(options?: UsePreviewDocumentOptions) {
         .filter((item) => item.text.length > 0)
       setToc(items)
     }
-    // 先渲染 Mermaid，再更新目录，保证 SVG 插入后再统计 heading
-    void renderMermaidIn(rootEl, themeMode).catch(() => {}).finally(recomputeToc)
+    // Mermaid 渲染交给预览组件自身负责。
+    // 这里仅在下一帧统计 heading，避免与 DOM 更新/mermaid 渲染抢顺序。
+    const frameId = requestAnimationFrame(() => {
+      recomputeToc()
+    })
+    return () => cancelAnimationFrame(frameId)
   }, [html, rendering, themeMode])
 
   const handleTocClick = useCallback((index: number) => {

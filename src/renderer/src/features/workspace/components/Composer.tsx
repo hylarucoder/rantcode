@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { useClaudeVendorsQuery } from '@/features/settings'
 import type { CodexRunOptions } from '@shared/types/webui'
+import { AGENT_UI_LIST } from '@shared/agents'
+import { Send, Square } from 'lucide-react'
 
-type ExecEngine = NonNullable<CodexRunOptions['engine']>
+type ExecAgent = NonNullable<CodexRunOptions['agent']>
 
 export function Composer({
   value,
@@ -22,16 +23,16 @@ export function Composer({
   onSend,
   isRunning,
   onInterrupt,
-  engine,
-  onEngineChange
+  agent,
+  onAgentChange
 }: {
   value: string
   onChange: (v: string) => void
   onSend: () => void
   isRunning: boolean
   onInterrupt: () => void
-  engine: ExecEngine
-  onEngineChange: (e: ExecEngine) => void
+  agent: ExecAgent
+  onAgentChange: (a: ExecAgent) => void
 }) {
   // 工作区与 docs 列表
   const { workspaceId } = useWorkspace()
@@ -119,20 +120,42 @@ export function Composer({
     }
   }, [value])
 
-  const vendorsQuery = useClaudeVendorsQuery()
-  const hasClaudeVendors =
-    !!vendorsQuery.data && Object.keys(vendorsQuery.data as Record<string, unknown>).length > 0
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
   return (
-    <div className="flex flex-col">
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
+    <div className="relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-muted/30 shadow-sm transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+      {/* @ 文件引用提示浮层 */}
+      {mentionOpen && suggestions.length > 0 && (
+        <div className="absolute left-2 right-2 bottom-full z-20 mb-2 max-h-56 overflow-auto rounded-lg border border-border/70 bg-popover p-1 text-popover-foreground shadow-lg">
+          {suggestions.map((p, idx) => (
+            <button
+              key={p}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                applySelection(p)
+              }}
+              className={cn(
+                'w-full truncate rounded-md px-2 py-1.5 text-left text-xs hover:bg-accent',
+                idx === activeIndex ? 'bg-accent text-accent-foreground' : ''
+              )}
+            >
+              @docs/{p}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 输入区域 */}
+      <Textarea
+        ref={textareaRef}
         value={value}
         placeholder="Describe what you want to work on..."
         onChange={(e) => onChange(e.target.value)}
         rows={3}
+        className="resize-none border-0 bg-transparent px-3 pt-3 pb-1 text-sm shadow-none focus-visible:ring-0"
         onKeyDown={(e) => {
-          // @ 文件提示时的键盘导航（仅在未按下组合键时接管）
+          // @ 文件提示时的键盘导航
           if (mentionOpen && !e.metaKey && !e.ctrlKey) {
             if (e.key === 'ArrowDown') {
               e.preventDefault()
@@ -165,56 +188,52 @@ export function Composer({
             onSend()
           }
         }}
-        />
-        {mentionOpen && suggestions.length > 0 && (
-          <div className="absolute left-1 right-1 bottom-full z-20 mb-1 max-h-56 overflow-auto rounded-md border border-border/70 bg-popover p-1 text-popover-foreground shadow-md">
-            {suggestions.map((p, idx) => (
-              <button
-                key={p}
-                type="button"
-                onMouseDown={(e) => {
-                  // 防止 textarea 失焦后 caret 丢失
-                  e.preventDefault()
-                  applySelection(p)
-                }}
-                className={cn(
-                  'w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-accent',
-                  idx === activeIndex ? 'bg-accent text-accent-foreground' : ''
-                )}
-              >
-                @docs/{p}
-              </button>
-            ))}
-            {suggestions.length === 0 && (
-              <div className="px-2 py-1 text-xs text-muted-foreground">无匹配文件</div>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Engine</span>
-          <Select value={engine} onValueChange={(v) => onEngineChange(v as ExecEngine)}>
-            <SelectTrigger size="sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="codex">codex</SelectItem>
-              <SelectItem value="claude-code" disabled={!hasClaudeVendors}>
-                {hasClaudeVendors ? 'claude code' : 'claude code（未配置）'}
+      />
+
+      {/* 内嵌工具栏 */}
+      <div className="flex items-center justify-between gap-2 border-t border-border/40 px-2 py-1.5">
+        {/* 左侧：Agent 选择器 */}
+        <Select value={agent} onValueChange={(v) => onAgentChange(v as ExecAgent)}>
+          <SelectTrigger
+            size="sm"
+            className="h-7 w-auto gap-1.5 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AGENT_UI_LIST.map((ag) => (
+              <SelectItem key={ag.value} value={ag.value}>
+                {ag.label}
               </SelectItem>
-              <SelectItem value="kimi-cli">kimi cli</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* 中间：快捷键提示 */}
+        <span className="hidden text-[10px] text-muted-foreground/60 sm:block">
+          {isMac ? '⌘' : 'Ctrl'}+Enter 发送
+        </span>
+
+        {/* 右侧：发送/中断按钮 */}
         <Button
           type="button"
           size="sm"
-          className="rounded-full px-3 text-xs"
+          variant={isRunning ? 'destructive' : 'default'}
+          className="h-7 gap-1.5 rounded-lg px-3 text-xs"
           onClick={isRunning ? onInterrupt : onSend}
           disabled={isRunning ? false : !value.trim()}
         >
-          {isRunning ? '中断' : 'Send'}
+          {isRunning ? (
+            <>
+              <Square className="h-3 w-3" />
+              中断
+            </>
+          ) : (
+            <>
+              <Send className="h-3 w-3" />
+              发送
+            </>
+          )}
         </Button>
       </div>
     </div>

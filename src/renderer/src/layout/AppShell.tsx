@@ -24,6 +24,15 @@ import { useAppStore } from '@/state/app'
 import SettingsPage from '@/settings/SettingsPage'
 import { setRootDarkWithNoTransition } from '@/lib/theme'
 import { useSfx } from '@/hooks/useSfx'
+import {
+  useGeneralSettingsQuery,
+  useSetGeneralSettingsMutation
+} from '@/features/settings/api/generalHooks'
+import type { z } from 'zod'
+import type { generalSettingsSchema } from '@shared/orpc/schemas'
+
+type GeneralSettings = z.infer<typeof generalSettingsSchema>
+type Theme = GeneralSettings['theme']
 
 export default function AppShell() {
   const activeProjectId = useAppStore((s) => s.activeProjectId)
@@ -31,11 +40,22 @@ export default function AppShell() {
   const { projects, removeProject, loading } = useProjects()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const hasProjects = projects.length > 0
+  const { data: generalSettings } = useGeneralSettingsQuery()
+  const setGeneralSettings = useSetGeneralSettingsMutation()
   const [isDark, setIsDark] = useState<boolean>(() =>
     typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : true
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { play: playSfx } = useSfx()
+
+  // 同步 electron-store 的 theme 设置到本地状态
+  useEffect(() => {
+    if (generalSettings?.theme) {
+      const nextDark = generalSettings.theme === 'dark'
+      setRootDarkWithNoTransition(nextDark)
+      setIsDark(nextDark)
+    }
+  }, [generalSettings?.theme])
 
   // 如果当前选中的项目已不存在（被删除或列表还未包含），清空选择，避免卡在无效 id
   useEffect(() => {
@@ -64,12 +84,12 @@ export default function AppShell() {
     <div className="flex h-full flex-col">
       {/* Custom titlebar area (draggable except interactive controls) */}
       <div
-        className="titlebar flex h-10 flex-shrink-0 items-center gap-4 border-b border-border/80 bg-background/95 px-4"
+        className="titlebar flex h-10 shrink-0 items-center gap-4 border-b border-border/80 bg-background/95 px-4"
         onDoubleClick={handleTitlebarDoubleClick}
       >
         {/* Spacer for macOS traffic lights */}
         <div className="h-full w-20" />
-        <div className="no-drag flex flex-1 items-center gap-3">
+        <div className="flex flex-1 items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -164,9 +184,12 @@ export default function AppShell() {
               className="h-7 w-7 rounded-full text-muted-foreground hover:bg-accent/40"
               onClick={() => {
                 const next = !isDark
+                const nextTheme: Theme = next ? 'dark' : 'light'
                 setRootDarkWithNoTransition(next)
                 setIsDark(next)
-                localStorage.setItem('theme', next ? 'dark' : 'light')
+                if (generalSettings) {
+                  setGeneralSettings.mutate({ ...generalSettings, theme: nextTheme })
+                }
               }}
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -179,7 +202,17 @@ export default function AppShell() {
         {settingsOpen ? (
           <SettingsPage onClose={() => setSettingsOpen(false)} />
         ) : activeProject ? (
-          <WorkspacePage project={activeProject} />
+          <WorkspacePage
+            project={activeProject}
+            onRemoveProject={async () => {
+              const ok = window.confirm(
+                `确定要从列表中移除 ${activeProject.name || activeProject.repoPath} 吗？文件仍保留在磁盘上。`
+              )
+              if (!ok) return
+              await removeProject(activeProject.id)
+              setActiveProjectId(null)
+            }}
+          />
         ) : (
           <ProjectsPage onOpenProject={(project) => setActiveProjectId(project.id)} />
         )}

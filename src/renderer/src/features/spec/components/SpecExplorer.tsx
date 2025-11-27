@@ -201,8 +201,11 @@ export default function SpecExplorer({
   }, [decoratedRoot])
 
   const treeCard = (
-    <Card className="flex h-full min-h-0 flex-col rounded-none border-0 shadow-none">
-      <div className="px-3 pb-2 text-sm font-semibold">{treeTitle}</div>
+    <Card className="flex h-full min-h-0 flex-col rounded-none border-0 p-3 shadow-none">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <ListTree className="h-3.5 w-3.5" />
+        {treeTitle}
+      </div>
       <div className="flex-1 overflow-hidden">
         {loading && (
           <div className="flex h-full items-center justify-center">
@@ -247,7 +250,7 @@ export default function SpecExplorer({
           </Tree>
         )}
         {!loading && !decoratedRoot && (
-          <p className="text-sm text-muted-foreground">No files to display.</p>
+          <p className="text-xs text-muted-foreground">No files to display.</p>
         )}
       </div>
     </Card>

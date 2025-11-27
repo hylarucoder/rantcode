@@ -40,27 +40,153 @@ function normalizeMermaid(chart: string): string {
   return out
 }
 
+let mermaidLightboxRoot: HTMLDivElement | null = null
+
+function ensureMermaidLightboxRoot(): HTMLDivElement {
+  if (mermaidLightboxRoot && document.body.contains(mermaidLightboxRoot)) {
+    return mermaidLightboxRoot
+  }
+  const root = document.createElement('div')
+  root.setAttribute('role', 'dialog')
+  root.setAttribute('aria-modal', 'true')
+  root.style.position = 'fixed'
+  root.style.inset = '0'
+  root.style.display = 'none'
+  root.style.alignItems = 'center'
+  root.style.justifyContent = 'center'
+  root.style.backgroundColor = 'rgba(15,23,42,0.8)' // 近似 bg-slate-900/80
+  root.style.zIndex = '9999'
+  root.addEventListener('click', () => {
+    root.style.display = 'none'
+    root.innerHTML = ''
+  })
+  document.body.appendChild(root)
+  mermaidLightboxRoot = root
+  return root
+}
+
+function openMermaidLightbox(svg: string): void {
+  if (!svg.trim()) return
+  const root = ensureMermaidLightboxRoot()
+  root.innerHTML = ''
+
+  const inner = document.createElement('div')
+  inner.style.width = '90vw'
+  inner.style.maxWidth = '1200px'
+  inner.style.maxHeight = '90vh'
+  inner.style.backgroundColor = 'rgba(15,23,42,1)' // 近似 bg-slate-900
+  inner.style.borderRadius = '0.75rem'
+  inner.style.padding = '1rem'
+  inner.style.boxShadow = '0 20px 45px rgba(0,0,0,0.45)'
+  inner.style.overflow = 'auto'
+  inner.style.position = 'relative'
+  inner.addEventListener('click', (e) => {
+    e.stopPropagation()
+  })
+
+  const close = document.createElement('button')
+  close.type = 'button'
+  close.textContent = '×'
+  close.setAttribute('aria-label', 'Close')
+  close.style.position = 'absolute'
+  close.style.top = '0.25rem'
+  close.style.right = '0.5rem'
+  close.style.fontSize = '1.25rem'
+  close.style.lineHeight = '1'
+  close.style.background = 'transparent'
+  close.style.border = 'none'
+  close.style.color = '#e5e7eb' // slate-200
+  close.style.cursor = 'pointer'
+  close.addEventListener('click', (e) => {
+    e.stopPropagation()
+    root.style.display = 'none'
+    root.innerHTML = ''
+  })
+
+  const content = document.createElement('div')
+  content.innerHTML = svg
+
+  const svgEl = content.querySelector('svg')
+  if (svgEl instanceof SVGElement) {
+    svgEl.style.width = '100%'
+    svgEl.style.height = 'auto'
+    svgEl.style.maxHeight = '80vh'
+    svgEl.style.display = 'block'
+  }
+
+  inner.appendChild(close)
+  inner.appendChild(content)
+  root.appendChild(inner)
+  root.style.display = 'flex'
+}
+
 function collectMermaidBlocks(root: HTMLElement): HTMLDivElement[] {
   const replacements: HTMLDivElement[] = []
-  const codeBlocks = root.querySelectorAll('pre > code.language-mermaid') as NodeListOf<HTMLElement>
-  codeBlocks.forEach((codeEl) => {
-    if ((codeEl as HTMLElement).closest('.mermaid-error')) return
-    const pre = codeEl.closest('pre') as HTMLElement | null
-    if (!pre) return
-    const raw = codeEl.textContent ?? ''
-    const container = document.createElement('div')
-    container.className = 'mermaid'
-    // 保留原始文本内容，交给 mermaid 运行时解析
-    container.textContent = raw
-    pre.replaceWith(container)
-    replacements.push(container)
-  })
+  // 查找 mermaid 代码块：
+  // 1. 标准格式: pre > code.language-mermaid
+  // 2. 带 data-language 属性: pre[data-language="mermaid"]
+  // 3. shiki 处理后可能的格式
+  const selectors = [
+    'pre > code.language-mermaid',
+    'pre[data-language="mermaid"] > code',
+    'pre[data-language="mermaid"]'
+  ]
+
+  const processedPres = new Set<HTMLElement>()
+
+  for (const selector of selectors) {
+    const elements = root.querySelectorAll(selector) as NodeListOf<HTMLElement>
+    elements.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : (el.closest('pre') as HTMLElement | null)
+      if (!pre || processedPres.has(pre)) return
+      if (pre.closest('.mermaid-error')) return
+
+      processedPres.add(pre)
+
+      // 获取代码内容
+      const codeEl = pre.tagName === 'PRE' ? pre.querySelector('code') : el
+      const raw = codeEl?.textContent ?? pre.textContent ?? ''
+      if (!raw.trim()) return
+
+      const container = document.createElement('div')
+      container.className = 'mermaid'
+      // 保留原始文本内容，交给 mermaid 运行时解析
+      container.textContent = raw
+      pre.replaceWith(container)
+      replacements.push(container)
+    })
+  }
   return replacements
+}
+
+/**
+ * 检查元素是否在 DOM 中且可见（Mermaid 渲染需要元素可见以计算尺寸）
+ */
+function isElementVisible(el: HTMLElement): boolean {
+  return document.body.contains(el) && el.offsetParent !== null
+}
+
+/**
+ * 等待元素变为可见，带超时
+ */
+async function waitForElementVisible(el: HTMLElement, timeout = 500): Promise<boolean> {
+  if (isElementVisible(el)) return true
+
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (isElementVisible(el)) return true
+  }
+  return false
 }
 
 export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Promise<void> {
   const containers = collectMermaidBlocks(root)
   if (containers.length === 0) return
+
+  // 确保 root 元素在 DOM 中
+  if (!document.body.contains(root)) return
+
   let mermaid: MermaidAPI
   try {
     const mod = await import('mermaid')
@@ -102,21 +228,53 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
       const chart = normalizeMermaid(chartRaw)
 
       const renderOnce = async () => {
+        // 渲染前检查元素是否仍在 DOM 中且可见
+        if (!isElementVisible(el)) {
+          throw new Error('Element not visible in DOM')
+        }
         const { svg } = await mermaid.render(id, chart, el)
+        // 渲染后再次检查元素是否还在 DOM 中
+        if (!document.body.contains(el)) return
         el.innerHTML = svg
         el.setAttribute('data-mermaid-processed', '1')
+        // 绑定点击放大查看
+        if (!el.getAttribute('data-mermaid-lightbox')) {
+          el.style.cursor = 'zoom-in'
+          el.setAttribute('data-mermaid-lightbox', '1')
+          el.addEventListener('click', (event) => {
+            event.stopPropagation()
+            const svgHtml = el.innerHTML
+            openMermaidLightbox(svgHtml)
+          })
+        }
       }
 
       try {
+        // 等待元素变为可见
+        const visible = await waitForElementVisible(el)
+        if (!visible) {
+          // 元素不可见，跳过渲染
+          return
+        }
         await renderOnce()
       } catch (err1) {
+        // 如果是元素不可见导致的错误，直接跳过不重试
+        if (err1 instanceof Error && err1.message === 'Element not visible in DOM') {
+          return
+        }
         // 首次失败，短暂等待下一帧后重试，避免瞬态错误引起闪烁
         // eslint-disable-next-line no-console
         console.warn('Mermaid first attempt failed, retrying…', err1)
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        // 重试前再次检查可见性
+        if (!isElementVisible(el)) return
         try {
           await renderOnce()
         } catch (err2) {
+          // 如果是元素不可见导致的错误，静默跳过
+          if (err2 instanceof Error && err2.message === 'Element not visible in DOM') {
+            return
+          }
           // 仍失败：用 error 包裹并附上源码与错误详情
           // eslint-disable-next-line no-console
           console.error('Mermaid render error (after retry):', err2)

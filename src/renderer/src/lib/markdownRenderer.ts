@@ -12,7 +12,48 @@ import {
   type BundledLanguage,
   type LanguageInput
 } from 'shiki'
+import type { Root, Element, RootContent } from 'hast'
 import type { ThemeMode } from '@/types/theme'
+
+/**
+ * rehype 插件：在 shiki 处理之前保护 mermaid 代码块，
+ * 确保 `language-mermaid` class 被保留用于后续渲染。
+ */
+function rehypeProtectMermaid() {
+  const walkNode = (node: RootContent | Root): void => {
+    if (node.type !== 'element') {
+      if ('children' in node && Array.isArray(node.children)) {
+        node.children.forEach(walkNode)
+      }
+      return
+    }
+    const el = node as Element
+    if (el.tagName === 'pre') {
+      const codeChild = el.children.find(
+        (c): c is Element => c.type === 'element' && c.tagName === 'code'
+      )
+      if (codeChild) {
+        const classNames = codeChild.properties?.className
+        if (Array.isArray(classNames)) {
+          const isMermaid = classNames.some(
+            (c) => typeof c === 'string' && c.includes('language-mermaid')
+          )
+          if (isMermaid) {
+            // 标记为 mermaid，让 shiki 跳过
+            el.properties = el.properties || {}
+            el.properties['data-language'] = 'mermaid'
+          }
+        }
+      }
+    }
+    if (el.children) {
+      el.children.forEach(walkNode)
+    }
+  }
+  return (tree: Root) => {
+    walkNode(tree)
+  }
+}
 
 type MarkdownProcessor = (markdown: string) => Promise<string>
 
@@ -301,6 +342,8 @@ async function getProcessor(mode: ThemeMode): Promise<MarkdownProcessor> {
       // Sanitize raw HTML with a conservative allowlist that still preserves
       // Shiki's inline styles and classes for syntax highlighting.
       .use(rehypeSanitize, sanitizeSchema)
+      // 保护 mermaid 代码块，避免被 shiki 处理
+      .use(rehypeProtectMermaid)
       .use(rehypeShiki as unknown as (this: unknown, ...args: [RehypeShikiOptions]) => void, {
         theme: themeName,
         langs: REHYPE_LANGS

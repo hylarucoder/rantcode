@@ -118,9 +118,23 @@ function applyEventToMessage(msg: ChatMessage, event: CodexEvent): ChatMessage {
         timestamp: Date.now()
       } as const
       const nextLogs = [...(msg.logs ?? []), entry]
-      const nextOutput =
-        event.stream === 'stdout' ? `${msg.output ?? ''}${event.data}` : (msg.output ?? '')
-      return { ...msg, logs: nextLogs, output: nextOutput }
+      // 不再用 log 事件更新 output，改用 text 事件
+      return { ...msg, logs: nextLogs }
+    }
+    case 'text': {
+      // 流式文本内容事件
+      const nextOutput = event.delta
+        ? `${msg.output ?? ''}${event.text}`
+        : event.text
+      return { ...msg, output: nextOutput }
+    }
+    case 'claude_message': {
+      // 可选：保存原始消息用于调试或其他用途
+      // 这里主要处理 assistant 消息的内容
+      if (event.messageType === 'assistant' && event.content) {
+        return { ...msg, output: event.content }
+      }
+      return msg
     }
     case 'error':
       return { ...msg, status: 'error', errorMessage: event.message }

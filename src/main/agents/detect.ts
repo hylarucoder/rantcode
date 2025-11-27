@@ -2,34 +2,83 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { constants as fsConstants } from 'node:fs'
 import { spawn } from 'node:child_process'
+import type { Agent } from '../../shared/agents'
 
-export type Engine = 'codex' | 'claude-code' | 'kimi-cli'
+export type { Agent }
 
-const CODEX_BINARIES =
-  process.platform === 'win32'
-    ? ['codex.exe', 'openai-codex.exe', 'codex', 'openai-codex']
-    : ['codex', 'openai-codex']
+/** Agent 配置：二进制文件候选、环境变量覆盖、显示名称、API 基础 URL */
+interface AgentConfig {
+  binaries: string[]
+  envOverride: string
+  displayName: string
+  baseUrl?: string
+  tokenEnvKey?: string
+}
 
-const CLAUDE_CODE_BINARIES =
-  process.platform === 'win32'
-    ? ['claude-code.exe', 'claude.exe', 'claude-code', 'claude']
-    : ['claude-code', 'claude']
+const isWin = process.platform === 'win32'
 
-const KIMI_CLI_BINARIES =
-  process.platform === 'win32'
-    ? ['kimi-cli.exe', 'kimi.exe', 'moonshot.exe', 'kimi-cli', 'kimi', 'moonshot']
-    : ['kimi-cli', 'kimi', 'moonshot']
+const AGENT_CONFIGS: Record<Agent, AgentConfig> = {
+  codex: {
+    binaries: isWin
+      ? ['codex.exe', 'openai-codex.exe', 'codex', 'openai-codex']
+      : ['codex', 'openai-codex'],
+    envOverride: 'CODEX_BIN',
+    displayName: 'Codex'
+  },
+  'claude-code': {
+    binaries: isWin
+      ? ['claude-code.exe', 'claude.exe', 'claude-code', 'claude']
+      : ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code'
+  },
+  'claude-code-glm': {
+    binaries: isWin
+      ? ['claude-code.exe', 'claude.exe', 'claude-code', 'claude']
+      : ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code (GLM)',
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    tokenEnvKey: 'glm'
+  },
+  'claude-code-kimi': {
+    binaries: isWin
+      ? ['claude-code.exe', 'claude.exe', 'claude-code', 'claude']
+      : ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code (Kimi)',
+    baseUrl: 'https://api.moonshot.cn/anthropic',
+    tokenEnvKey: 'kimi'
+  },
+  'claude-code-minimax': {
+    binaries: isWin
+      ? ['claude-code.exe', 'claude.exe', 'claude-code', 'claude']
+      : ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code (MiniMax)',
+    baseUrl: 'https://api.minimax.chat/v1/text/chatcompletion_v2',
+    tokenEnvKey: 'minmax'
+  },
+  'kimi-cli': {
+    binaries: isWin
+      ? ['kimi-cli.exe', 'kimi.exe', 'moonshot.exe', 'kimi-cli', 'kimi', 'moonshot']
+      : ['kimi-cli', 'kimi', 'moonshot'],
+    envOverride: 'KIMI_CLI_BIN',
+    displayName: 'Kimi CLI'
+  }
+}
+
+export { AGENT_CONFIGS }
 
 export interface DetectResult {
-  name: Engine
+  name: Agent
   executablePath?: string
   version?: string
 }
 
-export async function findExecutable(engine: Engine): Promise<string> {
-  const overrideEnv =
-    engine === 'codex' ? 'CODEX_BIN' : engine === 'claude-code' ? 'CLAUDE_CODE_BIN' : 'KIMI_CLI_BIN'
-  const override = (process.env[overrideEnv] || '').trim()
+export async function findExecutable(agent: Agent): Promise<string> {
+  const config = AGENT_CONFIGS[agent]
+  const override = (process.env[config.envOverride] || '').trim()
   if (override) {
     try {
       await fs.access(override, fsConstants.X_OK)
@@ -40,13 +89,7 @@ export async function findExecutable(engine: Engine): Promise<string> {
   }
 
   const pathEntries = (process.env.PATH || '').split(path.delimiter).filter(Boolean)
-  const candidates =
-    engine === 'codex'
-      ? CODEX_BINARIES
-      : engine === 'claude-code'
-        ? CLAUDE_CODE_BINARIES
-        : KIMI_CLI_BINARIES
-  for (const bin of candidates) {
+  for (const bin of config.binaries) {
     for (const entry of pathEntries) {
       const candidate = path.join(entry, bin)
       try {
@@ -57,8 +100,9 @@ export async function findExecutable(engine: Engine): Promise<string> {
       }
     }
   }
-  const name = engine === 'codex' ? 'Codex' : engine === 'claude-code' ? 'Claude Code' : 'Kimi CLI'
-  throw new Error(`${name} not found on PATH. You can set ${overrideEnv} to its absolute path.`)
+  throw new Error(
+    `${config.displayName} not found on PATH. You can set ${config.envOverride} to its absolute path.`
+  )
 }
 
 async function getVersion(executablePath: string): Promise<string | undefined> {
@@ -106,13 +150,13 @@ async function trySpawnForVersion(bin: string, args: string[]): Promise<string |
   }
 }
 
-export async function detect(engine: Engine): Promise<DetectResult> {
+export async function detect(agent: Agent): Promise<DetectResult> {
   try {
-    const bin = await findExecutable(engine)
+    const bin = await findExecutable(agent)
     const version = await getVersion(bin)
-    return { name: engine, executablePath: bin, version }
+    return { name: agent, executablePath: bin, version }
   } catch {
-    return { name: engine }
+    return { name: agent }
   }
 }
 

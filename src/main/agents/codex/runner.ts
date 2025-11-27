@@ -2,14 +2,15 @@ import { webContents, Notification, BrowserWindow } from 'electron'
 import type { WebContents } from 'electron'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-// removed unused imports: path, fs, fsConstants
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
-import type { CodexEvent, CodexRunOptions } from '../shared/types/webui'
-import { resolveWorkspaceRoot } from './rpc'
-import { isErrorLike } from '../shared/utils/errorLike'
-import { buildCodexArgs } from './codexCli'
+import type { CodexEvent, CodexRunOptions } from '../../../shared/types/webui'
+import { resolveWorkspaceRoot } from '../../rpc'
+import { isErrorLike } from '../../../shared/utils/errorLike'
+import { buildCodexArgs } from './cli'
+import { findExecutable, AGENT_CONFIGS } from '../detect'
+import { runClaudeCodeStreaming, cancelClaudeCode } from '../claudecode'
 
-type ExecEngine = NonNullable<CodexRunOptions['engine']>
+type ExecAgent = NonNullable<CodexRunOptions['agent']>
 
 const runningProcesses = new Map<string, ChildProcessWithoutNullStreams>()
 
@@ -22,14 +23,17 @@ interface CodexJobState {
 
 const jobStates = new Map<string, CodexJobState>()
 
-import { findExecutable } from './agents/detect'
+// 判断是否是 Claude Code 类型的 agent
+function isClaudeCodeAgent(agent: string): boolean {
+  return agent.startsWith('claude-code')
+}
 
 function getWebContents(targetId: number): WebContents | null {
   const contents = webContents.fromId(targetId)
   return contents ?? null
 }
 
-import { notifyCodex } from './notifyBridge'
+import { notifyCodex } from '../../notifyBridge'
 
 function dispatchEvent(targetId: number, payload: CodexEvent): void {
   notifyCodex(targetId, payload)
@@ -78,27 +82,41 @@ export async function runCodex(
   if (!prompt) {
     throw new Error('Prompt is required to run codex')
   }
+
+  const agent: ExecAgent = (payload.agent as ExecAgent) ?? 'codex'
+
+  // 如果是 Claude Code agent，委托给 claudecode runner
+  if (isClaudeCodeAgent(agent)) {
+    return runClaudeCodeStreaming(targetContentsId, payload)
+  }
+
+  // 以下是 Codex 原生逻辑
   const jobId =
     typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
   const repoRoot = await resolveWorkspaceRoot(payload?.workspaceId)
-  const engine: ExecEngine = (payload.engine as ExecEngine) ?? 'codex'
-  const bin = await findExecutable(engine)
+  const bin = await findExecutable(agent)
   const args =
-    engine === 'codex'
+    agent === 'codex'
       ? buildCodexArgs({ extraArgs: payload?.extraArgs, sessionId: payload?.sessionId })
-      : // For other CLIs, pass user-provided args as-is (optional), rely on stdin for the prompt
-        Array.isArray(payload?.extraArgs)
+      : Array.isArray(payload?.extraArgs)
         ? payload!.extraArgs!.filter((s) => typeof s === 'string' && s.length > 0)
         : []
-  const env = { ...process.env, NO_COLOR: '1' }
+
+  // 构建环境变量
+  const agentConfig = AGENT_CONFIGS[agent]
+  const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }
+  if (agentConfig.baseUrl) {
+    env.ANTHROPIC_BASE_URL = agentConfig.baseUrl
+  }
 
   // Print final command to the terminal for debugging
   try {
     const cmdStr = [bin, ...args].join(' ')
-    console.log(`[rantcode][${engine}] spawn:`, cmdStr, '\n cwd:', repoRoot)
+    console.log(`[rantcode][${agent}] spawn:`, cmdStr, '\n cwd:', repoRoot)
   } catch {
     void 0
   }
+
   const child = spawn(bin, args, {
     cwd: repoRoot,
     env,
@@ -126,7 +144,6 @@ export async function runCodex(
     const state = jobStates.get(jobId)
     const data = chunk.toString()
 
-    // Fallback: if we somehow lost state, forward chunk as-is
     if (!state) {
       dispatchEvent(targetContentsId, {
         type: 'log',
@@ -141,6 +158,7 @@ export async function runCodex(
     const buffer = state.stdoutLineBuffer + data
     const lines = buffer.split(/\r?\n/)
     state.stdoutLineBuffer = lines.pop() ?? ''
+
     for (const line of lines) {
       const text = line + '\n'
       dispatchEvent(targetContentsId, {
@@ -199,7 +217,7 @@ export async function runCodex(
     dispatchEvent(targetContentsId, {
       type: 'error',
       jobId,
-      message: isErrorLike(error) ? error.message : `${engine} process error`
+      message: isErrorLike(error) ? error.message : `${agent} process error`
     })
     notifyRunResult(targetContentsId, {
       ok: false,
@@ -256,7 +274,7 @@ export async function runCodex(
     dispatchEvent(targetContentsId, {
       type: 'error',
       jobId,
-      message: err instanceof Error ? err.message : `Failed to pass prompt to ${engine}`
+      message: err instanceof Error ? err.message : `Failed to pass prompt to ${agent}`
     })
     try {
       child.kill()
@@ -269,12 +287,16 @@ export async function runCodex(
 }
 
 export function cancelCodex(jobId: string): { ok: boolean } {
+  // 先尝试在 codex 进程中取消
   const child = runningProcesses.get(jobId)
-  if (!child) return { ok: false }
-  try {
-    const killed = child.kill()
-    return { ok: killed }
-  } catch {
-    return { ok: false }
+  if (child) {
+    try {
+      const killed = child.kill()
+      return { ok: killed }
+    } catch {
+      return { ok: false }
+    }
   }
+  // 否则尝试在 claudecode 进程中取消
+  return cancelClaudeCode(jobId)
 }

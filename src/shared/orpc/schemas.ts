@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { FsTreeNode } from '../types/webui'
+import { AGENT_VALUES } from '../agents'
 
 export const baseKeySchema = z.union([
   z.literal('repo'),
@@ -140,7 +141,7 @@ export const codexAgentTestResultSchema = z.object({
 
 // Codex run input
 export const codexRunInputSchema = z.object({
-  engine: z.union([z.literal('codex'), z.literal('claude-code'), z.literal('kimi-cli')]).optional(),
+  agent: z.enum(AGENT_VALUES).optional(),
   workspaceId: z.string().optional(),
   prompt: z.string().min(1),
   extraArgs: z.array(z.string()).optional(),

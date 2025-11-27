@@ -1,10 +1,17 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Mic, Play, Gauge, Volume2, Clock, AlertCircle } from 'lucide-react'
 
 type Engine = 'off' | 'web-speech' | 'doubao' | 'minimax'
 
@@ -31,7 +38,6 @@ function loadLocal(): TTSConfig {
     const parsed = JSON.parse(raw)
     return { ...DEFAULT_CFG, ...(parsed || {}) } as TTSConfig
   } catch {
-    // Invalid JSON → fallback to defaults
     return DEFAULT_CFG
   }
 }
@@ -40,8 +46,16 @@ function saveLocal(cfg: TTSConfig): void {
   localStorage.setItem('rantcode.tts', JSON.stringify(cfg))
 }
 
+const ENGINE_OPTIONS: { value: Engine; label: string; icon: string; available: boolean }[] = [
+  { value: 'off', label: '关闭', icon: '🔇', available: true },
+  { value: 'web-speech', label: '本地合成（Web Speech）', icon: '🗣️', available: true },
+  { value: 'doubao', label: '豆包（云）', icon: '☁️', available: false },
+  { value: 'minimax', label: 'Minimax（云）', icon: '☁️', available: false }
+]
+
 export default function TTSSettings() {
   const form = useForm<TTSConfig>({ defaultValues: loadLocal() })
+
   useEffect(() => {
     const sub = form.watch((value) => saveLocal(value as TTSConfig))
     return () => sub.unsubscribe?.()
@@ -64,124 +78,196 @@ export default function TTSSettings() {
   }
 
   return (
-    <Card className="flex flex-col gap-2 p-2">
-      <div className="text-sm font-semibold">语音提醒</div>
-      <Form form={form}>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">引擎</div>
-            <FormField
-              control={form.control}
-              name="engine"
-              render={({ field }) => (
-                <FormItem>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="h-8">
-                      <SelectValue placeholder="选择语音引擎" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="off">关闭</SelectItem>
-                      <SelectItem value="web-speech">本地合成（Web Speech）</SelectItem>
-                      <SelectItem value="doubao">豆包（云）</SelectItem>
-                      <SelectItem value="minimax">Minimax（云）</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
+    <Card className="border-border/50 shadow-sm overflow-hidden">
+      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10">
+            <Mic className="h-5 w-5 text-cyan-500" />
           </div>
           <div>
-            <div className="mb-1 text-xs text-muted-foreground">语速（0.5–2.0）</div>
-            <FormField
-              control={form.control}
-              name="rate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min={0.5}
-                      max={2}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value) || 1)}
-                      className="h-8"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">音量（0–1）</div>
-            <FormField
-              control={form.control}
-              name="volume"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min={0}
-                      max={1}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value) || 1)}
-                      className="h-8"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">最短播报时长（毫秒）</div>
-            <FormField
-              control={form.control}
-              name="minDurationMs"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="100"
-                      min={0}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-                      className="h-8"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="col-span-2 flex items-center gap-2">
-            <FormField
-              control={form.control}
-              name="onlyOnFailure"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                      className="mr-2 align-middle"
-                    />
-                    仅失败时播报
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <Button type="button" size="sm" className="ml-auto" onClick={test} disabled={!canTest}>
-              试听
-            </Button>
+            <CardTitle className="text-base">语音播报</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">配置 AI 响应的语音朗读</p>
           </div>
         </div>
-      </Form>
-      <div className="text-xs text-muted-foreground">
-        提示：云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech 作为基础播报与试听。
-      </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <Form form={form}>
+          <div className="space-y-6">
+            {/* Engine selection */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Mic className="h-4 w-4 text-muted-foreground" />
+                语音引擎
+              </div>
+              <FormField
+                control={form.control}
+                name="engine"
+                render={({ field }) => (
+                  <FormItem>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="选择语音引擎" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ENGINE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} disabled={!opt.available}>
+                            <span className="flex items-center gap-2">
+                              <span>{opt.icon}</span>
+                              <span>{opt.label}</span>
+                              {!opt.available && (
+                                <span className="text-xs text-muted-foreground">(即将支持)</span>
+                              )}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Parameters grid */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Gauge className="h-4 w-4 text-muted-foreground" />
+                  语速
+                  <span className="text-xs text-muted-foreground font-normal">(0.5–2.0)</span>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="rate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min={0.5}
+                            max={2}
+                            step={0.1}
+                            value={field.value}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            className="flex-1 h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+                          />
+                          <span className="w-10 text-right text-sm font-mono tabular-nums">
+                            {field.value.toFixed(1)}
+                          </span>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Volume2 className="h-4 w-4 text-muted-foreground" />
+                  音量
+                  <span className="text-xs text-muted-foreground font-normal">(0–1)</span>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="volume"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.1}
+                            value={field.value}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            className="flex-1 h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+                          />
+                          <span className="w-10 text-right text-sm font-mono tabular-nums">
+                            {Math.round(field.value * 100)}%
+                          </span>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Min duration */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                最短播报时长
+                <span className="text-xs text-muted-foreground font-normal">(毫秒)</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="minDurationMs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="100"
+                        min={0}
+                        value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                        className="max-w-[200px]"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Failure only + Test button */}
+            <div className="flex items-center justify-between pt-4 border-t border-border/50">
+              <FormField
+                control={form.control}
+                name="onlyOnFailure"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-3">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                      </label>
+                      <FormLabel className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        仅失败时播报
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={test}
+                disabled={!canTest}
+                className="gap-2"
+              >
+                <Play className="h-3.5 w-3.5" />
+                试听
+              </Button>
+            </div>
+          </div>
+        </Form>
+
+        <div className="mt-6 pt-4 border-t border-border/50">
+          <p className="text-xs text-muted-foreground flex items-center gap-2">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
+            云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech 作为基础播报与试听。
+          </p>
+        </div>
+      </CardContent>
     </Card>
   )
 }

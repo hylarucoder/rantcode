@@ -1,15 +1,15 @@
 import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import { loadAudioFx, saveAudioFx, type AudioFxConfig } from '@/lib/audioFx'
+import { Volume2, Play, Upload, Music } from 'lucide-react'
 
 export default function AudioFxSettings() {
   const form = useForm<AudioFxConfig>({ defaultValues: loadAudioFx() })
 
-  // 全局保存：任意字段变更时持久化
   useEffect(() => {
     const sub = form.watch((value) => saveAudioFx(value as AudioFxConfig))
     return () => sub.unsubscribe?.()
@@ -27,147 +27,196 @@ export default function AudioFxSettings() {
     const dataUrl = await readAsDataURL(file)
     form.setValue(`${kind}.src` as const, dataUrl, { shouldDirty: true, shouldTouch: true })
     form.setValue(`${kind}.name` as const, file.name, { shouldDirty: true, shouldTouch: true })
-    // 立即试听所选文件，提升反馈
     previewAudio(dataUrl)
   }
 
   return (
-    <Card className="border-border/70 p-3 w-full">
-      <div className="mb-2 text-sm font-semibold">Sounds · 会话音效</div>
-      <Form form={form}>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="col-span-2">
+    <Card className="border-border/50 shadow-sm overflow-hidden">
+      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10">
+            <Volume2 className="h-5 w-5 text-orange-500" />
+          </div>
+          <div>
+            <CardTitle className="text-base">会话音效</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">配置会话开始和结束的提示音</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <Form form={form}>
+          {/* Master toggle */}
+          <div className="mb-6 pb-4 border-b border-border/50">
             <FormField
               control={form.control}
               name="enabled"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!field.value}
-                      onChange={(e) => {
-                        field.onChange(e.target.checked)
-                        if (e.target.checked) {
-                          const startEnabled = form.getValues('start.enabled')
-                          const endEnabled = form.getValues('end.enabled')
-                          const s = form.getValues('start.src') as string | undefined
-                          const eSrc = form.getValues('end.src') as string | undefined
-                          if (startEnabled && s) previewAudio(s)
-                          else if (endEnabled && eSrc) previewAudio(eSrc)
-                        }
-                      }}
-                      className="mr-2 align-middle"
-                    />
-                    启用会话音效
-                  </FormLabel>
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!field.value}
+                        onChange={(e) => {
+                          field.onChange(e.target.checked)
+                          if (e.target.checked) {
+                            const startEnabled = form.getValues('start.enabled')
+                            const endEnabled = form.getValues('end.enabled')
+                            const s = form.getValues('start.src') as string | undefined
+                            const eSrc = form.getValues('end.src') as string | undefined
+                            if (startEnabled && s) previewAudio(s)
+                            else if (endEnabled && eSrc) previewAudio(eSrc)
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                    <FormLabel className="text-sm font-medium cursor-pointer">
+                      启用会话音效
+                    </FormLabel>
+                  </div>
                 </FormItem>
               )}
             />
           </div>
 
-          <div className="space-y-2">
-            <div className="text-xs font-medium">开始音效</div>
-            <FormField
-              control={form.control}
-              name="start.enabled"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">
-                    <input
-                      type="checkbox"
-                      checked={!!field.value}
-                      onChange={(e) => {
-                        field.onChange(e.target.checked)
-                        if (e.target.checked) {
-                          const src = form.getValues('start.src') as string | undefined
-                          if (src) previewAudio(src)
-                        }
-                      }}
-                      className="mr-2 align-middle"
-                    />
-                    开启
-                  </FormLabel>
-                </FormItem>
-              )}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Start Sound */}
+            <SoundSlot
+              title="开始音效"
+              icon={<Music className="h-4 w-4" />}
+              iconBg="bg-green-500/10"
+              iconColor="text-green-500"
+              form={form}
+              fieldPrefix="start"
+              fileName={startName}
+              canTest={canTestStart}
+              onPick={(file) => handlePick('start', file)}
+              onTest={() => previewAudio(startSrc)}
             />
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept="audio/mpeg,audio/wav,audio/x-wav,audio/*"
-                onChange={(e) => handlePick('start', e.currentTarget.files?.[0])}
-                className="h-8"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate">{startName ? `已选择: ${startName}` : '未选择文件'}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!canTestStart}
-                onClick={() => previewAudio(startSrc)}
-                className="ml-auto"
-              >
-                试听
-              </Button>
-            </div>
+
+            {/* End Sound */}
+            <SoundSlot
+              title="结束音效"
+              icon={<Music className="h-4 w-4" />}
+              iconBg="bg-blue-500/10"
+              iconColor="text-blue-500"
+              form={form}
+              fieldPrefix="end"
+              fileName={endName}
+              canTest={canTestEnd}
+              onPick={(file) => handlePick('end', file)}
+              onTest={() => previewAudio(endSrc)}
+            />
           </div>
 
-          <div className="space-y-2">
-            <div className="text-xs font-medium">结束音效</div>
-            <FormField
-              control={form.control}
-              name="end.enabled"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">
-                    <input
-                      type="checkbox"
-                      checked={!!field.value}
-                      onChange={(e) => {
-                        field.onChange(e.target.checked)
-                        if (e.target.checked) {
-                          const src = form.getValues('end.src') as string | undefined
-                          if (src) previewAudio(src)
-                        }
-                      }}
-                      className="mr-2 align-middle"
-                    />
-                    开启
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept="audio/mpeg,audio/wav,audio/x-wav,audio/*"
-                onChange={(e) => handlePick('end', e.currentTarget.files?.[0])}
-                className="h-8"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate">{endName ? `已选择: ${endName}` : '未选择文件'}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!canTestEnd}
-                onClick={() => previewAudio(endSrc)}
-                className="ml-auto"
-              >
-                试听
-              </Button>
-            </div>
+          <div className="mt-6 pt-4 border-t border-border/50">
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
+              支持 mp3 / wav 格式。启用开关后立即播放当前选择的音效用于确认。
+            </p>
           </div>
-
-          <div className="col-span-2 text-xs text-muted-foreground">
-            支持 mp3 / wav。启用开关后立即播放当前选择的音效用于确认。
-          </div>
-        </div>
-      </Form>
+        </Form>
+      </CardContent>
     </Card>
+  )
+}
+
+function SoundSlot({
+  title,
+  icon,
+  iconBg,
+  iconColor,
+  form,
+  fieldPrefix,
+  fileName,
+  canTest,
+  onPick,
+  onTest
+}: {
+  title: string
+  icon: React.ReactNode
+  iconBg: string
+  iconColor: string
+  form: ReturnType<typeof useForm<AudioFxConfig>>
+  fieldPrefix: 'start' | 'end'
+  fileName?: string
+  canTest: boolean
+  onPick: (file: File | null | undefined) => void
+  onTest: () => void
+}) {
+  return (
+    <div className="rounded-lg border border-border/50 p-4 bg-muted/20 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconBg}`}>
+            <span className={iconColor}>{icon}</span>
+          </div>
+          <span className="text-sm font-medium">{title}</span>
+        </div>
+        <FormField
+          control={form.control}
+          name={`${fieldPrefix}.enabled`}
+          render={({ field }) => (
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!field.value}
+                onChange={(e) => {
+                  field.onChange(e.target.checked)
+                  if (e.target.checked) {
+                    const src = form.getValues(`${fieldPrefix}.src`) as string | undefined
+                    if (src) previewAudio(src)
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+          )}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-colors group">
+          <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+            选择音频文件
+          </span>
+          <Input
+            type="file"
+            accept="audio/mpeg,audio/wav,audio/x-wav,audio/*"
+            onChange={(e) => onPick(e.currentTarget.files?.[0])}
+            className="hidden"
+          />
+        </label>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground truncate flex-1">
+            {fileName ? (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                {fileName}
+              </span>
+            ) : (
+              '未选择文件'
+            )}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canTest}
+            onClick={onTest}
+            className="gap-1.5 shrink-0"
+          >
+            <Play className="h-3 w-3" />
+            试听
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

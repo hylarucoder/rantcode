@@ -19,6 +19,8 @@ export interface ChatMessage {
   sessionId?: string
   // 任务开始执行的时间戳（ms）
   startedAt?: number
+  // 执行任务的 agent
+  agent?: string
 }
 
 export interface ChatSession {

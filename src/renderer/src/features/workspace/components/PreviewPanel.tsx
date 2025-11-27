@@ -1,6 +1,41 @@
+import { useEffect, useRef } from 'react'
 import { ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useThemeMode } from '@/hooks/use-theme-mode'
+import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import type { PreviewTocItem } from '@/features/preview'
+import type { ThemeMode } from '@/types/theme'
+
+function PreviewMarkdownContent({
+  html,
+  previewRef
+}: {
+  html: string
+  previewRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const themeMode = useThemeMode()
+  const renderedRef = useRef<{ html: string; theme: ThemeMode } | null>(null)
+
+  useEffect(() => {
+    const container = previewRef.current
+    if (!container) return
+
+    // 内容和主题都没变时，不重复写入 DOM，避免覆盖已渲染的 mermaid SVG
+    if (renderedRef.current?.html === html && renderedRef.current?.theme === themeMode) {
+      return
+    }
+
+    container.innerHTML = html
+    renderedRef.current = { html, theme: themeMode }
+
+    const frameId = requestAnimationFrame(() => {
+      void renderMermaidIn(container, themeMode).catch(() => {})
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [html, themeMode, previewRef])
+
+  return <div className="markdown-body" ref={previewRef} />
+}
 
 export default function PreviewPanel({
   docPath,
@@ -46,11 +81,7 @@ export default function PreviewPanel({
             <div className="flex-1 min-h-0 overflow-y-auto pr-1">
               {rendering && <p className="text-xs text-muted-foreground">Rendering preview…</p>}
               {!rendering && (
-                <div
-                  className="markdown-body"
-                  ref={previewRef}
-                  dangerouslySetInnerHTML={{ __html: html }}
-                />
+                <PreviewMarkdownContent html={html} previewRef={previewRef} />
               )}
             </div>
           </>

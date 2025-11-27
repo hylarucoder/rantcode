@@ -32,7 +32,12 @@ const INITIAL_SESSIONS: ChatSession[] = [
 
 // Codex event application is handled in the workspace store.
 
-export default function WorkspacePage({ project }: { project: ProjectInfo }) {
+interface WorkspacePageProps {
+  project: ProjectInfo
+  onRemoveProject?: () => void
+}
+
+export default function WorkspacePage({ project, onRemoveProject }: WorkspacePageProps) {
   const workspaceId = project.id
   const chat = useWorkspaceChat(workspaceId)
   const { selectedDocPath, setSelectedDocPath, previewTocOpen, setPreviewTocOpen } =
@@ -47,7 +52,7 @@ export default function WorkspacePage({ project }: { project: ProjectInfo }) {
   const sessions = chat.sessions
   const activeSessionId = chat.activeSessionId ?? sessions[0]?.id ?? 'default'
   const [input, setInput] = useState('')
-  const [engine, setEngine] = useState<NonNullable<CodexRunOptions['engine']>>('codex')
+  const [agent, setAgent] = useState<NonNullable<CodexRunOptions['agent']>>('claude-code-glm')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
 
   const {
@@ -88,7 +93,8 @@ export default function WorkspacePage({ project }: { project: ProjectInfo }) {
       status: 'running',
       logs: [],
       output: '',
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      agent
     }
 
     chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
@@ -101,7 +107,7 @@ export default function WorkspacePage({ project }: { project: ProjectInfo }) {
     const sessionCodexId = activeSession?.codexSessionId
     setRunningJobId(jobId)
     run({
-      engine,
+      agent,
       workspaceId: project.id,
       prompt: value,
       jobId,
@@ -184,8 +190,8 @@ export default function WorkspacePage({ project }: { project: ProjectInfo }) {
         onSend={handleSend}
         isRunning={!!runningJobId}
         onInterrupt={handleInterrupt}
-        engine={engine}
-        onEngineChange={setEngine}
+        agent={agent}
+        onAgentChange={setAgent}
         onDocChange={handlePreviewDocChange}
         previewDocPath={selectedDocPath}
         previewHtml={previewHtml}
@@ -195,6 +201,7 @@ export default function WorkspacePage({ project }: { project: ProjectInfo }) {
         onTocClick={handlePreviewTocClick}
         previewTocOpen={previewTocOpen}
         onTogglePreviewToc={setPreviewTocOpen}
+        onRemoveProject={onRemoveProject}
       />
     </WorkspaceProvider>
   )
