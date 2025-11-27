@@ -14,7 +14,12 @@ interface ClaudeJsonMessage {
   model?: string
   claude_code_version?: string
   message?: {
-    content?: Array<{ type: string; text?: string }>
+    content?: Array<{
+      type: string
+      text?: string
+      name?: string // tool_use name
+      input?: unknown // tool_use input
+    }>
   }
   result?: string
   is_error?: boolean
@@ -89,12 +94,25 @@ export function parseClaudeCodeLog(text: string): ConversationSession[] | null {
       if (json.type === 'assistant') {
         const content = json.message?.content
         if (content && Array.isArray(content)) {
-          const text = content
-            .filter((c) => c.type === 'text' && c.text)
-            .map((c) => c.text)
-            .join('\n')
-          if (text) {
+          // 提取文本内容
+          const textParts = content.filter((c) => c.type === 'text' && c.text)
+          if (textParts.length > 0) {
+            const text = textParts.map((c) => c.text).join('\n')
             curSession.events.push({ type: 'assistant', text })
+          }
+
+          // 提取 tool_use 调用
+          const toolUses = content.filter((c) => c.type === 'tool_use' && c.name)
+          for (const tool of toolUses) {
+            const argsText =
+              typeof tool.input === 'string'
+                ? tool.input
+                : JSON.stringify(tool.input, null, 2)
+            curSession.events.push({
+              type: 'tool_call',
+              name: tool.name || 'unknown',
+              argsText: argsText || ''
+            })
           }
         }
         continue

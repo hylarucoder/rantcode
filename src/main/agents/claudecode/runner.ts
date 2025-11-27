@@ -2,8 +2,6 @@ import { spawn } from 'node:child_process'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import * as fs from 'node:fs/promises'
 import { constants as fsConstants } from 'node:fs'
-import * as path from 'node:path'
-import { app } from 'electron'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { claudeVendorRunInputSchema } from '../../../shared/orpc/schemas'
@@ -12,22 +10,7 @@ import { notifyCodex } from '../../notifyBridge'
 import { findExecutable, AGENT_CONFIGS } from '../detect'
 import type { Agent } from '../../../shared/agents'
 import { resolveWorkspaceRoot } from '../../rpc'
-
-// Claude Code tokens 类型
-type ClaudeTokens = { official?: string; kimi?: string; glm?: string; minmax?: string }
-
-// 读取保存的 Claude Code tokens
-async function readClaudeTokens(): Promise<ClaudeTokens> {
-  const file = path.join(app.getPath('userData'), 'claude.tokens.json')
-  try {
-    const raw = await fs.readFile(file, 'utf8')
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object') return parsed as ClaudeTokens
-    return {}
-  } catch {
-    return {}
-  }
-}
+import { readClaudeTokens, type ClaudeTokens } from '../../settings/tokens'
 
 export type ClaudeRunInput = z.infer<typeof claudeVendorRunInputSchema>
 export interface ClaudeRunResult {
@@ -83,6 +66,32 @@ function dispatchEvent(targetId: number, payload: CodexEvent): void {
 }
 
 /**
+ * 构建 Claude Code CLI 的默认参数
+ * 确保包含 --print, --dangerously-skip-permissions, --output-format stream-json, --verbose
+ */
+function buildClaudeCodeArgs(extraArgs?: string[]): string[] {
+  const args = Array.isArray(extraArgs)
+    ? extraArgs.filter((s) => typeof s === 'string' && s.length > 0)
+    : []
+
+  // 添加默认标志（如果尚未存在）
+  if (!args.includes('--print') && !args.includes('-p')) {
+    args.push('--print')
+  }
+  if (!args.includes('--dangerously-skip-permissions')) {
+    args.unshift('--dangerously-skip-permissions')
+  }
+  if (!args.includes('--output-format')) {
+    args.push('--output-format', 'stream-json')
+  }
+  if (!args.includes('--verbose')) {
+    args.push('--verbose')
+  }
+
+  return args
+}
+
+/**
  * 流式运行 Claude Code agent，实时发送事件到渲染进程
  */
 export async function runClaudeCodeStreaming(
@@ -101,19 +110,7 @@ export async function runClaudeCodeStreaming(
 
   const bin = await findExecutable(agent)
   const agentConfig = AGENT_CONFIGS[agent]
-
-  // 构建参数
-  const args: string[] = []
-  if (payload.extraArgs) {
-    args.push(...payload.extraArgs.filter((s) => typeof s === 'string' && s.length > 0))
-  }
-  // Claude Code 特有的参数
-  if (!args.includes('--print') && !args.includes('-p')) args.push('--print')
-  if (!args.includes('--dangerously-skip-permissions')) {
-    args.unshift('--dangerously-skip-permissions')
-  }
-  if (!args.includes('--output-format')) args.push('--output-format', 'stream-json')
-  if (!args.includes('--verbose')) args.push('--verbose')
+  const args = buildClaudeCodeArgs(payload.extraArgs)
 
   // 构建环境变量
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }
@@ -136,7 +133,7 @@ export async function runClaudeCodeStreaming(
     const cmdStr = [bin, ...args].join(' ')
     console.log(`[rantcode][${agent}] spawn:`, cmdStr, '\n cwd:', repoRoot)
   } catch {
-    void 0
+    // ignored - debug logging is non-critical
   }
 
   const child = spawn(bin, args, {
@@ -323,7 +320,7 @@ export async function runClaudeCodeStreaming(
     try {
       child.kill()
     } catch {
-      void 0
+      // ignored - process may already be dead
     }
   }
 
@@ -402,13 +399,7 @@ export async function runClaudeOnce(input: ClaudeRunInput): Promise<ClaudeRunRes
     return { ok: false, error: msg }
   }
 
-  const args = Array.isArray(cfg.args) ? cfg.args.slice() : []
-  // Default flags for non-interactive, verbose JSON streaming runs
-  if (!args.includes('--print') && !args.includes('-p')) args.push('--print')
-  if (!args.includes('--dangerously-skip-permissions'))
-    args.unshift('--dangerously-skip-permissions')
-  if (!args.includes('--output-format')) args.push('--output-format', 'stream-json')
-  if (!args.includes('--verbose')) args.push('--verbose')
+  const args = buildClaudeCodeArgs(cfg.args)
 
   // Build final env
   const finalEnv: NodeJS.ProcessEnv = { ...process.env, ...cfg.envVars, NO_COLOR: '1' }

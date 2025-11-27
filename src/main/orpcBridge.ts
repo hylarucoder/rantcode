@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import type { MessagePortMain } from 'electron'
 import { os } from '@orpc/server'
 // Optionally import the shared contract for alignment (types only)
@@ -15,7 +15,6 @@ import { registerNotifyPort, unregisterNotifyPort } from './notifyBridge'
 import { loggerService } from './services/loggerService'
 import { z } from 'zod'
 import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 
 // Extend MessagePortMain to include optional start() method
 type MessagePortMainWithStart = MessagePortMain & {
@@ -51,6 +50,8 @@ import {
 import { detectAll } from './agents/detect'
 import { runCodex, cancelCodex } from './agents/codex'
 import { readGeneralSettings, writeGeneralSettings } from './settings/general'
+import { readClaudeTokens, writeClaudeTokens, type ClaudeTokens } from './settings/tokens'
+import { createJsonStore } from './settings/jsonStore'
 
 /**
  * Set up oRPC server over Electron MessagePort (renderer <-> main).
@@ -64,59 +65,57 @@ export function setupOrpcBridge(): void {
   const projects = new ProjectService()
 
   const orpcLog = loggerService.child('orpc')
-  function logError(label: string, error: unknown): void {
+
+  /** 广播错误到所有窗口并记录日志 */
+  function broadcastError(label: string, error: unknown): void {
     const asErr = error as { stack?: string; message?: string }
     const msg = asErr?.message || String(error)
     orpcLog.error(`call failed: ${label}`, { message: msg, stack: asErr?.stack })
+    try {
+      BrowserWindow.getAllWindows().forEach((w) =>
+        w.webContents.send('orpc:error', { label, stack: asErr?.stack, message: asErr?.message })
+      )
+    } catch {
+      // ignored - notification is best-effort
+    }
   }
 
-  // Providers store helpers
+  /** 包装处理函数，统一错误处理 */
+  function withErrorHandler<T>(label: string, fn: () => Promise<T>): () => Promise<T> {
+    return async () => {
+      try {
+        return await fn()
+      } catch (err) {
+        broadcastError(label, err)
+        throw err
+      }
+    }
+  }
+
+  /** 包装带输入的处理函数，统一错误处理 */
+  function withInputErrorHandler<I, T>(
+    label: string,
+    fn: (input: I) => Promise<T>
+  ): (ctx: { input: I }) => Promise<T> {
+    return async ({ input }) => {
+      try {
+        return await fn(input)
+      } catch (err) {
+        broadcastError(label, err)
+        throw err
+      }
+    }
+  }
+
+  // Providers store
   type Catalog = z.infer<typeof catalogSchema>
-  function getProvidersStorePath(): string {
-    const userData = app.getPath('userData')
-    return path.join(userData, 'providers.json')
-  }
-  async function readProviders(): Promise<Catalog> {
-    const file = getProvidersStorePath()
-    try {
-      const raw = await fs.readFile(file, 'utf8')
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object') return parsed as Catalog
-      return {}
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return {}
-      throw err
-    }
-  }
-  async function writeProviders(catalog: Catalog): Promise<void> {
-    const file = getProvidersStorePath()
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, JSON.stringify(catalog, null, 2), 'utf8')
-  }
+  const providersStore = createJsonStore<Catalog>('providers.json')
 
-  // Vendors store helpers (Claude Code)
+  // Vendors store (Claude Code)
   type ClaudeVendorsCatalog = z.infer<typeof claudeVendorsCatalogSchema>
-  function getVendorsStorePath(): string {
-    const userData = app.getPath('userData')
-    return path.join(userData, 'vendors.json')
-  }
-  async function readClaudeVendors(): Promise<ClaudeVendorsCatalog> {
-    const file = getVendorsStorePath()
-    try {
-      const raw = await fs.readFile(file, 'utf8')
-      const parsed = JSON.parse(raw)
-      const result = claudeVendorsCatalogSchema.safeParse(parsed)
-      return result.success ? result.data : {}
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return {}
-      throw err
-    }
-  }
-  async function writeClaudeVendors(catalog: ClaudeVendorsCatalog): Promise<void> {
-    const file = getVendorsStorePath()
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, JSON.stringify(catalog, null, 2), 'utf8')
-  }
+  const vendorsStore = createJsonStore<ClaudeVendorsCatalog>('vendors.json', {
+    schema: claudeVendorsCatalogSchema
+  })
 
   async function testClaudeVendor(
     cfg: z.infer<typeof claudeVendorConfigSchema>
@@ -130,55 +129,12 @@ export function setupOrpcBridge(): void {
     return runClaudeOnceFromModule(input)
   }
 
-  // Agents (Codex) store helpers
+  // Agents (Codex) store
   type AgentsCatalog = z.infer<typeof agentsCatalogSchema>
-  function getAgentsStorePath(): string {
-    const userData = app.getPath('userData')
-    return path.join(userData, 'agents.json')
-  }
-  async function readAgents(): Promise<AgentsCatalog> {
-    const file = getAgentsStorePath()
-    try {
-      const raw = await fs.readFile(file, 'utf8')
-      const parsed = JSON.parse(raw)
-      return parsed as AgentsCatalog
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return {} as AgentsCatalog
-      throw err
-    }
-  }
-  async function writeAgents(catalog: AgentsCatalog): Promise<void> {
-    const file = getAgentsStorePath()
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, JSON.stringify(catalog, null, 2), 'utf8')
-  }
+  const agentsStore = createJsonStore<AgentsCatalog>('agents.json')
 
   // App-level general settings helpers moved to src/main/settings/general.ts
   type GeneralSettings = z.infer<typeof generalSettingsSchema>
-
-  // Claude Code tokens helpers
-  type ClaudeTokens = { official?: string; kimi?: string; glm?: string; minmax?: string }
-  function getClaudeTokensPath(): string {
-    const userData = app.getPath('userData')
-    return path.join(userData, 'claude.tokens.json')
-  }
-  async function readClaudeTokens(): Promise<ClaudeTokens> {
-    const file = getClaudeTokensPath()
-    try {
-      const raw = await fs.readFile(file, 'utf8')
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object') return parsed as ClaudeTokens
-      return {}
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return {}
-      throw err
-    }
-  }
-  async function writeClaudeTokens(tokens: ClaudeTokens): Promise<void> {
-    const file = getClaudeTokensPath()
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, JSON.stringify(tokens, null, 2), 'utf8')
-  }
 
   async function testCodexAgent(cfg: {
     binPath?: string
@@ -232,200 +188,62 @@ export function setupOrpcBridge(): void {
   // Define an orpc router mirroring our shared contract
   const router = os.router({
     system: {
-      health: os.output(healthResponseSchema).handler(async () => {
-        try {
-          return await system.health()
-        } catch (err) {
-          logError('system.health', err)
-          try {
-            const stack = (err as { stack?: string; message?: string })?.stack
-            const message = (err as { message?: string })?.message
-            BrowserWindow.getAllWindows().forEach((w) =>
-              w.webContents.send('orpc:error', { label: 'system.health', stack, message })
-            )
-          } catch {
-            void 0
-          }
-          throw err
-        }
-      }),
-      version: os.output(z.object({ version: z.string() })).handler(async () => {
-        try {
-          return await system.version()
-        } catch (err) {
-          logError('system.version', err)
-          try {
-            const stack = (err as { stack?: string; message?: string })?.stack
-            const message = (err as { message?: string })?.message
-            BrowserWindow.getAllWindows().forEach((w) =>
-              w.webContents.send('orpc:error', { label: 'system.version', stack, message })
-            )
-          } catch {
-            void 0
-          }
-          throw err
-        }
-      })
+      health: os
+        .output(healthResponseSchema)
+        .handler(withErrorHandler('system.health', () => system.health())),
+      version: os
+        .output(z.object({ version: z.string() }))
+        .handler(withErrorHandler('system.version', () => system.version()))
     },
     fs: {
       tree: os
         .input(fsTreeInputSchema)
         .output(fsTreeNodeSchema)
-        .handler(async ({ input }) => {
-          try {
-            return await fsSvc.tree(input)
-          } catch (err) {
-            logError('fs.tree', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'fs.tree', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        }),
+        .handler(withInputErrorHandler('fs.tree', (input) => fsSvc.tree(input))),
       read: os
         .input(fsReadInputSchema)
         .output(fsFileSchema)
-        .handler(async ({ input }) => {
-          try {
-            return await fsSvc.read(input)
-          } catch (err) {
-            logError('fs.read', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'fs.read', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        })
+        .handler(withInputErrorHandler('fs.read', (input) => fsSvc.read(input)))
     },
     projects: {
-      list: os.output(projectInfoSchema.array()).handler(async () => {
-        try {
-          return await projects.list()
-        } catch (err) {
-          logError('projects.list', err)
-          try {
-            const stack = (err as { stack?: string; message?: string })?.stack
-            const message = (err as { message?: string })?.message
-            BrowserWindow.getAllWindows().forEach((w) =>
-              w.webContents.send('orpc:error', { label: 'projects.list', stack, message })
-            )
-          } catch {
-            void 0
-          }
-          throw err
-        }
-      }),
+      list: os
+        .output(projectInfoSchema.array())
+        .handler(withErrorHandler('projects.list', () => projects.list())),
       add: os
         .input(createProjectInputSchema)
         .output(projectInfoSchema)
-        .handler(async ({ input }) => {
-          try {
-            return await projects.add(input)
-          } catch (err) {
-            logError('projects.add', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'projects.add', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        }),
+        .handler(withInputErrorHandler('projects.add', (input) => projects.add(input))),
       update: os
         .input(updateProjectInputSchema)
         .output(projectInfoSchema)
-        .handler(async ({ input }) => {
-          try {
-            return await projects.update(input)
-          } catch (err) {
-            logError('projects.update', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'projects.update', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        }),
+        .handler(withInputErrorHandler('projects.update', (input) => projects.update(input))),
       remove: os
         .input(removeProjectInputSchema)
         .output(okResponseSchema)
-        .handler(async ({ input }) => {
-          try {
-            return await projects.remove(input)
-          } catch (err) {
-            logError('projects.remove', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'projects.remove', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        }),
+        .handler(withInputErrorHandler('projects.remove', (input) => projects.remove(input))),
       pickRepoPath: os
         .output(z.union([z.object({ path: z.string() }), z.null()]))
-        .handler(async () => {
-          try {
-            return await projects.pickRepoPath()
-          } catch (err) {
-            logError('projects.pickRepoPath', err)
-            try {
-              const stack = (err as { stack?: string; message?: string })?.stack
-              const message = (err as { message?: string })?.message
-              BrowserWindow.getAllWindows().forEach((w) =>
-                w.webContents.send('orpc:error', { label: 'projects.pickRepoPath', stack, message })
-              )
-            } catch {
-              void 0
-            }
-            throw err
-          }
-        })
+        .handler(withErrorHandler('projects.pickRepoPath', () => projects.pickRepoPath()))
     },
     providers: {
-      get: os.output(catalogSchema).handler(async () => (await readProviders()) as Catalog),
+      get: os.output(catalogSchema).handler(async () => providersStore.read()),
       set: os
         .input(catalogSchema)
         .output(catalogSchema)
         .handler(async ({ input }) => {
-          await writeProviders(input as Catalog)
+          await providersStore.write(input as Catalog)
           return input
         })
     },
     vendors: {
       getClaudeCode: os
         .output(claudeVendorsCatalogSchema)
-        .handler(async () => (await readClaudeVendors()) as ClaudeVendorsCatalog),
+        .handler(async () => vendorsStore.read()),
       setClaudeCode: os
         .input(claudeVendorsCatalogSchema)
         .output(claudeVendorsCatalogSchema)
         .handler(async ({ input }) => {
-          await writeClaudeVendors(input as ClaudeVendorsCatalog)
+          await vendorsStore.write(input as ClaudeVendorsCatalog)
           return input
         }),
       testClaudeCode: os
@@ -461,14 +279,12 @@ export function setupOrpcBridge(): void {
         .handler(async ({ input }) => cancelCodex(input.jobId))
     },
     agents: {
-      get: os
-        .output(agentsCatalogSchema)
-        .handler(async () => (await readAgents()) as AgentsCatalog),
+      get: os.output(agentsCatalogSchema).handler(async () => agentsStore.read()),
       set: os
         .input(agentsCatalogSchema)
         .output(agentsCatalogSchema)
         .handler(async ({ input }) => {
-          await writeAgents(input as AgentsCatalog)
+          await agentsStore.write(input as AgentsCatalog)
           return input
         }),
       testCodex: os
@@ -591,8 +407,7 @@ export function setupOrpcBridge(): void {
   try {
     setHiddenRouterContract(router, rantcodeContract)
   } catch {
-    // Ignore if tooling contract linking is unavailable in prod
-    void 0
+    // ignored - tooling contract linking may be unavailable in prod
   }
 
   const handler = new StandardRPCHandler<Context>(router, {

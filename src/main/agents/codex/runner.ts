@@ -69,8 +69,7 @@ function notifyRunResult(
     })
     notification.show()
   } catch {
-    // Ignore notification failures (headless/test environments)
-    void 0
+    // ignored - notification failures in headless/test environments
   }
 }
 
@@ -114,7 +113,7 @@ export async function runCodex(
     const cmdStr = [bin, ...args].join(' ')
     console.log(`[rantcode][${agent}] spawn:`, cmdStr, '\n cwd:', repoRoot)
   } catch {
-    void 0
+    // ignored - debug logging is non-critical
   }
 
   const child = spawn(bin, args, {
@@ -279,7 +278,7 @@ export async function runCodex(
     try {
       child.kill()
     } catch {
-      void 0
+      // ignored - process may already be dead
     }
   }
 
