@@ -9,6 +9,7 @@ import { ActivityBar, type ActivityView } from '@/features/workspace/components/
 import { AssistantPanel } from '@/features/workspace/components/AssistantPanel'
 import { ProjectSettingsPanel } from '@/features/workspace/components/ProjectSettingsPanel'
 import { GitPanel } from '@/features/workspace/components/GitPanel'
+import { KanbanPanel } from '@/features/workspace/components/KanbanPanel'
 import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
@@ -116,6 +117,18 @@ export function WorkspaceLayout({
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 overflow-hidden">
           <GitPanel workspaceId={project.id} />
+        </div>
+      </div>
+    )
+  }
+
+  // 看板视图是全屏的
+  if (activeView === 'kanban') {
+    return (
+      <div className="flex h-full min-h-0">
+        <ActivityBar activeView={activeView} onViewChange={setActiveView} />
+        <div className="flex-1 overflow-hidden">
+          <KanbanPanel workspaceId={project.id} />
         </div>
       </div>
     )
