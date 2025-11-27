@@ -5,6 +5,7 @@ import {
   fsTreeInputSchema,
   fsTreeNodeSchema,
   fsReadInputSchema,
+  fsWriteInputSchema,
   fsFileSchema,
   projectInfoSchema,
   createProjectInputSchema,
@@ -44,7 +45,8 @@ export const contract = oc.router({
   },
   fs: {
     tree: oc.input(fsTreeInputSchema).output(fsTreeNodeSchema),
-    read: oc.input(fsReadInputSchema).output(fsFileSchema)
+    read: oc.input(fsReadInputSchema).output(fsFileSchema),
+    write: oc.input(fsWriteInputSchema).output(okResponseSchema)
   },
   projects: {
     list: oc.output(projectInfoSchema.array()),

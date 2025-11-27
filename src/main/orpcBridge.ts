@@ -24,6 +24,7 @@ import {
   createProjectInputSchema,
   fsFileSchema,
   fsReadInputSchema,
+  fsWriteInputSchema,
   fsTreeInputSchema,
   fsTreeNodeSchema,
   healthResponseSchema,
@@ -217,7 +218,11 @@ export function setupOrpcBridge(): void {
       read: os
         .input(fsReadInputSchema)
         .output(fsFileSchema)
-        .handler(withInputErrorHandler('fs.read', (input) => fsSvc.read(input)))
+        .handler(withInputErrorHandler('fs.read', (input) => fsSvc.read(input))),
+      write: os
+        .input(fsWriteInputSchema)
+        .output(okResponseSchema)
+        .handler(withInputErrorHandler('fs.write', (input) => fsSvc.write(input)))
     },
     projects: {
       list: os

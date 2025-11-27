@@ -65,6 +65,13 @@ export const fsReadInputSchema = z.object({
   workspaceId: z.string().optional()
 })
 
+export const fsWriteInputSchema = z.object({
+  base: baseKeySchema.optional(),
+  path: z.string().min(1),
+  content: z.string(),
+  workspaceId: z.string().optional()
+})
+
 // Providers config schemas
 export const modelSchema = z.object({
   name: z.string().optional(),

@@ -81,8 +81,8 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
   - [x] Kanban UI 组件
   - [x] 从 `docs/task/*.md` 读取任务
   - [x] 解析 frontmatter（status/priority/owner）
+  - [x] 拖拽后自动更新文件 frontmatter
 - **待实现**：
-  - [ ] 拖拽后自动更新文件 frontmatter
   - [ ] Session-Task 关联
 
 #### Session 持久化（P2）

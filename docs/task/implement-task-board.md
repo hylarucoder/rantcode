@@ -17,11 +17,11 @@ owner: AI
 - [x] 创建 KanbanPanel 组件
 - [x] 从 docs/task/ 读取 .md 文件
 - [x] 解析 frontmatter 获取任务状态
-- [x] 支持拖拽移动任务（本地状态）
+- [x] 支持拖拽移动任务
+- [x] 拖拽后自动更新文件 frontmatter
 
 ## 后续
 
-- [ ] 拖拽后自动更新文件 frontmatter
 - [ ] 支持新建任务文件
 - [ ] 与 Session 关联
 

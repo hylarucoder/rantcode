@@ -320,6 +320,27 @@ export class FsService {
       content
     }
   }
+
+  async write(opts: {
+    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    path: string
+    content: string
+    workspaceId?: string
+  }): Promise<{ ok: boolean }> {
+    if (!opts?.path) {
+      throw new Error('path is required')
+    }
+    if (typeof opts.content !== 'string') {
+      throw new Error('content is required')
+    }
+    const baseDir = await resolveBaseDir(opts.base ?? 'repo', opts.workspaceId)
+    const absPath = resolvePathInBase(baseDir, opts.path)
+    // 确保父目录存在
+    const dir = path.dirname(absPath)
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(absPath, opts.content, 'utf8')
+    return { ok: true }
+  }
 }
 
 export class ProjectService {

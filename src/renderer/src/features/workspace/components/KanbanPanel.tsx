@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
 import { fetchFile } from '@/features/spec/api/fs'
+import { orpc } from '@/lib/orpcQuery'
+import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
 
 // Task 类型定义（与 docs/design/data-model.md 对齐）
@@ -73,6 +75,38 @@ function parseFrontmatter(content: string): Record<string, string> {
     }
   }
   return frontmatter
+}
+
+// 更新 frontmatter 中的字段
+function updateFrontmatter(content: string, key: string, value: string): string {
+  const match = content.match(/^(---\s*\n)([\s\S]*?)(\n---)/)
+  if (!match) {
+    // 没有 frontmatter，创建一个
+    return `---\n${key}: ${value}\n---\n\n${content}`
+  }
+
+  const [, start, fmContent, end] = match
+  const lines = fmContent.split('\n')
+  let found = false
+
+  const newLines = lines.map((line) => {
+    const colonIndex = line.indexOf(':')
+    if (colonIndex > 0) {
+      const lineKey = line.slice(0, colonIndex).trim()
+      if (lineKey === key) {
+        found = true
+        return `${key}: ${value}`
+      }
+    }
+    return line
+  })
+
+  if (!found) {
+    newLines.push(`${key}: ${value}`)
+  }
+
+  const restContent = content.slice(match[0].length)
+  return `${start}${newLines.join('\n')}${end}${restContent}`
 }
 
 // 从文件名生成标题
@@ -180,6 +214,53 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
     )
   }, [tasks])
 
+  // 更新任务状态（同时更新本地状态和文件）
+  const updateTaskStatus = useCallback(
+    async (task: Task, newStatus: TaskStatus) => {
+      if (task.status === newStatus) return
+
+      // 先更新本地状态（乐观更新）
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)))
+
+      try {
+        // 读取文件内容
+        const { content } = await fetchFile({
+          base: 'docs',
+          path: task.filePath,
+          workspaceId
+        })
+
+        // 更新 frontmatter
+        const newContent = updateFrontmatter(content, 'status', newStatus)
+
+        // 写回文件
+        await (
+          orpc.fs.write as {
+            call: (opts: {
+              base: string
+              path: string
+              content: string
+              workspaceId: string
+            }) => Promise<{ ok: boolean }>
+          }
+        ).call({
+          base: 'docs',
+          path: task.filePath,
+          content: newContent,
+          workspaceId
+        })
+
+        toast.success(`任务已移至「${columns.find((c) => c.id === newStatus)?.label}」`)
+      } catch (err) {
+        // 回滚本地状态
+        setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)))
+        toast.error('更新任务状态失败')
+        console.error('Failed to update task status:', err)
+      }
+    },
+    [workspaceId]
+  )
+
   // 拖拽处理
   const handleDragStart = (task: Task) => {
     setDraggedTask(task)
@@ -191,9 +272,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
 
   const handleDrop = (status: TaskStatus) => {
     if (draggedTask && draggedTask.status !== status) {
-      // 更新本地状态（实际更新需要修改文件）
-      setTasks((prev) => prev.map((t) => (t.id === draggedTask.id ? { ...t, status } : t)))
-      // TODO: 更新文件的 frontmatter
+      void updateTaskStatus(draggedTask, status)
     }
     setDraggedTask(null)
   }
@@ -335,13 +414,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
                               .map((c) => (
                                 <DropdownMenuItem
                                   key={c.id}
-                                  onClick={() => {
-                                    setTasks((prev) =>
-                                      prev.map((t) =>
-                                        t.id === task.id ? { ...t, status: c.id } : t
-                                      )
-                                    )
-                                  }}
+                                  onClick={() => void updateTaskStatus(task, c.id)}
                                 >
                                   <span className={cn('mr-2 h-2 w-2 rounded-full', c.color)} />
                                   移至 {c.label}
