@@ -4,7 +4,7 @@ import type { ProjectInfo } from '@/types'
 import { WorkspaceLayout } from '@/features/workspace/views/WorkspaceLayout'
 import { useCodexRunner } from '@/features/workspace/hooks/useCodexRunner'
 import { usePreviewDocument } from '@/features/preview'
-import { useWorkspaceChat, useWorkspacePreview } from '@/features/workspace/state/store'
+import { useProjectChat, useProjectPreview } from '@/features/workspace/state/store'
 import { useProjects } from '@/state/projects'
 import type { CodexEvent, CodexRunOptions } from '@shared/types/webui'
 import { toast } from 'sonner'
@@ -24,23 +24,23 @@ export default function SessionsView({ project }: SessionsViewProps) {
   const navigate = useNavigate()
   const { removeProject } = useProjects()
 
-  const workspaceId = project.id
-  const chat = useWorkspaceChat(workspaceId)
+  const projectId = project.id
+  const chat = useProjectChat(projectId)
   const { selectedDocPath, setSelectedDocPath, previewTocOpen, setPreviewTocOpen } =
-    useWorkspacePreview(workspaceId)
+    useProjectPreview(projectId)
 
-  // ensure workspace state exists (sessions will be loaded from backend via useWorkspaceChat hook)
+  // ensure project state exists (sessions will be loaded from backend via useProjectChat hook)
   useEffect(() => {
-    if (!workspaceId) return
-    chat.ensure(workspaceId)
-  }, [workspaceId, chat])
+    if (!projectId) return
+    chat.ensure(projectId)
+  }, [projectId, chat])
 
   const sessions = chat.sessions
   const activeSessionId = chat.activeSessionId ?? sessions[0]?.id ?? null
 
   // 如果没有任何 session，自动创建一个
   useEffect(() => {
-    if (sessions.length === 0 && workspaceId) {
+    if (sessions.length === 0 && projectId) {
       const defaultSession: ChatSession = {
         id: `session-${Date.now()}`,
         title: 'New Session',
@@ -54,7 +54,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
       }
       void chat.addSession(defaultSession)
     }
-  }, [sessions.length, workspaceId, chat])
+  }, [sessions.length, projectId, chat])
   const [input, setInput] = useState('')
   const [agent, setAgent] = useState<NonNullable<CodexRunOptions['agent']>>('claude-code-glm')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
@@ -112,7 +112,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
     setRunningJobId(jobId)
     run({
       agent,
-      workspaceId: project.id,
+      projectId: project.id,
       prompt: value,
       jobId,
       sessionId: sessionCodexId

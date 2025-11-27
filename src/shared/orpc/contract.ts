@@ -118,9 +118,9 @@ export const contract = oc.router({
   },
   docs: {
     subscribe: oc
-      .input(z.object({ workspaceId: z.string().optional() }))
+      .input(z.object({ projectId: z.string().optional() }))
       .output(z.object({ ok: z.boolean(), error: z.string().optional() })),
-    unsubscribe: oc.input(z.object({ workspaceId: z.string().optional() })).output(z.void())
+    unsubscribe: oc.input(z.object({ projectId: z.string().optional() })).output(z.void())
   },
   git: {
     status: oc.input(gitStatusInputSchema).output(gitStatusSchema),

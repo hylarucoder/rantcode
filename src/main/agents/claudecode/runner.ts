@@ -9,7 +9,7 @@ import type { CodexEvent, CodexRunOptions } from '../../../shared/types/webui'
 import { notifyCodex } from '../../notifyBridge'
 import { findExecutable, AGENT_CONFIGS } from '../detect'
 import type { Agent } from '../../../shared/agents'
-import { resolveWorkspaceRoot } from '../../rpc'
+import { resolveProjectRoot } from '../../rpc'
 import { readClaudeTokens, type ClaudeTokens } from '../../settings/tokens'
 
 export type ClaudeRunInput = z.infer<typeof claudeVendorRunInputSchema>
@@ -111,7 +111,7 @@ export async function runClaudeCodeStreaming(
 
   const jobId =
     typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
-  const repoRoot = await resolveWorkspaceRoot(payload?.workspaceId)
+  const repoRoot = await resolveProjectRoot(payload?.projectId)
   const agent = payload.agent as Agent
 
   const bin = await findExecutable(agent)

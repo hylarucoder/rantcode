@@ -6,29 +6,29 @@ import type { DocsWatcherEvent } from '../shared/types/webui'
 import { resolveBaseDir } from './rpc'
 import { notifyDocs } from './notifyBridge'
 
-type WorkspaceKey = string
+type ProjectKey = string
 
 const DEFAULT_WORKSPACE_KEY = '__default__'
 
 interface WatchEntry {
   watcher: FSWatcher
   baseDir: string
-  workspaceId?: string
+  projectId?: string
   subscribers: Map<number, number>
 }
 
 // IPC 请求类型已移除（改用 oRPC）；仅保留内部函数与类型。
 
-const watchers = new Map<WorkspaceKey, WatchEntry>()
-const contentsToWorkspaces = new Map<number, Set<WorkspaceKey>>()
+const watchers = new Map<ProjectKey, WatchEntry>()
+const contentsToProjects = new Map<number, Set<ProjectKey>>()
 
-function toWorkspaceKey(workspaceId?: string): WorkspaceKey {
-  const trimmed = workspaceId?.trim()
+function toProjectKey(projectId?: string): ProjectKey {
+  const trimmed = projectId?.trim()
   return trimmed && trimmed.length > 0 ? trimmed : DEFAULT_WORKSPACE_KEY
 }
 
-async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<WatchEntry> {
-  const baseDir = await resolveBaseDir('docs', workspaceId)
+async function createWatcher(key: ProjectKey, projectId?: string): Promise<WatchEntry> {
+  const baseDir = await resolveBaseDir('docs', projectId)
   const stat = await fs.stat(baseDir).catch(() => null)
   if (!stat || !stat.isDirectory()) {
     throw new Error(`docs directory not found at ${baseDir}`)
@@ -48,7 +48,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
   const entry: WatchEntry = {
     watcher,
     baseDir,
-    workspaceId,
+    projectId,
     subscribers: new Map()
   }
 
@@ -72,7 +72,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
     }
 
     broadcast(key, {
-      workspaceId: entry.workspaceId,
+      projectId: entry.projectId,
       kind: 'file',
       changeType,
       path: normalized,
@@ -84,7 +84,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
   watcher.on('add', (filePath: string) => {
     emitFileEvent('add', filePath).catch((error) => {
       broadcast(key, {
-        workspaceId: entry.workspaceId,
+        projectId: entry.projectId,
         kind: 'error',
         message: error?.message || 'Failed to handle docs add event'
       })
@@ -94,7 +94,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
   watcher.on('change', (filePath: string) => {
     emitFileEvent('change', filePath).catch((error) => {
       broadcast(key, {
-        workspaceId: entry.workspaceId,
+        projectId: entry.projectId,
         kind: 'error',
         message: error?.message || 'Failed to handle docs change event'
       })
@@ -107,7 +107,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
       return
     }
     broadcast(key, {
-      workspaceId: entry.workspaceId,
+      projectId: entry.projectId,
       kind: 'file',
       changeType: 'unlink',
       path: rel.split(path.sep).join('/'),
@@ -117,7 +117,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
 
   watcher.on('ready', () => {
     broadcast(key, {
-      workspaceId: entry.workspaceId,
+      projectId: entry.projectId,
       kind: 'ready',
       root: entry.baseDir
     })
@@ -125,7 +125,7 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
 
   watcher.on('error', (error) => {
     broadcast(key, {
-      workspaceId: entry.workspaceId,
+      projectId: entry.projectId,
       kind: 'error',
       message: error?.message || 'docs watcher error'
     })
@@ -135,13 +135,13 @@ async function createWatcher(key: WorkspaceKey, workspaceId?: string): Promise<W
   return entry
 }
 
-async function ensureWatcher(key: WorkspaceKey, workspaceId?: string): Promise<WatchEntry> {
+async function ensureWatcher(key: ProjectKey, projectId?: string): Promise<WatchEntry> {
   const existing = watchers.get(key)
   if (existing) return existing
-  return createWatcher(key, workspaceId)
+  return createWatcher(key, projectId)
 }
 
-function broadcast(key: WorkspaceKey, payload: DocsWatcherEvent): void {
+function broadcast(key: ProjectKey, payload: DocsWatcherEvent): void {
   const entry = watchers.get(key)
   if (!entry) return
   for (const [contentsId] of entry.subscribers) {
@@ -152,7 +152,7 @@ function broadcast(key: WorkspaceKey, payload: DocsWatcherEvent): void {
   }
 }
 
-async function stopWatcher(key: WorkspaceKey): Promise<void> {
+async function stopWatcher(key: ProjectKey): Promise<void> {
   const entry = watchers.get(key)
   if (!entry) return
   watchers.delete(key)
@@ -160,26 +160,26 @@ async function stopWatcher(key: WorkspaceKey): Promise<void> {
 }
 
 export async function addDocsSubscriber(
-  workspaceId: string | undefined,
+  projectId: string | undefined,
   contents: WebContents
 ): Promise<void> {
-  const key = toWorkspaceKey(workspaceId)
-  const entry = await ensureWatcher(key, workspaceId)
+  const key = toProjectKey(projectId)
+  const entry = await ensureWatcher(key, projectId)
   const currentCount = entry.subscribers.get(contents.id) ?? 0
   entry.subscribers.set(contents.id, currentCount + 1)
 
-  if (!contentsToWorkspaces.has(contents.id)) {
-    contentsToWorkspaces.set(contents.id, new Set())
+  if (!contentsToProjects.has(contents.id)) {
+    contentsToProjects.set(contents.id, new Set())
     contents.once('destroyed', () => {
       cleanupContents(contents.id)
     })
   }
 
-  contentsToWorkspaces.get(contents.id)?.add(key)
+  contentsToProjects.get(contents.id)?.add(key)
 }
 
-export function removeDocsSubscriber(workspaceId: string | undefined, contentsId: number): void {
-  const key = toWorkspaceKey(workspaceId)
+export function removeDocsSubscriber(projectId: string | undefined, contentsId: number): void {
+  const key = toProjectKey(projectId)
   const entry = watchers.get(key)
   if (!entry) return
   const currentCount = entry.subscribers.get(contentsId)
@@ -187,10 +187,10 @@ export function removeDocsSubscriber(workspaceId: string | undefined, contentsId
 
   if (currentCount <= 1) {
     entry.subscribers.delete(contentsId)
-    const mapping = contentsToWorkspaces.get(contentsId)
+    const mapping = contentsToProjects.get(contentsId)
     mapping?.delete(key)
     if (mapping && mapping.size === 0) {
-      contentsToWorkspaces.delete(contentsId)
+      contentsToProjects.delete(contentsId)
     }
   } else {
     entry.subscribers.set(contentsId, currentCount - 1)
@@ -202,7 +202,7 @@ export function removeDocsSubscriber(workspaceId: string | undefined, contentsId
 }
 
 function cleanupContents(contentsId: number): void {
-  const keys = contentsToWorkspaces.get(contentsId)
+  const keys = contentsToProjects.get(contentsId)
   if (!keys) return
   for (const key of keys) {
     const entry = watchers.get(key)
@@ -211,7 +211,7 @@ function cleanupContents(contentsId: number): void {
       void stopWatcher(key)
     }
   }
-  contentsToWorkspaces.delete(contentsId)
+  contentsToProjects.delete(contentsId)
 }
 
 // 旧的 IPC 订阅桥已移除；请通过 oRPC: docs.subscribe / docs.unsubscribe 使用。

@@ -390,7 +390,7 @@ export function setupOrpcBridge(): void {
     },
     docs: {
       subscribe: os
-        .input(z.object({ workspaceId: z.string().optional() }))
+        .input(z.object({ projectId: z.string().optional() }))
         .output(z.object({ ok: z.boolean(), error: z.string().optional() }))
         .handler(async ({ input }) => {
           try {
@@ -398,7 +398,7 @@ export function setupOrpcBridge(): void {
             const win = BrowserWindow.getFocusedWindow()
             const wc = win?.webContents
             if (!wc) return { ok: false, error: 'No active window' }
-            await addDocsSubscriber(input.workspaceId, wc)
+            await addDocsSubscriber(input.projectId, wc)
             return { ok: true }
           } catch (err) {
             const msg = (err as { message?: string })?.message || 'subscribe failed'
@@ -406,13 +406,13 @@ export function setupOrpcBridge(): void {
           }
         }),
       unsubscribe: os
-        .input(z.object({ workspaceId: z.string().optional() }))
+        .input(z.object({ projectId: z.string().optional() }))
         .output(z.void())
         .handler(async ({ input }) => {
           try {
             const win = BrowserWindow.getFocusedWindow()
             const wc = win?.webContents
-            if (wc) removeDocsSubscriber(input.workspaceId, wc.id)
+            if (wc) removeDocsSubscriber(input.projectId, wc.id)
           } catch {
             // ignore
           }

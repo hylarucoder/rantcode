@@ -56,20 +56,20 @@ export const okResponseSchema = z.object({ ok: z.boolean() })
 export const fsTreeInputSchema = z.object({
   base: baseKeySchema.optional(),
   depth: z.number().int().optional(),
-  workspaceId: z.string().optional()
+  projectId: z.string().optional()
 })
 
 export const fsReadInputSchema = z.object({
   base: baseKeySchema.optional(),
   path: z.string().min(1),
-  workspaceId: z.string().optional()
+  projectId: z.string().optional()
 })
 
 export const fsWriteInputSchema = z.object({
   base: baseKeySchema.optional(),
   path: z.string().min(1),
   content: z.string(),
-  workspaceId: z.string().optional()
+  projectId: z.string().optional()
 })
 
 // Providers config schemas
@@ -149,7 +149,7 @@ export const codexAgentTestResultSchema = z.object({
 // Codex run input
 export const codexRunInputSchema = z.object({
   agent: z.enum(AGENT_VALUES).optional(),
-  workspaceId: z.string().optional(),
+  projectId: z.string().optional(),
   prompt: z.string().min(1),
   extraArgs: z.array(z.string()).optional(),
   timeoutMs: z.number().int().optional(),
@@ -193,7 +193,7 @@ export const gitStatusSchema = z.object({
 })
 
 export const gitDiffInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   path: z.string().optional(),
   staged: z.boolean().optional()
 })
@@ -219,7 +219,7 @@ export const gitDiffSchema = z.object({
 })
 
 export const gitStatusInputSchema = z.object({
-  workspaceId: z.string()
+  projectId: z.string()
 })
 
 // Chat session schemas (persistent sessions)
@@ -254,41 +254,41 @@ export const chatSessionSchema = z.object({
 })
 
 export const createSessionInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   title: z.string().optional()
 })
 
 export const updateSessionInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   sessionId: z.string(),
   title: z.string().optional(),
   codexSessionId: z.string().optional()
 })
 
 export const deleteSessionInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   sessionId: z.string()
 })
 
 export const appendMessagesInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   sessionId: z.string(),
   messages: z.array(chatMessageSchema)
 })
 
 export const updateMessageInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   sessionId: z.string(),
   messageId: z.string(),
   patch: chatMessageSchema.partial()
 })
 
 export const listSessionsInputSchema = z.object({
-  workspaceId: z.string()
+  projectId: z.string()
 })
 
 export const getSessionInputSchema = z.object({
-  workspaceId: z.string(),
+  projectId: z.string(),
   sessionId: z.string()
 })
 

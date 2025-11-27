@@ -4,43 +4,43 @@ import { orpc } from '@/lib/orpcQuery'
 import { create } from 'zustand'
 import type { DocsWatcherEvent } from '@shared/types/webui'
 
-const DEFAULT_WORKSPACE_KEY = '__default__'
+const DEFAULT_PROJECT_KEY = '__default__'
 
-function normalizeWorkspaceId(workspaceId?: string): string | undefined {
-  const trimmed = workspaceId?.trim()
+function normalizeProjectId(projectId?: string): string | undefined {
+  const trimmed = projectId?.trim()
   if (!trimmed || trimmed.length === 0) {
     return undefined
   }
   return trimmed
 }
 
-function toWorkspaceKey(workspaceId?: string): string {
-  return normalizeWorkspaceId(workspaceId) ?? DEFAULT_WORKSPACE_KEY
+function toProjectKey(projectId?: string): string {
+  return normalizeProjectId(projectId) ?? DEFAULT_PROJECT_KEY
 }
 
-function toDocKey(workspaceId: string | undefined, path?: string | null): string | null {
+function toDocKey(projectId: string | undefined, path?: string | null): string | null {
   if (!path) return null
-  return `${toWorkspaceKey(workspaceId)}::${path}`
+  return `${toProjectKey(projectId)}::${path}`
 }
 
 interface DocumentEntry {
-  workspaceId?: string
+  projectId?: string
   path: string
   content?: string
   updatedAt?: number
 }
 
-interface WorkspaceStatus {
+interface ProjectStatus {
   ready: boolean
   error?: string
 }
 
 interface DocsWatcherState {
   files: Record<string, DocumentEntry>
-  statuses: Record<string, WorkspaceStatus>
+  statuses: Record<string, ProjectStatus>
   handleEvent: (event: DocsWatcherEvent) => void
-  setInitialContent: (workspaceId: string | undefined, path: string, content?: string) => void
-  clearWorkspace: (workspaceId: string | undefined) => void
+  setInitialContent: (projectId: string | undefined, path: string, content?: string) => void
+  clearProject: (projectId: string | undefined) => void
 }
 
 export const useDocsStore = create<DocsWatcherState>((set) => ({
@@ -48,13 +48,13 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
   statuses: {},
   handleEvent: (event) =>
     set((state) => {
-      const workspaceKey = toWorkspaceKey(event.workspaceId)
+      const projectKey = toProjectKey(event.projectId)
       if (event.kind === 'ready') {
         return {
           ...state,
           statuses: {
             ...state.statuses,
-            [workspaceKey]: { ready: true }
+            [projectKey]: { ready: true }
           }
         }
       }
@@ -64,12 +64,12 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
           ...state,
           statuses: {
             ...state.statuses,
-            [workspaceKey]: { ready: false, error: event.message }
+            [projectKey]: { ready: false, error: event.message }
           }
         }
       }
 
-      const docKey = toDocKey(event.workspaceId, event.path)
+      const docKey = toDocKey(event.projectId, event.path)
       if (!docKey) {
         return state
       }
@@ -95,7 +95,7 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
         files: {
           ...state.files,
           [docKey]: {
-            workspaceId: event.workspaceId,
+            projectId: event.projectId,
             path: event.path,
             content: nextContent,
             updatedAt: nextUpdatedAt
@@ -103,16 +103,16 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
         },
         statuses: {
           ...state.statuses,
-          [workspaceKey]: { ready: true }
+          [projectKey]: { ready: true }
         }
       }
     }),
-  setInitialContent: (workspaceId, path, content) =>
+  setInitialContent: (projectId, path, content) =>
     set((state) => {
       if (typeof content !== 'string') {
         return state
       }
-      const docKey = toDocKey(workspaceId, path)
+      const docKey = toDocKey(projectId, path)
       if (!docKey) {
         return state
       }
@@ -121,7 +121,7 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
         files: {
           ...state.files,
           [docKey]: {
-            workspaceId,
+            projectId,
             path,
             content,
             updatedAt: Date.now()
@@ -129,25 +129,25 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
         },
         statuses: {
           ...state.statuses,
-          [toWorkspaceKey(workspaceId)]: { ready: true }
+          [toProjectKey(projectId)]: { ready: true }
         }
       }
     }),
-  clearWorkspace: (workspaceId) =>
+  clearProject: (projectId) =>
     set((state) => {
-      const workspaceKey = toWorkspaceKey(workspaceId)
-      const hasFiles = Object.keys(state.files).some((key) => key.startsWith(`${workspaceKey}::`))
-      if (!hasFiles && !state.statuses[workspaceKey]) {
+      const projectKey = toProjectKey(projectId)
+      const hasFiles = Object.keys(state.files).some((key) => key.startsWith(`${projectKey}::`))
+      if (!hasFiles && !state.statuses[projectKey]) {
         return state
       }
       const nextFiles: Record<string, DocumentEntry> = {}
       for (const [key, value] of Object.entries(state.files)) {
-        if (!key.startsWith(`${workspaceKey}::`)) {
+        if (!key.startsWith(`${projectKey}::`)) {
           nextFiles[key] = value
         }
       }
       const nextStatuses = { ...state.statuses }
-      delete nextStatuses[workspaceKey]
+      delete nextStatuses[projectKey]
       return {
         ...state,
         files: nextFiles,
@@ -156,16 +156,16 @@ export const useDocsStore = create<DocsWatcherState>((set) => ({
     })
 }))
 
-export function useDocsWatcher(workspaceId?: string): void {
+export function useDocsWatcher(projectId?: string): void {
   const handleEvent = useDocsStore((state) => state.handleEvent)
-  const clearWorkspace = useDocsStore((state) => state.clearWorkspace)
+  const clearProject = useDocsStore((state) => state.clearProject)
 
   useEffect(() => {
-    if (!workspaceId) {
+    if (!projectId) {
       return undefined
     }
     type DocsSubscribe = (
-      opts: { workspaceId?: string },
+      opts: { projectId?: string },
       handler: (event: DocsWatcherEvent) => void
     ) => () => void
     const docsApi = (
@@ -176,34 +176,34 @@ export function useDocsWatcher(workspaceId?: string): void {
     if (!docsApi?.subscribe) {
       return undefined
     }
-    const unsubscribe = docsApi.subscribe({ workspaceId }, (event) => {
+    const unsubscribe = docsApi.subscribe({ projectId }, (event) => {
       handleEvent(event)
     })
     return () => {
       unsubscribe?.()
-      clearWorkspace(workspaceId)
+      clearProject(projectId)
     }
-  }, [workspaceId, handleEvent, clearWorkspace])
+  }, [projectId, handleEvent, clearProject])
 }
 
-export function useDocContent(workspaceId: string | undefined, path: string | undefined) {
+export function useDocContent(projectId: string | undefined, path: string | undefined) {
   const selector = useMemo(() => {
-    const key = toDocKey(workspaceId, path ?? null)
+    const key = toDocKey(projectId, path ?? null)
     return (state: DocsWatcherState) => (key ? state.files[key] : undefined)
-  }, [workspaceId, path])
+  }, [projectId, path])
   return useDocsStore(selector)
 }
 
 // 当 docs 目录发生变更（新增/修改/删除/ready）时，自动触发 fs.tree 的失效，从而刷新文件列表。
 // 默认与 SpecExplorer 的深度保持一致（8）。
-export function useDocsTreeAutoRefetch(workspaceId?: string, depth: number = 8): void {
+export function useDocsTreeAutoRefetch(projectId?: string, depth: number = 8): void {
   const qc = useQueryClient()
 
   useEffect(() => {
-    if (!workspaceId) return undefined
+    if (!projectId) return undefined
 
     type DocsSubscribe = (
-      opts: { workspaceId?: string },
+      opts: { projectId?: string },
       handler: (event: DocsWatcherEvent) => void
     ) => () => void
     const docsApi = (
@@ -213,7 +213,7 @@ export function useDocsTreeAutoRefetch(workspaceId?: string, depth: number = 8):
     ).api?.docs
     if (!docsApi?.subscribe) return undefined
 
-    const input = { base: 'docs' as const, depth, workspaceId }
+    const input = { base: 'docs' as const, depth, projectId }
     const treeQuery = orpc.fs.tree.queryOptions({ input })
 
     let scheduled = false
@@ -223,7 +223,7 @@ export function useDocsTreeAutoRefetch(workspaceId?: string, depth: number = 8):
       void qc.invalidateQueries({ queryKey: treeQuery.queryKey })
     }
 
-    const unsubscribe = docsApi.subscribe({ workspaceId }, (event) => {
+    const unsubscribe = docsApi.subscribe({ projectId }, (event) => {
       if (event.kind === 'file' || event.kind === 'ready') {
         if (!scheduled) {
           scheduled = true
@@ -234,5 +234,5 @@ export function useDocsTreeAutoRefetch(workspaceId?: string, depth: number = 8):
     return () => {
       unsubscribe?.()
     }
-  }, [workspaceId, depth, qc])
+  }, [projectId, depth, qc])
 }

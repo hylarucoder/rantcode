@@ -118,10 +118,10 @@ function titleFromFilename(filename: string): string {
 }
 
 interface KanbanPanelProps {
-  workspaceId: string
+  projectId: string
 }
 
-export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
+export function KanbanPanel({ projectId }: KanbanPanelProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -130,8 +130,8 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
   const taskTreeQuery = useFsTreeQuery({
     base: 'docs',
     depth: 2,
-    workspaceId,
-    enabled: !!workspaceId
+    projectId,
+    enabled: !!projectId
   })
 
   // 从目录树中提取 task 文件
@@ -162,7 +162,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
 
   // 加载任务文件内容
   const loadTasks = useCallback(async () => {
-    if (!workspaceId || taskFiles.length === 0) {
+    if (!projectId || taskFiles.length === 0) {
       setTasks([])
       setLoading(false)
       return
@@ -176,7 +176,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
         const { content } = await fetchFile({
           base: 'docs',
           path: file.path,
-          workspaceId
+          projectId
         })
 
         const fm = parseFrontmatter(content)
@@ -196,7 +196,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
 
     setTasks(loadedTasks)
     setLoading(false)
-  }, [workspaceId, taskFiles])
+  }, [projectId, taskFiles])
 
   // 文件变化时重新加载
   useEffect(() => {
@@ -227,7 +227,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
         const { content } = await fetchFile({
           base: 'docs',
           path: task.filePath,
-          workspaceId
+          projectId
         })
 
         // 更新 frontmatter
@@ -240,14 +240,14 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
               base: string
               path: string
               content: string
-              workspaceId: string
+              projectId: string
             }) => Promise<{ ok: boolean }>
           }
         ).call({
           base: 'docs',
           path: task.filePath,
           content: newContent,
-          workspaceId
+          projectId
         })
 
         toast.success(`任务已移至「${columns.find((c) => c.id === newStatus)?.label}」`)
@@ -258,7 +258,7 @@ export function KanbanPanel({ workspaceId }: KanbanPanelProps) {
         console.error('Failed to update task status:', err)
       }
     },
-    [workspaceId]
+    [projectId]
   )
 
   // 拖拽处理

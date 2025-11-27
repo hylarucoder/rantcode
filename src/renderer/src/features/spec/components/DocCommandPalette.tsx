@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/command'
 import { useFsTreeQuery, fetchFile } from '@/features/spec'
 import type { FsTreeNode, SpecDocMeta } from '@/types'
-import { useWorkspace } from '@/state/workspace'
+import { useProject } from '@/state/workspace'
 
 function flattenTree(root: FsTreeNode | null): { path: string; name: string }[] {
   if (!root) return []
@@ -32,14 +32,14 @@ export default function DocCommandPalette({
 }: {
   onDocChange: (doc: SpecDocMeta | null) => void
 }) {
-  const { workspaceId } = useWorkspace()
+  const { projectId } = useProject()
   const [open, setOpen] = useState(false)
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, workspaceId, enabled: !!workspaceId })
+  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
   const repoTree = useFsTreeQuery({
     base: 'repo',
     depth: 8,
-    workspaceId,
-    enabled: !!workspaceId && !!docsTree.isError
+    projectId,
+    enabled: !!projectId && !!docsTree.isError
   })
 
   useEffect(() => {
@@ -66,9 +66,9 @@ export default function DocCommandPalette({
   }, [docsFiles, repoFiles])
 
   const handleSelect = async (path: string, base: 'docs' | 'repo') => {
-    if (!workspaceId) return
+    if (!projectId) return
     try {
-      const file = await fetchFile({ base, path, workspaceId })
+      const file = await fetchFile({ base, path, projectId })
       const doc: SpecDocMeta = {
         path: file.path,
         content: file.content,

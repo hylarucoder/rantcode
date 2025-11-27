@@ -116,7 +116,7 @@ export function WorkspaceLayout({
       <div className="flex h-full min-h-0">
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 overflow-hidden">
-          <GitPanel workspaceId={project.id} />
+          <GitPanel projectId={project.id} />
         </div>
       </div>
     )
@@ -128,7 +128,7 @@ export function WorkspaceLayout({
       <div className="flex h-full min-h-0">
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 overflow-hidden">
-          <KanbanPanel workspaceId={project.id} />
+          <KanbanPanel projectId={project.id} />
         </div>
       </div>
     )

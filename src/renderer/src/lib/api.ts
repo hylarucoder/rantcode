@@ -6,11 +6,11 @@ type FsBase = 'repo' | 'docs' | 'vibe-spec' | ''
 const DUMMY_API_BASE = 'https://rantcode.local'
 
 type RendererFsApi = {
-  tree(opts: { base?: FsBase; depth?: number; workspaceId?: string }): Promise<unknown>
+  tree(opts: { base?: FsBase; depth?: number; projectId?: string }): Promise<unknown>
   read(opts: {
     base?: FsBase
     path: string
-    workspaceId?: string
+    projectId?: string
   }): Promise<{ path: string; content: string }>
 }
 
@@ -19,7 +19,7 @@ export function getFsApi(): RendererFsApi {
     tree: (opts) =>
       (
         orpc.fs.tree as {
-          call: (o: { base?: FsBase; depth?: number; workspaceId?: string }) => Promise<unknown>
+          call: (o: { base?: FsBase; depth?: number; projectId?: string }) => Promise<unknown>
         }
       ).call(opts),
     read: (opts) =>
@@ -28,7 +28,7 @@ export function getFsApi(): RendererFsApi {
           call: (o: {
             base?: FsBase
             path: string
-            workspaceId?: string
+            projectId?: string
           }) => Promise<{ path: string; content: string }>
         }
       ).call(opts)

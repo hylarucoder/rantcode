@@ -3,7 +3,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
-import { useWorkspace } from '@/state/workspace'
+import { useProject } from '@/state/workspace'
 import {
   Select,
   SelectContent,
@@ -35,8 +35,8 @@ export function Composer({
   onAgentChange: (a: ExecAgent) => void
 }) {
   // 工作区与 docs 列表
-  const { workspaceId } = useWorkspace()
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, workspaceId, enabled: !!workspaceId })
+  const { projectId } = useProject()
+  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
   const filePaths = useMemo(() => {
     type TreeNode = { dir: boolean; path: string; children?: TreeNode[] }
     const out: string[] = []

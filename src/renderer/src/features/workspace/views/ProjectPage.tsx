@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { WorkspaceProvider } from '@/state/workspace'
+import { ProjectProvider } from '@/state/workspace'
 import { useProjects } from '@/state/projects'
 import { toast } from 'sonner'
 
@@ -43,8 +43,8 @@ export default function ProjectPage() {
   }
 
   return (
-    <WorkspaceProvider workspaceId={project.id}>
+    <ProjectProvider projectId={project.id}>
       <SessionsView project={project} />
-    </WorkspaceProvider>
+    </ProjectProvider>
   )
 }

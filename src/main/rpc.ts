@@ -153,11 +153,11 @@ async function ensureDirectoryExists(dirPath: string): Promise<void> {
   }
 }
 
-export async function resolveWorkspaceRoot(workspaceId?: string): Promise<string> {
-  if (workspaceId) {
-    const existing = await resolveProjectById(workspaceId)
+export async function resolveProjectRoot(projectId?: string): Promise<string> {
+  if (projectId) {
+    const existing = await resolveProjectById(projectId)
     if (!existing) {
-      throw new Error(`Workspace ${workspaceId} not found`)
+      throw new Error(`Workspace ${projectId} not found`)
     }
     await ensureDirectoryExists(existing.repoPath)
     return normalizeRepoPath(existing.repoPath)
@@ -176,9 +176,9 @@ async function resolveDefaultRepoRoot(): Promise<string> {
 
 export async function resolveBaseDir(
   baseKey: 'repo' | 'docs' | 'vibe-spec' | '' | undefined,
-  workspaceId?: string
+  projectId?: string
 ): Promise<string> {
-  const root = path.resolve(await resolveWorkspaceRoot(workspaceId))
+  const root = path.resolve(await resolveProjectRoot(projectId))
   const key = baseKey ?? 'repo'
   switch (key) {
     case 'repo':
@@ -285,14 +285,14 @@ export class FsService {
   async tree(opts?: {
     base?: 'repo' | 'docs' | 'vibe-spec' | ''
     depth?: number
-    workspaceId?: string
+    projectId?: string
   }): Promise<FsTreeNode> {
     const baseKey = opts?.base ?? 'repo'
     let depth = typeof opts?.depth === 'number' ? opts.depth : 2
     if (!depth || depth <= 0 || depth > 8) {
       depth = 2
     }
-    const baseDir = await resolveBaseDir(baseKey, opts?.workspaceId)
+    const baseDir = await resolveBaseDir(baseKey, opts?.projectId)
     const stat = await fs.stat(baseDir).catch(() => null)
     if (!stat || !stat.isDirectory()) {
       throw new Error('base not found')
@@ -303,12 +303,12 @@ export class FsService {
   async read(opts: {
     base?: 'repo' | 'docs' | 'vibe-spec' | ''
     path: string
-    workspaceId?: string
+    projectId?: string
   }): Promise<FsFile> {
     if (!opts?.path) {
       throw new Error('path is required')
     }
-    const baseDir = await resolveBaseDir(opts.base ?? 'repo', opts.workspaceId)
+    const baseDir = await resolveBaseDir(opts.base ?? 'repo', opts.projectId)
     const absPath = resolvePathInBase(baseDir, opts.path)
     const stat = await fs.stat(absPath).catch(() => null)
     if (!stat || !stat.isFile()) {
@@ -325,7 +325,7 @@ export class FsService {
     base?: 'repo' | 'docs' | 'vibe-spec' | ''
     path: string
     content: string
-    workspaceId?: string
+    projectId?: string
   }): Promise<{ ok: boolean }> {
     if (!opts?.path) {
       throw new Error('path is required')
@@ -333,7 +333,7 @@ export class FsService {
     if (typeof opts.content !== 'string') {
       throw new Error('content is required')
     }
-    const baseDir = await resolveBaseDir(opts.base ?? 'repo', opts.workspaceId)
+    const baseDir = await resolveBaseDir(opts.base ?? 'repo', opts.projectId)
     const absPath = resolvePathInBase(baseDir, opts.path)
     // 确保父目录存在
     const dir = path.dirname(absPath)
@@ -473,8 +473,8 @@ export interface GitDiff {
 }
 
 export class GitService {
-  async status(opts: { workspaceId: string }): Promise<GitStatus> {
-    const root = await resolveWorkspaceRoot(opts.workspaceId)
+  async status(opts: { projectId: string }): Promise<GitStatus> {
+    const root = await resolveProjectRoot(opts.projectId)
 
     // Get branch info
     const branch = await this.runGit(root, ['branch', '--show-current'])
@@ -525,8 +525,8 @@ export class GitService {
     }
   }
 
-  async diff(opts: { workspaceId: string; path?: string; staged?: boolean }): Promise<GitDiff> {
-    const root = await resolveWorkspaceRoot(opts.workspaceId)
+  async diff(opts: { projectId: string; path?: string; staged?: boolean }): Promise<GitDiff> {
+    const root = await resolveProjectRoot(opts.projectId)
 
     const args = ['diff', '--unified=3']
     if (opts.staged) {
@@ -657,14 +657,14 @@ export class GitService {
 // Session Service - persistent chat sessions per workspace
 const sessionStoreLog = loggerService.child('sessions.store')
 
-function getSessionsStorePath(workspaceId: string): string {
+function getSessionsStorePath(projectId: string): string {
   const userData = app.getPath('userData')
   // Store sessions in a subdirectory per workspace
-  return path.join(userData, 'sessions', `${workspaceId}.json`)
+  return path.join(userData, 'sessions', `${projectId}.json`)
 }
 
-async function readSessions(workspaceId: string): Promise<ChatSession[]> {
-  const file = getSessionsStorePath(workspaceId)
+async function readSessions(projectId: string): Promise<ChatSession[]> {
+  const file = getSessionsStorePath(projectId)
   const t0 = Date.now()
   try {
     const raw = await fs.readFile(file, 'utf8')
@@ -675,7 +675,7 @@ async function readSessions(workspaceId: string): Promise<ChatSession[]> {
         file,
         durationMs: dt,
         size: raw.length,
-        workspaceId
+        projectId
       })
       return []
     }
@@ -684,7 +684,7 @@ async function readSessions(workspaceId: string): Promise<ChatSession[]> {
       durationMs: dt,
       size: raw.length,
       records: parsed.length,
-      workspaceId
+      projectId
     })
     return parsed
   } catch (err) {
@@ -693,7 +693,7 @@ async function readSessions(workspaceId: string): Promise<ChatSession[]> {
       sessionStoreLog.debug('sessions store missing, initializing empty list', {
         file,
         durationMs: dt,
-        workspaceId
+        projectId
       })
       return []
     }
@@ -701,14 +701,14 @@ async function readSessions(workspaceId: string): Promise<ChatSession[]> {
       file,
       durationMs: dt,
       message: (err as { message?: string })?.message,
-      workspaceId
+      projectId
     })
     throw err
   }
 }
 
-async function writeSessions(workspaceId: string, sessions: ChatSession[]): Promise<void> {
-  const file = getSessionsStorePath(workspaceId)
+async function writeSessions(projectId: string, sessions: ChatSession[]): Promise<void> {
+  const file = getSessionsStorePath(projectId)
   const t0 = Date.now()
   const payload = JSON.stringify(sessions, null, 2)
   try {
@@ -720,7 +720,7 @@ async function writeSessions(workspaceId: string, sessions: ChatSession[]): Prom
       durationMs: dt,
       size: payload.length,
       records: sessions.length,
-      workspaceId
+      projectId
     })
   } catch (err) {
     const dt = Date.now() - t0
@@ -730,7 +730,7 @@ async function writeSessions(workspaceId: string, sessions: ChatSession[]): Prom
       size: payload.length,
       records: sessions.length,
       message: (err as { message?: string })?.message,
-      workspaceId
+      projectId
     })
     throw err
   }
@@ -739,22 +739,22 @@ async function writeSessions(workspaceId: string, sessions: ChatSession[]): Prom
 export class SessionService {
   async list(input: ListSessionsInput): Promise<ChatSession[]> {
     const t0 = Date.now()
-    const result = await readSessions(input.workspaceId)
+    const result = await readSessions(input.projectId)
     const dt = Date.now() - t0
     sessionStoreLog.debug(`[sessions.list] completed in ${dt}ms`, {
-      workspaceId: input.workspaceId,
+      projectId: input.projectId,
       sessions: result.length
     })
     return result
   }
 
   async get(input: GetSessionInput): Promise<ChatSession | null> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     return sessions.find((s) => s.id === input.sessionId) ?? null
   }
 
   async create(input: CreateSessionInput): Promise<ChatSession> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     const now = new Date().toISOString()
     const session: ChatSession = {
       id: randomUUID(),
@@ -764,12 +764,12 @@ export class SessionService {
       updatedAt: now
     }
     sessions.push(session)
-    await writeSessions(input.workspaceId, sessions)
+    await writeSessions(input.projectId, sessions)
     return session
   }
 
   async update(input: UpdateSessionInput): Promise<ChatSession> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {
       throw new Error('Session not found')
@@ -786,22 +786,22 @@ export class SessionService {
     }
     session.updatedAt = new Date().toISOString()
     sessions[idx] = session
-    await writeSessions(input.workspaceId, sessions)
+    await writeSessions(input.projectId, sessions)
     return session
   }
 
   async delete(input: DeleteSessionInput): Promise<{ ok: boolean }> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     const filtered = sessions.filter((s) => s.id !== input.sessionId)
     if (filtered.length === sessions.length) {
       throw new Error('Session not found')
     }
-    await writeSessions(input.workspaceId, filtered)
+    await writeSessions(input.projectId, filtered)
     return { ok: true }
   }
 
   async appendMessages(input: AppendMessagesInput): Promise<ChatSession> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {
       throw new Error('Session not found')
@@ -810,12 +810,12 @@ export class SessionService {
     session.messages.push(...input.messages)
     session.updatedAt = new Date().toISOString()
     sessions[idx] = session
-    await writeSessions(input.workspaceId, sessions)
+    await writeSessions(input.projectId, sessions)
     return session
   }
 
   async updateMessage(input: UpdateMessageInput): Promise<ChatSession> {
-    const sessions = await readSessions(input.workspaceId)
+    const sessions = await readSessions(input.projectId)
     const idx = sessions.findIndex((s) => s.id === input.sessionId)
     if (idx === -1) {
       throw new Error('Session not found')
@@ -830,7 +830,7 @@ export class SessionService {
     Object.assign(message, input.patch)
     session.updatedAt = new Date().toISOString()
     sessions[idx] = session
-    await writeSessions(input.workspaceId, sessions)
+    await writeSessions(input.projectId, sessions)
     return session
   }
 }

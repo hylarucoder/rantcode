@@ -13,9 +13,9 @@ import type {
 type ApiChatSession = z.infer<typeof chatSessionSchema>
 
 type SessionsNamespace = {
-  list: { call: (input: { workspaceId: string }) => Promise<ApiChatSession[]> }
+  list: { call: (input: { projectId: string }) => Promise<ApiChatSession[]> }
   get: {
-    call: (input: { workspaceId: string; sessionId: string }) => Promise<ApiChatSession | null>
+    call: (input: { projectId: string; sessionId: string }) => Promise<ApiChatSession | null>
   }
   create: {
     call: (input: z.infer<typeof createSessionInputSchema>) => Promise<ApiChatSession>
@@ -43,29 +43,29 @@ function requireSessionsNamespace(): SessionsNamespace {
   return sessions
 }
 
-export function useSessionsQuery(workspaceId: string) {
+export function useSessionsQuery(projectId: string) {
   return useQuery({
-    queryKey: ['sessions', 'list', workspaceId],
+    queryKey: ['sessions', 'list', projectId],
     queryFn: async () => {
       const t0 = performance.now()
       const { list } = requireSessionsNamespace()
-      const result = await list.call({ workspaceId })
+      const result = await list.call({ projectId })
       const dt = performance.now() - t0
       console.log(`[oRPC] sessions.list call completed in ${dt.toFixed(2)}ms`)
       return result
     },
-    enabled: !!workspaceId
+    enabled: !!projectId
   })
 }
 
-export function useSessionQuery(workspaceId: string, sessionId: string) {
+export function useSessionQuery(projectId: string, sessionId: string) {
   return useQuery({
-    queryKey: ['sessions', 'get', workspaceId, sessionId],
+    queryKey: ['sessions', 'get', projectId, sessionId],
     queryFn: async () => {
       const { get } = requireSessionsNamespace()
-      return await get.call({ workspaceId, sessionId })
+      return await get.call({ projectId, sessionId })
     },
-    enabled: !!workspaceId && !!sessionId
+    enabled: !!projectId && !!sessionId
   })
 }
 
@@ -79,7 +79,7 @@ export function useCreateSessionMutation() {
     },
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'list', variables.workspaceId]
+        queryKey: ['sessions', 'list', variables.projectId]
       })
     }
   })
@@ -95,10 +95,10 @@ export function useUpdateSessionMutation() {
     },
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'list', variables.workspaceId]
+        queryKey: ['sessions', 'list', variables.projectId]
       })
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'get', variables.workspaceId, variables.sessionId]
+        queryKey: ['sessions', 'get', variables.projectId, variables.sessionId]
       })
     }
   })
@@ -114,7 +114,7 @@ export function useDeleteSessionMutation() {
     },
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'list', variables.workspaceId]
+        queryKey: ['sessions', 'list', variables.projectId]
       })
     }
   })
@@ -130,10 +130,10 @@ export function useAppendMessagesMutation() {
     },
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'list', variables.workspaceId]
+        queryKey: ['sessions', 'list', variables.projectId]
       })
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'get', variables.workspaceId, variables.sessionId]
+        queryKey: ['sessions', 'get', variables.projectId, variables.sessionId]
       })
     }
   })
@@ -149,10 +149,10 @@ export function useUpdateMessageMutation() {
     },
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'list', variables.workspaceId]
+        queryKey: ['sessions', 'list', variables.projectId]
       })
       void queryClient.invalidateQueries({
-        queryKey: ['sessions', 'get', variables.workspaceId, variables.sessionId]
+        queryKey: ['sessions', 'get', variables.projectId, variables.sessionId]
       })
     }
   })

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { useWorkspaceChatStore, useWorkspacePreviewStore } from './store'
+import { useProjectChatStore, useProjectPreviewStore } from './store'
 import type { ChatSession } from '@/features/workspace/types'
 import type { CodexEvent } from '@shared/types/webui'
 
-const WORKSPACE_ID = 'ws-test'
+const PROJECT_ID = 'project-test'
 
 const baseSession: ChatSession = {
   id: 'session-1',
@@ -21,36 +21,36 @@ const baseSession: ChatSession = {
 }
 
 beforeEach(() => {
-  useWorkspaceChatStore.setState({ workspaces: {} })
-  useWorkspacePreviewStore.setState({ workspaces: {} })
+  useProjectChatStore.setState({ projects: {} })
+  useProjectPreviewStore.setState({ projects: {} })
 })
 
 afterEach(() => {
-  useWorkspaceChatStore.setState({ workspaces: {} })
-  useWorkspacePreviewStore.setState({ workspaces: {} })
+  useProjectChatStore.setState({ projects: {} })
+  useProjectPreviewStore.setState({ projects: {} })
 })
 
-describe('useWorkspaceChatStore', () => {
-  it('initializes workspace and appends messages', () => {
-    const chatStore = useWorkspaceChatStore.getState()
-    chatStore.ensure(WORKSPACE_ID, () => ({
+describe('useProjectChatStore', () => {
+  it('initializes project and appends messages', () => {
+    const chatStore = useProjectChatStore.getState()
+    chatStore.ensure(PROJECT_ID, () => ({
       sessions: [baseSession],
       activeSessionId: baseSession.id
     }))
 
-    chatStore.appendMessages(WORKSPACE_ID, baseSession.id, [
+    chatStore.appendMessages(PROJECT_ID, baseSession.id, [
       { id: 'user-1', role: 'user', content: 'hello' }
     ])
 
-    const workspace = useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]
-    expect(workspace?.sessions).toHaveLength(1)
-    expect(workspace?.sessions[0].messages).toHaveLength(2)
-    expect(workspace?.activeSessionId).toBe(baseSession.id)
+    const project = useProjectChatStore.getState().projects[PROJECT_ID]
+    expect(project?.sessions).toHaveLength(1)
+    expect(project?.sessions[0].messages).toHaveLength(2)
+    expect(project?.activeSessionId).toBe(baseSession.id)
   })
 
   it('applies codex log, text and exit events to assistant message', () => {
-    const chatStore = useWorkspaceChatStore.getState()
-    chatStore.ensure(WORKSPACE_ID, () => ({
+    const chatStore = useProjectChatStore.getState()
+    chatStore.ensure(PROJECT_ID, () => ({
       sessions: [baseSession],
       activeSessionId: baseSession.id
     }))
@@ -63,10 +63,9 @@ describe('useWorkspaceChatStore', () => {
       data: 'echo'
     }
 
-    chatStore.applyCodexEvent(WORKSPACE_ID, logEvent)
+    chatStore.applyCodexEvent(PROJECT_ID, logEvent)
 
-    const afterLog =
-      useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]?.sessions[0].messages[0]
+    const afterLog = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterLog?.logs).toHaveLength(1)
     expect(afterLog?.logs?.[0].text).toBe('echo')
 
@@ -78,10 +77,9 @@ describe('useWorkspaceChatStore', () => {
       delta: false
     }
 
-    chatStore.applyCodexEvent(WORKSPACE_ID, textEvent)
+    chatStore.applyCodexEvent(PROJECT_ID, textEvent)
 
-    const afterText =
-      useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]?.sessions[0].messages[0]
+    const afterText = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterText?.output).toBe('Hello world')
 
     const exitEvent: CodexEvent = {
@@ -91,25 +89,24 @@ describe('useWorkspaceChatStore', () => {
       signal: null,
       durationMs: 5
     }
-    chatStore.applyCodexEvent(WORKSPACE_ID, exitEvent)
+    chatStore.applyCodexEvent(PROJECT_ID, exitEvent)
 
-    const afterExit =
-      useWorkspaceChatStore.getState().workspaces[WORKSPACE_ID]?.sessions[0].messages[0]
+    const afterExit = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterExit?.status).toBe('success')
   })
 })
 
-describe('useWorkspacePreviewStore', () => {
+describe('useProjectPreviewStore', () => {
   it('updates preview preferences independently', () => {
-    const previewStore = useWorkspacePreviewStore.getState()
-    previewStore.ensure(WORKSPACE_ID)
-    previewStore.setSelectedDocPath(WORKSPACE_ID, 'docs/readme.md')
-    previewStore.setRightTab(WORKSPACE_ID, 'conversation')
-    previewStore.setPreviewTocOpen(WORKSPACE_ID, true)
+    const previewStore = useProjectPreviewStore.getState()
+    previewStore.ensure(PROJECT_ID)
+    previewStore.setSelectedDocPath(PROJECT_ID, 'docs/readme.md')
+    previewStore.setRightTab(PROJECT_ID, 'conversation')
+    previewStore.setPreviewTocOpen(PROJECT_ID, true)
 
-    const workspace = useWorkspacePreviewStore.getState().workspaces[WORKSPACE_ID]
-    expect(workspace?.selectedDocPath).toBe('docs/readme.md')
-    expect(workspace?.rightTab).toBe('conversation')
-    expect(workspace?.previewTocOpen).toBe(true)
+    const project = useProjectPreviewStore.getState().projects[PROJECT_ID]
+    expect(project?.selectedDocPath).toBe('docs/readme.md')
+    expect(project?.rightTab).toBe('conversation')
+    expect(project?.previewTocOpen).toBe(true)
   })
 })

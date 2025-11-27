@@ -4,7 +4,7 @@ import type { DocsWatcherEvent } from '../../shared/types/webui'
 
 export type DocsBridge = {
   subscribe(
-    opts: { workspaceId?: string } | undefined,
+    opts: { projectId?: string } | undefined,
     handler: (event: DocsWatcherEvent) => void
   ): () => void
 }
@@ -15,36 +15,35 @@ export function createDocsBridge(
 ): DocsBridge {
   return {
     subscribe(opts, handler) {
-      const normalizedWorkspace = opts?.workspaceId?.trim()
-      const workspaceId =
+      const normalizedWorkspace = opts?.projectId?.trim()
+      const projectId =
         normalizedWorkspace && normalizedWorkspace.length > 0 ? normalizedWorkspace : undefined
 
       const unNotify = subscribeNotify<DocsWatcherEvent>('docs', (payload) => {
-        if (typeof workspaceId === 'string' && (payload.workspaceId ?? undefined) !== workspaceId)
-          return
+        if (typeof projectId === 'string' && (payload.projectId ?? undefined) !== projectId) return
         handler(payload)
       })
 
       client.docs
-        .subscribe({ workspaceId })
+        .subscribe({ projectId })
         .then((result) => {
           if (!result?.ok) {
             const message = result?.error ?? 'Unknown error'
-            handler({ workspaceId, kind: 'error', message })
+            handler({ projectId, kind: 'error', message })
 
             console.error('Failed to subscribe to docs watcher', message)
           }
         })
         .catch((error) => {
           const message = error instanceof Error ? error.message : 'Unknown docs watcher error'
-          handler({ workspaceId, kind: 'error', message })
+          handler({ projectId, kind: 'error', message })
 
           console.error('Failed to subscribe to docs watcher', error)
         })
 
       return () => {
         unNotify()
-        client.docs.unsubscribe({ workspaceId }).catch(() => void 0)
+        client.docs.unsubscribe({ projectId }).catch(() => void 0)
       }
     }
   }

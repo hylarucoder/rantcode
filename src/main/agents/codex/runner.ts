@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { CodexEvent, CodexRunOptions } from '../../../shared/types/webui'
-import { resolveWorkspaceRoot } from '../../rpc'
+import { resolveProjectRoot } from '../../rpc'
 import { isErrorLike } from '../../../shared/utils/errorLike'
 import { buildCodexArgs } from './cli'
 import { findExecutable, AGENT_CONFIGS } from '../detect'
@@ -92,7 +92,7 @@ export async function runCodex(
   // 以下是 Codex 原生逻辑
   const jobId =
     typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
-  const repoRoot = await resolveWorkspaceRoot(payload?.workspaceId)
+  const repoRoot = await resolveProjectRoot(payload?.projectId)
   const bin = await findExecutable(agent)
   const args =
     agent === 'codex'

@@ -100,7 +100,7 @@ export interface UpdateProjectInput {
 }
 
 export interface ProjectSelection {
-  workspaceId?: string
+  projectId?: string
 }
 
 // RPC service prototypes and schema
@@ -115,12 +115,12 @@ export interface FsServicePrototype extends ServicePrototype {
   tree(opts: {
     base?: 'repo' | 'docs' | 'vibe-spec' | ''
     depth?: number
-    workspaceId?: string
+    projectId?: string
   }): Promise<FsTreeNode>
   read(opts: {
     base?: 'repo' | 'docs' | 'vibe-spec' | ''
     path: string
-    workspaceId?: string
+    projectId?: string
   }): Promise<FsFile>
 }
 
@@ -142,17 +142,17 @@ export type DocsWatcherChangeType = 'add' | 'change' | 'unlink'
 
 export type DocsWatcherEvent =
   | {
-      workspaceId?: string
+      projectId?: string
       kind: 'ready'
       root: string
     }
   | {
-      workspaceId?: string
+      projectId?: string
       kind: 'error'
       message: string
     }
   | {
-      workspaceId?: string
+      projectId?: string
       kind: 'file'
       changeType: DocsWatcherChangeType
       path: string
@@ -164,7 +164,7 @@ import type { Agent } from '../agents'
 
 export interface CodexRunOptions {
   agent?: Agent
-  workspaceId?: string
+  projectId?: string
   prompt: string
   extraArgs?: string[]
   timeoutMs?: number

@@ -1,6 +1,6 @@
 ---
 title: 发布前检查清单
-status: in-progress
+status: backlog
 priority: P1
 ---
 

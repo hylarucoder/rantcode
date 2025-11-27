@@ -15,7 +15,7 @@ import { useFsTreeQuery } from '@/features/spec/api/hooks'
 import { usePreviewDocument } from '@/features/preview'
 import { useDocsWatcher, useDocContent, useDocsStore } from '@/state/docs'
 import type { DocsWatcherEvent } from '@shared/types/webui'
-import { useWorkspace } from '@/state/workspace'
+import { useProject } from '@/state/workspace'
 import type { FsTreeNode, SpecDocMeta } from '@/types'
 
 interface ExplorerProps {
@@ -45,10 +45,10 @@ export default function SpecExplorer({
   } = usePreviewDocument()
   const initialDocOpenedRef = useRef(false)
   const treeBaseRef = useRef<'docs'>('docs')
-  const { workspaceId } = useWorkspace()
-  useDocsWatcher(workspaceId)
+  const { projectId } = useProject()
+  useDocsWatcher(projectId)
   const setInitialDocContent = useDocsStore((state) => state.setInitialContent)
-  const liveDocEntry = useDocContent(workspaceId, doc?.path)
+  const liveDocEntry = useDocContent(projectId, doc?.path)
 
   function resetInitialDocFlag() {
     initialDocOpenedRef.current = false
@@ -76,12 +76,12 @@ export default function SpecExplorer({
   }, [])
 
   // 仅使用 docs 目录，不再回退到 repo
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, workspaceId, enabled: !!workspaceId })
+  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
   // 在当前组件内基于 watcher 事件触发文件树 refetch，避免 queryKey 不匹配问题
   useEffect(() => {
-    if (!workspaceId) return undefined
+    if (!projectId) return undefined
     type DocsSubscribe = (
-      opts: { workspaceId?: string },
+      opts: { projectId?: string },
       handler: (event: DocsWatcherEvent) => void
     ) => () => void
     const docsApi = (
@@ -95,7 +95,7 @@ export default function SpecExplorer({
       scheduled = false
       void docsTree.refetch()
     }
-    const unsubscribe = docsApi.subscribe({ workspaceId }, (event) => {
+    const unsubscribe = docsApi.subscribe({ projectId }, (event) => {
       if (event.kind === 'file' || event.kind === 'ready') {
         if (!scheduled) {
           scheduled = true
@@ -104,32 +104,32 @@ export default function SpecExplorer({
       }
     })
     return () => unsubscribe?.()
-  }, [workspaceId, docsTree.refetch])
+  }, [projectId, docsTree.refetch])
 
   const openPath = useCallback(
     async (p: string, base?: 'docs' | 'repo') => {
-      if (!workspaceId) return
+      if (!projectId) return
       setSelectedPath(p)
       const effectiveBase = base ?? treeBaseRef.current
       try {
-        const file = await fetchFile({ base: effectiveBase, path: p, workspaceId })
+        const file = await fetchFile({ base: effectiveBase, path: p, projectId })
         const d: SpecDocMeta = {
           path: file.path,
           content: file.content,
           title: file.path.split('/').pop()
         }
         setPreviewDoc(d)
-        setInitialDocContent(workspaceId, d.path, d.content ?? '')
+        setInitialDocContent(projectId, d.path, d.content ?? '')
       } catch (err) {
         console.error(err)
         setPreviewDoc({ path: p, content: '(failed to load file)' })
       }
     },
-    [workspaceId, setInitialDocContent, setPreviewDoc]
+    [projectId, setInitialDocContent, setPreviewDoc]
   )
 
   useEffect(() => {
-    if (!workspaceId) return
+    if (!projectId) return
     if (docsTree.isSuccess && docsTree.data) {
       const node = docsTree.data as FsTreeNode
       treeBaseRef.current = 'docs'
@@ -153,11 +153,11 @@ export default function SpecExplorer({
     docsTree.isError,
     docsTree.data,
     docsTree.error,
-    workspaceId,
+    projectId,
     openPath,
     findFirstFilePath
   ])
-  useEffect(() => () => resetInitialDocFlag(), [workspaceId])
+  useEffect(() => () => resetInitialDocFlag(), [projectId])
 
   // 避免父子之间因回调标识变化造成的重复通知/渲染环（尤其在父级基于该回调更新本地状态时）。
   // 仅当文档的 path 或 content 实际发生变化时才触发通知。

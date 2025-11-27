@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarClock, FileDiff, MessageSquare, Puzzle, Terminal } from 'lucide-react'
-import { useWorkspace } from '@/state/workspace'
+import { useProject } from '@/state/workspace'
 import { fetchFile } from '@/features/spec'
 import {
   parseConversationLog,
@@ -179,7 +179,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
 }
 
 export default function ConversationInline() {
-  const { workspaceId } = useWorkspace()
+  const { projectId } = useProject()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sessions, setSessions] = useState<ConversationSession[]>([])
@@ -187,11 +187,11 @@ export default function ConversationInline() {
   const [stickToBottom, setStickToBottom] = useState(true)
 
   async function load() {
-    if (!workspaceId) return
+    if (!projectId) return
     setLoading(true)
     setError(null)
     try {
-      const file = await fetchFile({ base: 'repo', path: 'conversation.log', workspaceId })
+      const file = await fetchFile({ base: 'repo', path: 'conversation.log', projectId })
       const parsed = parseConversationLog(file.content || '')
       setSessions(parsed)
     } catch (err) {
@@ -205,7 +205,7 @@ export default function ConversationInline() {
 
   useEffect(() => {
     void load()
-  }, [workspaceId])
+  }, [projectId])
 
   useEffect(() => {
     const el = scrollRef.current

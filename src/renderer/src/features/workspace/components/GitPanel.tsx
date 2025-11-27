@@ -29,7 +29,7 @@ type GitDiff = z.infer<typeof gitDiffSchema>
 type DiffViewMode = 'unified' | 'split'
 
 interface GitPanelProps {
-  workspaceId: string
+  projectId: string
 }
 
 function getStatusIcon(status: GitFileStatus['status'], className?: string) {
@@ -472,7 +472,7 @@ function DiffView({
   )
 }
 
-export function GitPanel({ workspaceId }: GitPanelProps) {
+export function GitPanel({ projectId }: GitPanelProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [stagedExpanded, setStagedExpanded] = useState(true)
   const [unstagedExpanded, setUnstagedExpanded] = useState(true)
@@ -484,14 +484,14 @@ export function GitPanel({ workspaceId }: GitPanelProps) {
     isLoading: statusLoading,
     refetch: refetchStatus
   } = useQuery({
-    ...orpc.git.status.queryOptions({ input: { workspaceId } }),
+    ...orpc.git.status.queryOptions({ input: { projectId } }),
     refetchInterval: 5000
   })
 
   const { data: diff, isLoading: diffLoading } = useQuery({
     ...orpc.git.diff.queryOptions({
       input: {
-        workspaceId,
+        projectId,
         path: selectedFile ?? undefined
       }
     }),

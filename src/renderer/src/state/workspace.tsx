@@ -1,21 +1,21 @@
 import { createContext, useContext } from 'react'
 
-export const WorkspaceContext = createContext<{ workspaceId: string } | undefined>(undefined)
+export const ProjectContext = createContext<{ projectId: string } | undefined>(undefined)
 
-export function WorkspaceProvider({
-  workspaceId,
+export function ProjectProvider({
+  projectId,
   children
 }: {
-  workspaceId: string
+  projectId: string
   children: React.ReactNode
 }) {
-  return <WorkspaceContext.Provider value={{ workspaceId }}>{children}</WorkspaceContext.Provider>
+  return <ProjectContext.Provider value={{ projectId }}>{children}</ProjectContext.Provider>
 }
 
-export function useWorkspace(): { workspaceId: string } {
-  const ctx = useContext(WorkspaceContext)
+export function useProject(): { projectId: string } {
+  const ctx = useContext(ProjectContext)
   if (!ctx) {
-    throw new Error('useWorkspace must be used within WorkspaceProvider')
+    throw new Error('useProject must be used within ProjectProvider')
   }
   return ctx
 }

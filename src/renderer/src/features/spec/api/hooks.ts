@@ -5,7 +5,7 @@ import type { FsBase } from './fs'
 export function useFsTreeQuery(opts: {
   base?: FsBase
   depth?: number
-  workspaceId?: string
+  projectId?: string
   enabled?: boolean
 }) {
   const { enabled = true, ...input } = opts || {}
@@ -16,7 +16,7 @@ export function useFsTreeQuery(opts: {
 export function useFsFileQuery(opts: {
   base?: FsBase
   path: string
-  workspaceId?: string
+  projectId?: string
   enabled?: boolean
 }) {
   const { enabled = true, ...input } = opts || {}
