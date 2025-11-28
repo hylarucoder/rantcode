@@ -1,9 +1,31 @@
-# Overview docs
+# Overview 文档
 
-This folder is for high‑level overviews and onboarding material.
+本目录包含项目的高层次概述、概念介绍和使用场景说明。
 
-Typical examples:
+## 文档约定
 
-- Project overview and goals
-- Onboarding guides for new contributors
-- “How this repo is organized” notes
+`docs/` 目录是 **文档驱动开发（Doc-Driven Development）** 工作流的核心：
+
+| 目录 | 用途 |
+|------|------|
+| `overview/` | 项目总览、概念解释、使用场景 |
+| `design/` | 架构设计、RFC、开发规范 |
+| `spec/` | 接口规范、模块边界、行为定义 |
+| `task/` | 任务文档，驱动看板视图 |
+
+## 本目录文档
+
+| 文档 | 说明 |
+|------|------|
+| [concepts.md](./concepts.md) | 产品定位、核心对象、界面概念 |
+| [use-cases.md](./use-cases.md) | 典型使用场景与用户画像 |
+
+## 快速了解
+
+- **产品定位**：本地 Electron 应用，围绕代码仓库管理 AI 开发工作流
+- **核心特点**：文档驱动开发 + 多模型代码助手中台
+- **目标用户**：独立开发者、Tech Lead、AI 重度使用者
+
+---
+
+> 保持文档精简、聚焦，代码变更时同步更新相关文档。

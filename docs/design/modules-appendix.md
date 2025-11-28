@@ -145,7 +145,7 @@ Renderer (SessionsView)
    │
    ├──► preload.agentsBridge.run(opts)
    │
-   └──► main.orpcBridge.codex.run / claudeCode.run
+   └──► main.orpcBridge.agents.run
             │
             ├── codex/runner.ts
             └── claudecode/runner.ts
@@ -250,7 +250,10 @@ GitPanel
 | WorkspaceLayout | `views/WorkspaceLayout.tsx` | ✅ 已实现 |
 | ActivityBar | `components/ActivityBar.tsx` | ✅ 已实现 |
 | GitPanel | `components/GitPanel.tsx` | ✅ 已实现 |
+| KanbanPanel | `components/KanbanPanel.tsx` | ✅ 已实现 |
 | AssistantPanel | `components/AssistantPanel.tsx` | ✅ 已实现 |
+| ConversationPanel | `components/ConversationPanel.tsx` | ✅ 已实现 |
+| PreviewPanel | `components/PreviewPanel.tsx` | ✅ 已实现 |
 | ProjectSettingsPanel | `components/ProjectSettingsPanel.tsx` | ✅ 已实现 |
 
 ---
@@ -262,10 +265,16 @@ GitPanel
 | 模块 | 说明 |
 |------|------|
 | **TTS 系统** | `docs/spec/tts.md` 已有规格，待落地设计与实现 |
-| **任务看板 (Kanban)** | 与 `data-model.md` 中 Task 实体配合，提供可视化看板 |
 | **多窗口 / 多 Workspace** | 当前单窗口，未来可能需要多窗口状态隔离 |
 | **插件 / 扩展机制** | 若要支持自定义 Agent / Tool |
 | **Git 操作功能** | 当前只支持查看，待添加 commit/push/pull 等操作 |
+| **Task 新建** | 支持在看板中新建任务文件 |
+
+### 已完成模块
+
+| 模块 | 说明 |
+|------|------|
+| **任务看板 (Kanban)** | ✅ `KanbanPanel` 支持拖拽改变状态、读取 frontmatter |
 
 ---
 
@@ -318,6 +327,9 @@ src/
 │  │        ├─ MessageList.tsx     # 消息列表
 │  │        ├─ Composer.tsx        # 输入组件
 │  │        ├─ RightPanel.tsx      # 右侧面板
+│  │        ├─ KanbanPanel.tsx     # 任务看板
+│  │        ├─ ConversationPanel.tsx # 对话面板
+│  │        ├─ PreviewPanel.tsx    # 预览面板
 │  │        └─ ProjectSettingsPanel.tsx # 项目设置
 │  ├─ lib/
 │  │  ├─ logParsers/     # 日志解析器

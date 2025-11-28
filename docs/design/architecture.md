@@ -89,7 +89,7 @@ flowchart LR
 - **Main Process (`src/main/`)**
   - 负责应用生命周期管理、窗口创建（`windowService`）、单实例锁以及崩溃上报（`crashReporter`）。
   - 通过 `orpcBridge` 暴露系统、文件、项目、settings 等 RPC 能力给渲染层。
-  - `agents/` + `codexRunner.ts` 封装了对本地 Codex CLI 的调用与事件流（`AgentEvent`）。
+  - `agents/codex/runner.ts` 与 `agents/claudecode/runner.ts` 封装了对本地 CLI 的调用与事件流（`AgentEvent`）。
   - `docsWatcher.ts` 监控工作区的 `docs/` 目录变更，并经由 notify 通道推送到前端。
 
 - **Preload (`src/preload/`)**

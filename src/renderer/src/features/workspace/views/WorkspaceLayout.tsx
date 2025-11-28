@@ -14,19 +14,19 @@ import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
 import type { AgentRunOptions } from '@shared/types/webui'
-import { CodexMessageBubble } from '@/features/workspace/components/CodexMessageBubble'
+import { AgentMessageBubble } from '@/features/workspace/components/AgentMessageBubble'
 import { UserMessageBubble } from '@/features/workspace/components/UserMessageBubble'
 import { AssistantMessageBubble } from '@/features/workspace/components/AssistantMessageBubble'
 import type { Message, Session } from '@/features/workspace/types'
 import type { PreviewTocItem } from '@/features/preview'
 
-// moved to features/workspace/components/CodexMessageBubble
+// moved to features/workspace/components/AgentMessageBubble
 
 function renderBubble(msg: Message) {
   const isUser = msg.role === 'user'
-  const isCodex = msg.role === 'assistant' && !!msg.jobId
-  if (isCodex) {
-    return <CodexMessageBubble msg={msg} />
+  const isAgent = msg.role === 'assistant' && !!msg.jobId
+  if (isAgent) {
+    return <AgentMessageBubble msg={msg} />
   }
   if (isUser) return <UserMessageBubble key={msg.id} text={msg.content} />
   return <AssistantMessageBubble key={msg.id} text={msg.content} />

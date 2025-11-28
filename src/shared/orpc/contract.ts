@@ -66,6 +66,10 @@ export const contract = oc.router({
     runClaudePrompt: oc.input(claudeVendorRunInputSchema).output(claudeVendorTestResultSchema)
   },
   agents: {
+    // 执行 agent
+    run: oc.input(agentRunInputSchema).output(z.object({ jobId: z.string() })),
+    cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() })),
+    // 配置管理
     get: oc.output(agentsCatalogSchema),
     set: oc.input(agentsCatalogSchema).output(agentsCatalogSchema),
     testCodex: oc.input(codexAgentConfigSchema).output(codexAgentTestResultSchema),
@@ -106,10 +110,6 @@ export const contract = oc.router({
           minmax: z.string().optional()
         })
       )
-  },
-  codex: {
-    run: oc.input(agentRunInputSchema).output(z.object({ jobId: z.string() })),
-    cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() }))
   },
   app: {
     getGeneral: oc.output(generalSettingsSchema),

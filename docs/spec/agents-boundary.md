@@ -31,7 +31,7 @@
 
 ## 主进程实现边界
 - oRPC Handler：`src/main/orpcBridge.ts:440` `codex.run`（静态导入 `runCodex`）。
-- 执行器：`src/main/codexRunner.ts:1`
+- 执行器：`src/main/agents/codex/runner.ts`
   - 解析 `AgentRunOptions` → 定位工作目录（`resolveWorkspaceRoot`，见 `src/main/rpc.ts:151`）。
   - 根据 `engine`（vendor）与参数构造最终命令行（`buildCodexArgs`）。
   - `spawn` 子进程，分别处理 `stdout`/`stderr`，按“完整行”分发 `log` 事件。
@@ -92,5 +92,5 @@
 - oRPC 合同：src/shared/orpc/contract.ts:1
 - 输入 Schema：src/shared/orpc/schemas.ts:88
 - oRPC 服务器：src/main/orpcBridge.ts:440
-- 执行器与事件：src/main/codexRunner.ts:1
+- 执行器与事件：src/main/agents/codex/runner.ts
 - Notify 通道：src/main/notifyBridge.ts:21

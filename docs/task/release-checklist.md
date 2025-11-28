@@ -14,7 +14,7 @@ priority: P1
 |------|------|------|
 | 代码质量 | 🟢 已修复 | Lint 错误 ✅、测试 ✅、待提交代码 |
 | 核心功能 | 🟡 部分完成 | Task 看板、Session 持久化等待实现 |
-| 发布配置 | 🟠 需更新 | appId、作者信息、自动更新 URL |
+| 发布配置 | 🟢 已更新 | appId、作者信息 ✅，自动更新 URL 待配置 |
 | 已完成功能 | 🟢 就绪 | 项目管理、Agent 执行、会话系统等 |
 
 ---
@@ -118,35 +118,33 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 
 ## 3. 发布配置（P1）
 
-### 3.1 package.json
+### 3.1 package.json ✅ 已更新
 
 ```jsonc
 {
   "name": "rantcode",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript", // ← 需更新
-  "author": "example.com", // ← 需更新
-  "homepage": "https://electron-vite.org" // ← 需更新
+  "version": "0.0.1",
+  "description": "Desktop app for managing AI coding agents like Claude Code and Codex",
+  "author": "hylarucoder",
+  "homepage": "https://rantcode.hylarucoder.io"
 }
 ```
 
-**建议修改**：
+### 3.2 electron-builder 配置 ✅ 已更新
 
-```jsonc
-{
-  "description": "文档驱动开发 + AI Coding Agent 桌面应用",
-  "author": "Your Name <email@example.com>",
-  "homepage": "https://github.com/yourname/rantcode"
-}
-```
+项目使用多渠道配置：
 
-### 3.2 electron-builder.yml
+| 配置文件 | App ID | 更新源 |
+|----------|--------|--------|
+| `electron-builder.stable.yml` | `io.hylarucoder.rantcode` | GitHub Releases (release) |
+| `electron-builder.nightly.yml` | `io.hylarucoder.rantcode.nightly` | GitHub Releases (prerelease) |
 
-| 配置项 | 当前值 | 建议值 |
-|--------|--------|--------|
-| `appId` | `com.electron.app` | `com.yourname.rantcode` |
-| `publish.url` | `https://example.com/auto-updates` | 真实更新服务器地址 |
-| `mac.notarize` | `false` | 上架 Mac App Store 需设为 `true` |
+| 配置项 | 当前值 | 状态 |
+|--------|--------|------|
+| `publish.provider` | `github` | ✅ 已配置 |
+| `publish.owner` | `hylarucoder` | ✅ 已配置 |
+| `publish.repo` | `rantcode` | ✅ 已配置 |
+| `mac.notarize` | `false` | ⚠️ 上架需设为 `true` |
 
 ### 3.3 应用图标
 
@@ -161,7 +159,83 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 
 ## 4. 发布流程
 
-### 4.1 最小可发布版本（MVP）
+### 4.1 多渠道版本说明
+
+项目支持两个发布渠道，可以同时安装在同一台机器上：
+
+| 渠道 | App ID | 产品名 | 版本号格式 | 更新通道 |
+|------|--------|--------|------------|----------|
+| **Stable** | `io.hylarucoder.rantcode` | RantCode | `0.0.1` | stable |
+| **Nightly** | `io.hylarucoder.rantcode.nightly` | RantCode Nightly | `0.0.1-nightly.20251127.abc1234` | nightly |
+
+### 4.2 构建命令
+
+```bash
+# 本地构建（仅打包，不发布）
+pnpm build:stable     # Stable 版本
+pnpm build:nightly    # Nightly 版本
+
+# 构建并发布到 GitHub Releases
+pnpm release:stable   # 发布正式版（release）
+pnpm release:nightly  # 发布预览版（prerelease）
+```
+
+**Nightly 版本号格式**：`{baseVersion}-nightly.{YYYYMMDD}.{gitShortHash}`
+- 例如：`0.0.1-nightly.20251127.abc1234`
+
+### 4.2.1 GitHub 发布配置
+
+发布到 GitHub Releases 需要配置 `GH_TOKEN` 环境变量：
+
+```bash
+# 1. 创建 GitHub Personal Access Token
+#    访问: https://github.com/settings/tokens/new?scopes=repo
+#    勾选 `repo` 权限
+
+# 2. 设置环境变量
+export GH_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+
+# 3. 发布
+pnpm release:stable
+```
+
+**GitHub Actions 自动发布**（推荐）：
+
+```yaml
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install
+      - run: pnpm release:stable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**自动更新配置**：
+
+| 渠道 | GitHub Release 类型 | 用户接收更新 |
+|------|---------------------|--------------|
+| Stable | `release` | 正式版用户 |
+| Nightly | `prerelease` | 测试版用户 |
+
+### 4.3 最小可发布版本（MVP）
 
 如果需要快速发布 Beta 版本，可以跳过 Task 看板和 Session 持久化：
 
@@ -174,10 +248,8 @@ pnpm test
 # 2. 更新版本号
 npm version 1.0.0-beta.1
 
-# 3. 构建
-pnpm build:mac   # macOS
-pnpm build:win   # Windows
-pnpm build:linux # Linux
+# 3. 构建 Stable 版本
+pnpm build:stable
 
 # 4. 测试安装包
 # 5. 发布
@@ -204,8 +276,8 @@ pnpm build:linux # Linux
 - [x] `pnpm typecheck` 通过 ✅ 2025-11-27
 - [x] `pnpm test` 全部通过 ✅ 2025-11-27
 - [ ] 所有代码已提交
-- [ ] `package.json` 元信息已更新
-- [ ] `electron-builder.yml` 配置已更新
+- [x] `package.json` 元信息已更新 ✅ 2025-11-27
+- [x] `electron-builder.yml` 配置已更新 ✅ 2025-11-27
 - [ ] 应用图标已确认
 - [ ] README 已更新
 

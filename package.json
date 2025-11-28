@@ -1,10 +1,10 @@
 {
   "name": "rantcode",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "0.0.1",
+  "description": "Desktop app for managing AI coding agents like Claude Code and Codex",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "hylarucoder",
+  "homepage": "https://rantcode.hylarucoder.io",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -23,7 +23,11 @@
     "build:unpack": "pnpm -s build && electron-builder --dir",
     "build:win": "pnpm -s build && electron-builder --win",
     "build:mac": "pnpm -s build && electron-builder --mac",
-    "build:linux": "pnpm -s build && electron-builder --linux"
+    "build:linux": "pnpm -s build && electron-builder --linux",
+    "build:stable": "tsx scripts/build-channel.ts stable",
+    "build:nightly": "tsx scripts/build-channel.ts nightly",
+    "release:stable": "tsx scripts/build-channel.ts stable --publish",
+    "release:nightly": "tsx scripts/build-channel.ts nightly --publish"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -100,6 +104,7 @@
     "rehype-sanitize": "^6.0.0",
     "rimraf": "^6.1.0",
     "tailwindcss": "^4.1.17",
+    "tsx": "^4.19.4",
     "typescript": "^5.9.3",
     "vite": "^7.2.2",
     "vitest": "^4.0.9",

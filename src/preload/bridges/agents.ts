@@ -15,10 +15,10 @@ export function createAgentsBridge(
   return {
     run(opts) {
       const input: AgentRunOptions = { ...opts, agent: opts.agent || 'codex' }
-      return client.codex.run(input)
+      return client.agents.run(input)
     },
     cancel(jobId) {
-      return client.codex.cancel({ jobId })
+      return client.agents.cancel({ jobId })
     },
     subscribe(handler) {
       return subscribeNotify<AgentEvent>('codex', handler)

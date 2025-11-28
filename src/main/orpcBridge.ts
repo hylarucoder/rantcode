@@ -278,7 +278,8 @@ export function setupOrpcBridge(): void {
         )
         .handler(async ({ input }) => runClaudeOnce(input))
     },
-    codex: {
+    agents: {
+      // 执行 agent
       run: os
         .input(agentRunInputSchema)
         .output(z.object({ jobId: z.string() }))
@@ -293,9 +294,8 @@ export function setupOrpcBridge(): void {
       cancel: os
         .input(z.object({ jobId: z.string() }))
         .output(z.object({ ok: z.boolean() }))
-        .handler(async ({ input }) => cancelCodex(input.jobId))
-    },
-    agents: {
+        .handler(async ({ input }) => cancelCodex(input.jobId)),
+      // 配置管理
       get: os.output(agentsCatalogSchema).handler(async () => agentsStore.read()),
       set: os
         .input(agentsCatalogSchema)

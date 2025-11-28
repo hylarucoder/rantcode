@@ -54,7 +54,7 @@
 1. 消息列表（MessageList）
 
 - 容器负责 key：`{messages.map(m => <div key={m.id}>{renderMessage(m)}</div>)}`。
-- 子项组件（如 `CodexMessageBubble`）仅根据必要字段触发副作用：
+- 子项组件（如 `AgentMessageBubble`）仅根据必要字段触发副作用：
   - Markdown 渲染依赖 `[trimmedOutput, themeMode]`；
   - 滚动依赖 `[logs.length, tab]`；
   - 不依赖可变对象/函数。
