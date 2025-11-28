@@ -1,8 +1,10 @@
 import type { SfxKey } from '@/sound/soundManager'
 
+// 使用 public 目录中的静态资源路径（相对路径）
+// 相对路径在 Electron 的 file:// 协议下能正确解析
 export const sfxDefaults: Record<SfxKey, string> = {
-  click: new URL('../assets/sfx/click.wav', import.meta.url).toString(),
-  success: new URL('../assets/sfx/success.wav', import.meta.url).toString(),
-  error: new URL('../assets/sfx/error.wav', import.meta.url).toString(),
-  notify: new URL('../assets/sfx/notify.wav', import.meta.url).toString()
+  click: './sfx/click.wav',
+  success: './sfx/success.wav',
+  error: './sfx/error.wav',
+  notify: './sfx/notify.wav'
 }

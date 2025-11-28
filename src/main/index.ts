@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, crashReporter } from 'electron'
 import { electronApp } from '@electron-toolkit/utils'
+import { execSync } from 'node:child_process'
 import { setupOrpcBridge } from './orpcBridge'
 import { setupProductionExceptionHandlers, logRendererTelemetry, setupLoggingIPC } from './logging'
 import { windowService } from './windowService'
@@ -11,6 +12,43 @@ import type { GeneralSettings } from './settings/general'
 import { onGeneralChange } from './settings/store'
 import { applyAutoLaunch } from './settings/autoLaunch'
 import { generalSettingsSchema } from '../shared/orpc/schemas'
+
+// 修复 macOS/Linux 打包后 PATH 环境变量问题
+// GUI 应用不会继承 shell 的 PATH，导致找不到 node/codex/claude-code 等命令
+function fixPath(): void {
+  if (process.platform === 'win32') return
+
+  try {
+    // 获取用户默认 shell
+    const shell = process.env.SHELL || '/bin/zsh'
+    // 运行 shell 并获取 PATH 环境变量
+    const result = execSync(`${shell} -ilc 'echo $PATH'`, {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, DISABLE_AUTO_UPDATE: 'true' }
+    }).trim()
+
+    if (result) {
+      // 移除可能的 ANSI 转义序列
+      const cleanPath = result.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
+      process.env.PATH = cleanPath
+    }
+  } catch {
+    // 如果获取失败，添加常见路径作为备选
+    const fallbackPaths = [
+      '/usr/local/bin',
+      '/opt/homebrew/bin',
+      '/opt/homebrew/sbin',
+      `${process.env.HOME}/.nvm/versions/node/*/bin`,
+      `${process.env.HOME}/.local/bin`,
+      `${process.env.HOME}/bin`,
+      process.env.PATH
+    ].filter(Boolean)
+    process.env.PATH = fallbackPaths.join(':')
+  }
+}
+
+fixPath()
 
 // Window creation moved to WindowService
 
