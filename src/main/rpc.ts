@@ -781,8 +781,8 @@ export class SessionService {
         session.title = trimmed
       }
     }
-    if (input.agentSessions !== undefined) {
-      session.agentSessions = input.agentSessions
+    if (input.runnerSessions !== undefined) {
+      session.runnerSessions = input.runnerSessions
     }
     session.updatedAt = new Date().toISOString()
     sessions[idx] = session

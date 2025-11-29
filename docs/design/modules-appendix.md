@@ -67,7 +67,7 @@
 
 ### 设计要点
 
-- 日志解析器返回统一的 `ParsedLogEvent[]`，便于 `ConversationLog.tsx` / `ExecLogConversation.tsx` 渲染。
+- 日志解析器返回统一的 `TraceEvent[]`，便于 `AgentTraceTimeline.tsx` / `ExecAgentTrace.tsx` 渲染。
 - 支持增量解析（流式场景）。
 
 ---
@@ -252,7 +252,7 @@ GitPanel
 | GitPanel | `components/GitPanel.tsx` | ✅ 已实现 |
 | KanbanPanel | `components/KanbanPanel.tsx` | ✅ 已实现 |
 | AssistantPanel | `components/AssistantPanel.tsx` | ✅ 已实现 |
-| ConversationPanel | `components/ConversationPanel.tsx` | ✅ 已实现 |
+| AgentTracePanel | `components/AgentTracePanel.tsx` | ✅ 已实现 |
 | PreviewPanel | `components/PreviewPanel.tsx` | ✅ 已实现 |
 | ProjectSettingsPanel | `components/ProjectSettingsPanel.tsx` | ✅ 已实现 |
 
@@ -328,7 +328,7 @@ src/
 │  │        ├─ Composer.tsx        # 输入组件
 │  │        ├─ RightPanel.tsx      # 右侧面板
 │  │        ├─ KanbanPanel.tsx     # 任务看板
-│  │        ├─ ConversationPanel.tsx # 对话面板
+│  │        ├─ AgentTracePanel.tsx # Agent 轨迹面板
 │  │        ├─ PreviewPanel.tsx    # 预览面板
 │  │        └─ ProjectSettingsPanel.tsx # 项目设置
 │  ├─ lib/

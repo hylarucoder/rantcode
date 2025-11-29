@@ -2,11 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarClock, FileDiff, MessageSquare, Puzzle, Terminal } from 'lucide-react'
 import { useProject } from '@/state/workspace'
 import { fetchFile } from '@/features/spec'
-import {
-  parseConversationLog,
-  type ConversationSession,
-  type LogEvent
-} from '@/lib/conversationLog'
+import { parseAgentTrace, type TraceSession, type TraceEvent } from '@/lib/logParsers'
 import { cn } from '@/lib/utils'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 
@@ -43,7 +39,7 @@ function Badge({ children, className = '' }: { children: string; className?: str
   )
 }
 
-function EventItem({ ev }: { ev: LogEvent }) {
+function TraceEventItem({ ev }: { ev: TraceEvent }) {
   switch (ev.type) {
     case 'session_start':
       return (
@@ -178,11 +174,11 @@ function EventItem({ ev }: { ev: LogEvent }) {
   }
 }
 
-export default function ConversationInline() {
+export default function AgentTracePreview() {
   const { projectId } = useProject()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<ConversationSession[]>([])
+  const [sessions, setSessions] = useState<TraceSession[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [stickToBottom, setStickToBottom] = useState(true)
 
@@ -192,7 +188,7 @@ export default function ConversationInline() {
     setError(null)
     try {
       const file = await fetchFile({ base: 'repo', path: 'conversation.log', projectId })
-      const parsed = parseConversationLog(file.content || '')
+      const parsed = parseAgentTrace(file.content || '')
       setSessions(parsed)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -220,13 +216,12 @@ export default function ConversationInline() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  useAutoScrollBottom(scrollRef, !loading && stickToBottom, [
-    sessions.length,
-    loading,
-    stickToBottom
-  ])
+  const totalEvents = useMemo(
+    () => sessions.reduce((acc, s) => acc + s.events.length, 0),
+    [sessions]
+  )
 
-  // const totalEvents = useMemo(() => sessions.reduce((acc, s) => acc + s.events.length, 0), [sessions]);
+  useAutoScrollBottom(scrollRef, !loading && stickToBottom, [totalEvents])
 
   return (
     <div className="flex h-64 min-h-0 flex-1 flex-col border border-border/60 bg-background/60">
@@ -242,7 +237,7 @@ export default function ConversationInline() {
               Session {idx + 1} — {s.meta.model || 'model'}
             </div>
             {s.events.map((ev, i) => (
-              <EventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
+              <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
             ))}
           </div>
         ))}

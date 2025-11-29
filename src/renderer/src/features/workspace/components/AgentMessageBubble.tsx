@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/hooks/use-theme-mode'
 import { renderMarkdownToHtml } from '@/lib/markdown'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
-import { ExecLogConversation } from '@/features/logs'
+import { ExecAgentTrace } from '@/features/logs'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 import type { Message } from '@/features/workspace/types'
 import type { ThemeMode } from '@/types/theme'
@@ -51,7 +51,7 @@ const MarkdownContent = memo(function MarkdownContent({
 export function AgentMessageBubble({ msg }: { msg: Message }) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
   const themeMode = useThemeMode()
-  const [logTab, setLogTab] = useState<'exec' | 'conversation'>('conversation')
+  const [logTab, setLogTab] = useState<'exec' | 'trace'>('trace')
   const hasLogs = (msg.logs?.length ?? 0) > 0
   const execScrollRef = useRef<HTMLDivElement | null>(null)
   const trimmedOutput = (msg.output ?? '').trim()
@@ -107,7 +107,7 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
     <div className="flex justify-start">
       <div className="max-w-[80%] rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {RUNNER_UI_LIST.find((a) => a.value === msg.agent)?.label || msg.agent || 'Runner'}
+          {RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'}
           {msg.sessionId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
               ({msg.sessionId.slice(0, 8)})
@@ -145,10 +145,10 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
               </button>
               <button
                 type="button"
-                onClick={() => setLogTab('conversation')}
+                onClick={() => setLogTab('trace')}
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[11px]',
-                  logTab === 'conversation'
+                  logTab === 'trace'
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent/40'
                 )}
@@ -180,7 +180,7 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
               )}
             </div>
           ) : (
-            <ExecLogConversation logs={msg.logs ?? []} />
+            <ExecAgentTrace logs={msg.logs ?? []} />
           )}
         </div>
         {displayHtml && <MarkdownContent html={displayHtml} themeMode={themeMode} />}

@@ -1,11 +1,11 @@
 import type { ContractRouterClient } from '@orpc/contract'
 import type { RantcodeContract } from '../../shared/orpc/contract'
-import type { AgentEvent, AgentRunOptions } from '../../shared/types/webui'
+import type { RunnerEvent, RunnerRunOptions } from '../../shared/types/webui'
 import type { Runner } from '../../shared/runners'
 
 export type RunnersBridge = {
-  run(opts: AgentRunOptions): Promise<{ jobId: string }>
-  subscribe(handler: (event: AgentEvent) => void): () => void
+  run(opts: RunnerRunOptions): Promise<{ jobId: string }>
+  subscribe(handler: (event: RunnerEvent) => void): () => void
   cancel(jobId: string): Promise<{ ok: boolean }>
 }
 
@@ -15,28 +15,15 @@ export function createRunnersBridge(
 ): RunnersBridge {
   return {
     run(opts) {
-      // 兼容：优先使用 runner，回退到 agent（已废弃）
-      const runner: Runner = (opts.runner ||
-        (opts as { agent?: Runner }).agent ||
-        'codex') as Runner
-      const input: AgentRunOptions = { ...opts, runner }
+      const runner: Runner = opts.runner || 'codex'
+      const input: RunnerRunOptions = { ...opts, runner }
       return client.runners.run(input)
     },
     cancel(jobId) {
       return client.runners.cancel({ jobId })
     },
     subscribe(handler) {
-      return subscribeNotify<AgentEvent>('codex', handler)
+      return subscribeNotify<RunnerEvent>('codex', handler)
     }
   }
 }
-
-// ============================================================================
-// 兼容性导出（过渡期使用，后续删除）
-// ============================================================================
-
-/** @deprecated 使用 RunnersBridge 代替 */
-export type AgentsBridge = RunnersBridge
-
-/** @deprecated 使用 createRunnersBridge 代替 */
-export const createAgentsBridge = createRunnersBridge

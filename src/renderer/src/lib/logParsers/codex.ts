@@ -3,7 +3,7 @@
   Parses text output from OpenAI Codex CLI.
 */
 
-import type { ConversationSession, SessionMeta } from './types'
+import type { TraceSession, TraceMeta } from './types'
 
 const SESSION_START_RE = /^\[stderr\]OpenAI Codex v/i
 const DASHES_RE = /^[-]{4,}$/
@@ -48,13 +48,13 @@ function normalizeMetaKey(key: string): CodexMetaKey | undefined {
 }
 
 /**
- * 解析 Codex CLI 格式的日志
+ * 解析 Codex CLI 格式的 Agent Trace
  */
-export function parseCodexLog(text: string): ConversationSession[] | null {
+export function parseCodexTrace(text: string): TraceSession[] | null {
   const lines = text.split(/\r?\n/)
-  const sessions: ConversationSession[] = []
+  const sessions: TraceSession[] = []
 
-  let curSession: ConversationSession | null = null
+  let curSession: TraceSession | null = null
   let i = 0
 
   // helpers for collecting blocks until a next event marker
@@ -97,7 +97,7 @@ export function parseCodexLog(text: string): ConversationSession[] | null {
     // Session start
     if (SESSION_START_RE.test(line)) {
       // Expect dash line, meta kv pairs, then dash line
-      const meta: SessionMeta = {}
+      const meta: TraceMeta = {}
       i++
       if (i < lines.length && DASHES_RE.test(lines[i])) i++
       while (i < lines.length && !DASHES_RE.test(lines[i])) {

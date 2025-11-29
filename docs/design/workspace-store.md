@@ -72,7 +72,7 @@ Workspace 视图的状态现在拆分为两个 Zustand store：
 
 - 通过 React Testing Library / Playwright：
   - 选择 SpecExplorer 中的文件 -> 右侧预览更新 -> 切换 tab -> 切换 workspace -> 状态恢复。
-  - 发送 Codex 请求后，模拟 `AgentEvent` 推送，确保右侧 conversation log 正常展示。
+  - 发送 Codex 请求后，模拟 `AgentEvent` 推送，确保右侧 Agent Trace 时间线正常展示。
 
 ## 落地步骤建议
 

@@ -18,13 +18,13 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
-  parseConversationLog,
-  type ConversationSession,
-  type LogEvent,
+  parseAgentTrace,
+  type TraceSession,
+  type TraceEvent,
   type ToolCallData,
   type TodoItem
-} from '@/lib/conversationLog'
-import { useCodexLogStore } from '@/state/codexLogs'
+} from '@/lib/logParsers'
+import { useRunnerLogStore } from '@/state/runnerLogs'
 
 function CollapsibleText({ text, lines = 80 }: { text: string; lines?: number }) {
   const [open, setOpen] = useState(false)
@@ -215,7 +215,7 @@ function CollapsibleToolArgs({ argsText, data }: { argsText: string; data?: Tool
   )
 }
 
-function EventItem({ ev }: { ev: LogEvent }) {
+function TraceEventItem({ ev }: { ev: TraceEvent }) {
   switch (ev.type) {
     case 'session_start':
       return (
@@ -342,16 +342,16 @@ function EventItem({ ev }: { ev: LogEvent }) {
   }
 }
 
-export default function ConversationLog() {
-  const execLogs = useCodexLogStore((state) => state.entries)
-  const clearLogs = useCodexLogStore((state) => state.clear)
+export default function AgentTraceTimeline() {
+  const runnerLogs = useRunnerLogStore((state) => state.entries)
+  const clearLogs = useRunnerLogStore((state) => state.clear)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [stickToBottom, setStickToBottom] = useState(true)
 
   const joined = useMemo(() => {
-    if (!Array.isArray(execLogs) || execLogs.length === 0) return ''
+    if (!Array.isArray(runnerLogs) || runnerLogs.length === 0) return ''
     let out = ''
-    for (const entry of execLogs) {
+    for (const entry of runnerLogs) {
       const chunk = String(entry.text ?? '')
       if (!chunk) continue
       if (out && !out.endsWith('\n') && !chunk.startsWith('\n')) {
@@ -360,20 +360,20 @@ export default function ConversationLog() {
       out += chunk
     }
     return out
-  }, [execLogs])
+  }, [runnerLogs])
 
   const { sessions, error } = useMemo(() => {
     if (!joined) {
-      return { sessions: [] as ConversationSession[], error: null as string | null }
+      return { sessions: [] as TraceSession[], error: null as string | null }
     }
     try {
-      const parsed = parseConversationLog(joined)
+      const parsed = parseAgentTrace(joined)
       return { sessions: parsed, error: null as string | null }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return {
-        sessions: [] as ConversationSession[],
-        error: msg || 'Failed to parse Codex conversation log'
+        sessions: [] as TraceSession[],
+        error: msg || 'Failed to parse agent trace'
       }
     }
   }, [joined])
@@ -410,14 +410,14 @@ export default function ConversationLog() {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     })
     return () => cancelAnimationFrame(id)
-  }, [sessions, stickToBottom])
+  }, [totalEvents, stickToBottom])
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Terminal className="h-4 w-4" />
-          <span>Conversation</span>
+          <span>Agent Trace</span>
           <span className="text-xs">{sessions.length} sessions</span>
           <span className="text-xs">{totalEvents} events</span>
         </div>
@@ -455,7 +455,7 @@ export default function ConversationLog() {
               Session {idx + 1} — {s.meta.model || 'model'} — {s.meta.sessionId || 'id'}
             </div>
             {s.events.map((ev, i) => (
-              <EventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
+              <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
             ))}
           </div>
         ))}

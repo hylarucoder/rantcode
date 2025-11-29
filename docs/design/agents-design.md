@@ -49,7 +49,7 @@
 - Protocol 层：OpenAI Chat、JSON-RPC、自定义 JSON over stdio、SSE。
 - Registry/Factory：按配置创建实例，支持热插拔与按需复用连接。
 - ToolRuntime：统一工具注册/执行与安全沙箱，隔离文件系统/网络权限。
-- ConversationStore：管理会话/上下文/缓存（可选）。
+- AgentTraceStore：管理 Agent 轨迹/上下文/缓存（可选）。
 - Auth 管理：API Key、Token、签名策略、密钥来源（env/安全存储）。
 
 运行时信息展示（路径与版本）：

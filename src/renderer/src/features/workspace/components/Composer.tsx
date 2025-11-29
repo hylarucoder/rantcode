@@ -11,11 +11,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { AgentRunOptions } from '@shared/types/webui'
+import type { RunnerRunOptions } from '@shared/types/webui'
 import { RUNNER_UI_LIST } from '@shared/runners'
 import { Send, Square, Cpu } from 'lucide-react'
 
-type ExecRunner = NonNullable<AgentRunOptions['runner']>
+type ExecRunner = NonNullable<RunnerRunOptions['runner']>
 
 export function Composer({
   value,

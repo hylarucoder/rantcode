@@ -31,19 +31,3 @@ export const RUNNER_UI_LIST: RunnerUIConfig[] = [
 
 /** 所有 runner 值的数组，用于 zod schema */
 export const RUNNER_VALUES = RUNNER_UI_LIST.map((e) => e.value) as [Runner, ...Runner[]]
-
-// ============================================================================
-// 兼容性导出（过渡期使用，后续删除）
-// ============================================================================
-
-/** @deprecated 使用 Runner 代替 */
-export type Agent = Runner
-
-/** @deprecated 使用 RunnerUIConfig 代替 */
-export type AgentUIConfig = RunnerUIConfig
-
-/** @deprecated 使用 RUNNER_UI_LIST 代替 */
-export const AGENT_UI_LIST = RUNNER_UI_LIST
-
-/** @deprecated 使用 RUNNER_VALUES 代替 */
-export const AGENT_VALUES = RUNNER_VALUES

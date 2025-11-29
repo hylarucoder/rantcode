@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { ProjectInfo } from '@/types'
 import { WorkspaceLayout } from '@/features/workspace/views/WorkspaceLayout'
-import { useCodexRunner } from '@/features/workspace/hooks/useCodexRunner'
+import { useAgentRunner } from '@/features/workspace/hooks/useAgentRunner'
 import { usePreviewDocument } from '@/features/preview'
 import { useProjectChat, useProjectPreview } from '@/features/workspace/state/store'
 import { useProjects } from '@/state/projects'
-import type { AgentEvent, AgentRunOptions } from '@shared/types/webui'
+import type { RunnerEvent, RunnerRunOptions } from '@shared/types/webui'
 import { toast } from 'sonner'
 import { useSfx } from '@/hooks/useSfx'
 import type { Message, Session } from '@/features/workspace/types'
@@ -58,7 +58,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
   }, [sessions.length, projectId, chat])
   const [input, setInput] = useState('')
   /** 底层 Runner（执行器） */
-  const [runner, setRunner] = useState<NonNullable<AgentRunOptions['runner']>>('claude-code-glm')
+  const [runner, setRunner] = useState<NonNullable<RunnerRunOptions['runner']>>('claude-code-glm')
   /** Agent ID（角色） */
   const [agentId, setAgentId] = useState('general')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
@@ -80,7 +80,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
   )
   const messages = activeSession?.messages ?? []
 
-  const { run, subscribe, cancel } = useCodexRunner()
+  const { run, subscribe, cancel } = useAgentRunner()
   const { play: playSfx } = useSfx()
 
   const handleSend = async () => {
@@ -102,7 +102,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
       logs: [],
       output: '',
       startedAt: Date.now(),
-      agent: runner // 记录使用的 runner
+      runner // 记录使用的 runner
     }
 
     await chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
@@ -117,7 +117,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
     const finalPrompt = agent ? buildAgentPrompt(agent, value) : value
 
     // 根据当前选择的 runner 获取对应的 sessionId，用于上下文续写
-    const runnerSessionId = activeSession?.agentSessions?.[runner]
+    const runnerSessionId = activeSession?.runnerSessions?.[runner]
     setRunningJobId(jobId)
     run({
       runner,
@@ -157,16 +157,16 @@ export default function SessionsView({ project }: SessionsViewProps) {
 
   // Subscribe to Codex events
   useEffect(() => {
-    const queueRef = { current: [] as AgentEvent[] }
+    const queueRef = { current: [] as RunnerEvent[] }
     let scheduled = false
     const flush = () => {
       scheduled = false
       const batch = queueRef.current
       if (batch.length === 0) return
-      chat.applyAgentEventsBatch(batch)
+      chat.applyRunnerEventsBatch(batch)
       queueRef.current = []
     }
-    const unsubscribe = subscribe((event: AgentEvent) => {
+    const unsubscribe = subscribe((event: RunnerEvent) => {
       if (event.type === 'exit') {
         const ok = (event.code ?? 1) === 0
         const ms = typeof event.durationMs === 'number' ? `${event.durationMs}ms` : ''

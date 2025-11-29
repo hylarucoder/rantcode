@@ -3,12 +3,12 @@ import { MessageCircle, Terminal as TerminalIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import XtermTerminal from '@/features/logs/components/XtermTerminal'
-import ConversationLog from '@/features/logs/components/ConversationLog'
+import AgentTraceTimeline from '@/features/logs/components/AgentTraceTimeline'
 
-type LogsTab = 'terminal' | 'conversation'
+type LogsTab = 'terminal' | 'trace'
 
 export default function LogsPage() {
-  const [tab, setTab] = useState<LogsTab>('conversation')
+  const [tab, setTab] = useState<LogsTab>('trace')
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -24,12 +24,12 @@ export default function LogsPage() {
         </Button>
         <Button
           size="sm"
-          variant={tab === 'conversation' ? 'default' : 'secondary'}
-          onClick={() => setTab('conversation')}
+          variant={tab === 'trace' ? 'default' : 'secondary'}
+          onClick={() => setTab('trace')}
           className="gap-2"
         >
           <MessageCircle className="h-4 w-4" />
-          Conversation Log
+          Agent Trace
         </Button>
       </div>
       <Card className="flex-1 min-h-0 overflow-hidden p-2">
@@ -38,9 +38,9 @@ export default function LogsPage() {
             <XtermTerminal />
           </div>
         )}
-        {tab === 'conversation' && (
+        {tab === 'trace' && (
           <div className="flex h-full min-h-0">
-            <ConversationLog />
+            <AgentTraceTimeline />
           </div>
         )}
       </Card>

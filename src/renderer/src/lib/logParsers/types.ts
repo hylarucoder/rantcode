@@ -1,8 +1,9 @@
 /*
-  Shared types for conversation log parsers.
+  Shared types for Agent Trace parsers.
 */
 
-export interface SessionMeta {
+/** 轨迹元信息 */
+export interface TraceMeta {
   workdir?: string
   model?: string
   provider?: string
@@ -34,8 +35,9 @@ export type ToolCallData =
   | { kind: 'bash'; command: string }
   | { kind: 'generic'; args: unknown }
 
-export type LogEvent =
-  | { type: 'session_start'; meta: SessionMeta }
+/** 轨迹中的单个事件 */
+export type TraceEvent =
+  | { type: 'session_start'; meta: TraceMeta }
   | { type: 'user'; text: string }
   | { type: 'assistant'; text: string }
   | { type: 'note'; channel: 'thinking' | 'system'; text: string }
@@ -49,9 +51,10 @@ export type LogEvent =
   | { type: 'truncated'; reason: string }
   | { type: 'unknown'; raw: string }
 
-export interface ConversationSession {
-  meta: SessionMeta
-  events: LogEvent[]
+/** 一次执行的轨迹（包含多个事件） */
+export interface TraceSession {
+  meta: TraceMeta
+  events: TraceEvent[]
 }
 
-export type LogParser = (text: string) => ConversationSession[] | null
+export type LogParser = (text: string) => TraceSession[] | null

@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router'
 import AppShell from '@/layout/AppShell'
 import { Toaster } from '@/components/ui/sonner'
 import { ProjectsProvider } from '@/state/projects'
-import { useCodexLogSubscription } from '@/state/codexLogs'
+import { useRunnerLogSubscription } from '@/state/runnerLogs'
 import SettingsPage from '@/settings/SettingsPage'
 import { ProjectsPage } from '@/features/projects'
 import { ProjectPage } from '@/features/workspace'
@@ -11,7 +11,7 @@ import NotFound from '@/components/NotFound'
 export default function App() {
   // Subscribe once at the app root so Codex logs are collected
   // globally in memory for the current Electron session.
-  useCodexLogSubscription()
+  useRunnerLogSubscription()
 
   return (
     <ProjectsProvider>

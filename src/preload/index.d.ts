@@ -1,11 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { AgentEvent, AgentRunOptions } from '../shared/types/webui'
+import type { RunnerEvent, RunnerRunOptions } from '../shared/types/webui'
 import type { LoggerBridge } from './bridges/logger'
 import type { DocsBridge } from './bridges/docs'
 
 interface RunnersBridge {
-  run(opts: AgentRunOptions): Promise<{ jobId: string }>
-  subscribe(handler: (event: AgentEvent) => void): () => void
+  run(opts: RunnerRunOptions): Promise<{ jobId: string }>
+  subscribe(handler: (event: RunnerEvent) => void): () => void
   cancel(jobId: string): Promise<{ ok: boolean }>
 }
 

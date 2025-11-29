@@ -1,23 +1,23 @@
 import { useCallback } from 'react'
-import type { AgentEvent, AgentRunOptions } from '@shared/types/webui'
+import type { RunnerEvent, RunnerRunOptions } from '@shared/types/webui'
 
 /**
  * Thin wrapper over window.api.runners to normalize run/subscribe usage.
  * Keeps renderer code decoupled from the global bridge details.
  */
-export function useCodexRunner() {
-  const run = useCallback(async (opts: AgentRunOptions) => {
+export function useAgentRunner() {
+  const run = useCallback(async (opts: RunnerRunOptions) => {
     const win = window as unknown as {
-      api?: { runners?: { run?: (o: AgentRunOptions) => Promise<{ jobId: string }> } }
+      api?: { runners?: { run?: (o: RunnerRunOptions) => Promise<{ jobId: string }> } }
     }
     const bridge = win.api?.runners
     if (!bridge?.run) throw new Error('Runner bridge unavailable')
     return bridge.run(opts)
   }, [])
 
-  const subscribe = useCallback((handler: (event: AgentEvent) => void) => {
+  const subscribe = useCallback((handler: (event: RunnerEvent) => void) => {
     const win = window as unknown as {
-      api?: { runners?: { subscribe?: (h: (e: AgentEvent) => void) => () => void } }
+      api?: { runners?: { subscribe?: (h: (e: RunnerEvent) => void) => () => void } }
     }
     const bridge = win.api?.runners
     if (!bridge?.subscribe) return () => {}

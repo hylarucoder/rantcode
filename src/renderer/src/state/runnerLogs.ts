@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import type { AgentEvent } from '@shared/types/webui'
+import type { RunnerEvent } from '@shared/types/webui'
 
-export interface ExecLogEntry {
+export interface RunnerLogEntry {
   id: string
   jobId: string
   stream: 'stdout' | 'stderr'
@@ -10,18 +10,18 @@ export interface ExecLogEntry {
   timestamp: number
 }
 
-interface CodexLogState {
-  entries: ExecLogEntry[]
-  appendFromEvent: (event: AgentEvent) => void
+interface RunnerLogState {
+  entries: RunnerLogEntry[]
+  appendFromEvent: (event: RunnerEvent) => void
   clear: () => void
 }
 
-export const useCodexLogStore = create<CodexLogState>((set) => ({
+export const useRunnerLogStore = create<RunnerLogState>((set) => ({
   entries: [],
   appendFromEvent: (event) =>
     set((state) => {
       if (event.type !== 'log') return state
-      const entry: ExecLogEntry = {
+      const entry: RunnerLogEntry = {
         id: `${event.jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         jobId: event.jobId,
         stream: event.stream,
@@ -37,16 +37,16 @@ export const useCodexLogStore = create<CodexLogState>((set) => ({
   clear: () => set({ entries: [] })
 }))
 
-export function useCodexLogSubscription(): void {
-  const appendFromEvent = useCodexLogStore((state) => state.appendFromEvent)
+export function useRunnerLogSubscription(): void {
+  const appendFromEvent = useRunnerLogStore((state) => state.appendFromEvent)
 
   useEffect(() => {
     const w = window as unknown as {
-      agents?: { subscribe?: (h: (e: AgentEvent) => void) => () => void }
+      agents?: { subscribe?: (h: (e: RunnerEvent) => void) => () => void }
     }
-    const codexBridge = w.agents
-    if (!codexBridge?.subscribe) return undefined
-    const unsubscribe = codexBridge.subscribe((event: AgentEvent) => {
+    const runnerBridge = w.agents
+    if (!runnerBridge?.subscribe) return undefined
+    const unsubscribe = runnerBridge.subscribe((event: RunnerEvent) => {
       appendFromEvent(event)
     })
     return () => {
@@ -54,3 +54,4 @@ export function useCodexLogSubscription(): void {
     }
   }, [appendFromEvent])
 }
+

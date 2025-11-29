@@ -3,7 +3,7 @@
   Parses stream-json output from Claude Code CLI.
 */
 
-import type { ConversationSession, SessionMeta, ToolCallData, TodoItem } from './types'
+import type { TraceSession, TraceMeta, ToolCallData, TodoItem } from './types'
 
 // Claude Code JSON Lines 消息类型
 interface ClaudeJsonMessage {
@@ -93,9 +93,9 @@ function parseToolCallData(name: string, input: unknown): ToolCallData | undefin
 }
 
 /**
- * 解析 Claude Code JSON Lines 格式的日志
+ * 解析 Claude Code JSON Lines 格式的 Agent Trace
  */
-export function parseClaudeCodeLog(text: string): ConversationSession[] | null {
+export function parseClaudeCodeTrace(text: string): TraceSession[] | null {
   const lines = text.split(/\r?\n/).filter((l) => l.trim())
   if (lines.length === 0) return null
 
@@ -107,8 +107,8 @@ export function parseClaudeCodeLog(text: string): ConversationSession[] | null {
     return null
   }
 
-  const sessions: ConversationSession[] = []
-  let curSession: ConversationSession | null = null
+  const sessions: TraceSession[] = []
+  let curSession: TraceSession | null = null
 
   for (const line of lines) {
     const trimmed = line.trim()
@@ -122,7 +122,7 @@ export function parseClaudeCodeLog(text: string): ConversationSession[] | null {
 
       // init 消息：创建新 session
       if (json.type === 'system' && json.subtype === 'init') {
-        const meta: SessionMeta = {
+        const meta: TraceMeta = {
           workdir: json.cwd,
           model: json.model,
           // 如果是 resume，优先显示 parent_session_id（被恢复的会话）

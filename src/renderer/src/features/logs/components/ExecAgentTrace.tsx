@@ -16,11 +16,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  parseConversationLog,
-  type LogEvent,
+  parseAgentTrace,
+  type TraceEvent,
   type ToolCallData,
   type TodoItem
-} from '@/lib/conversationLog'
+} from '@/lib/logParsers'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 
 interface ExecLogEntry {
@@ -213,7 +213,7 @@ function CollapsibleToolArgs({ argsText, data }: { argsText: string; data?: Tool
   )
 }
 
-function EventItem({ ev }: { ev: LogEvent }) {
+function TraceEventItem({ ev }: { ev: TraceEvent }) {
   switch (ev.type) {
     case 'session_start':
       return (
@@ -345,7 +345,7 @@ function EventItem({ ev }: { ev: LogEvent }) {
   }
 }
 
-export default function ExecLogConversation({ logs }: { logs: ExecLogEntry[] }) {
+export default function ExecAgentTrace({ logs }: { logs: ExecLogEntry[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [stickToBottom, setStickToBottom] = useState(true)
 
@@ -364,11 +364,16 @@ export default function ExecLogConversation({ logs }: { logs: ExecLogEntry[] }) 
 
   const sessions = useMemo(() => {
     try {
-      return parseConversationLog(joined || '')
+      return parseAgentTrace(joined || '')
     } catch {
       return []
     }
   }, [joined])
+
+  const totalEvents = useMemo(
+    () => sessions.reduce((acc, s) => acc + s.events.length, 0),
+    [sessions]
+  )
 
   useEffect(() => {
     const el = scrollRef.current
@@ -383,7 +388,7 @@ export default function ExecLogConversation({ logs }: { logs: ExecLogEntry[] }) 
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  useAutoScrollBottom(scrollRef, stickToBottom, [sessions.length, stickToBottom])
+  useAutoScrollBottom(scrollRef, stickToBottom, [totalEvents])
 
   return (
     <div ref={scrollRef} className="max-h-64 overflow-auto">
@@ -410,14 +415,14 @@ export default function ExecLogConversation({ logs }: { logs: ExecLogEntry[] }) 
             </div>
           )}
           {s.events.map((ev, i) => (
-            <EventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
+            <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
           ))}
         </div>
       ))}
       {sessions.length === 0 && (
         <div className="space-y-1">
           <div className="text-[11px] text-muted-foreground">
-            No parsed conversation events. Showing raw logs:
+            No parsed trace events. Showing raw logs:
           </div>
           {logs.map((entry) => (
             <pre

@@ -1,12 +1,12 @@
 import { Bot, Check, FileText, Code, TestTube, Compass, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { AgentRunOptions } from '@shared/types/webui'
+import type { RunnerRunOptions } from '@shared/types/webui'
 import { PRESET_AGENTS, type AgentConfig } from '@shared/agents'
 import { RUNNER_UI_LIST } from '@shared/runners'
 
 interface AssistantPanelProps {
-  runner: NonNullable<AgentRunOptions['runner']>
-  onRunnerChange: (runner: NonNullable<AgentRunOptions['runner']>) => void
+  runner: NonNullable<RunnerRunOptions['runner']>
+  onRunnerChange: (runner: NonNullable<RunnerRunOptions['runner']>) => void
   agentId: string
   onAgentIdChange: (id: string) => void
 }

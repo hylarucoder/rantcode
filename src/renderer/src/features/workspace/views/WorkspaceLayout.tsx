@@ -12,7 +12,7 @@ import { KanbanPanel } from '@/features/workspace/components/KanbanPanel'
 import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
-import type { AgentRunOptions } from '@shared/types/webui'
+import type { RunnerRunOptions } from '@shared/types/webui'
 import { AgentMessageBubble } from '@/features/workspace/components/AgentMessageBubble'
 import { UserMessageBubble } from '@/features/workspace/components/UserMessageBubble'
 import { AssistantMessageBubble } from '@/features/workspace/components/AssistantMessageBubble'
@@ -70,8 +70,8 @@ export function WorkspaceLayout({
   isRunning: boolean
   onInterrupt: () => void
   /** 底层 Runner（执行器） */
-  runner: NonNullable<AgentRunOptions['runner']>
-  onRunnerChange: (r: NonNullable<AgentRunOptions['runner']>) => void
+  runner: NonNullable<RunnerRunOptions['runner']>
+  onRunnerChange: (r: NonNullable<RunnerRunOptions['runner']>) => void
   /** Agent ID（角色） */
   agentId: string
   onAgentIdChange: (id: string) => void

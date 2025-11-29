@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useProjectChatStore, useProjectPreviewStore } from './store'
 import type { Session } from '@/features/workspace/types'
-import type { AgentEvent } from '@shared/types/webui'
+import type { RunnerEvent } from '@shared/types/webui'
 
 const PROJECT_ID = 'project-test'
 
@@ -56,40 +56,40 @@ describe('useProjectChatStore', () => {
     }))
 
     // log 事件只更新 logs 数组
-    const logEvent: AgentEvent = {
+    const logEvent: RunnerEvent = {
       type: 'log',
       jobId: 'job-1',
       stream: 'stdout',
       data: 'echo'
     }
 
-    chatStore.applyAgentEvent(PROJECT_ID, logEvent)
+    chatStore.applyRunnerEvent(PROJECT_ID, logEvent)
 
     const afterLog = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterLog?.logs).toHaveLength(1)
     expect(afterLog?.logs?.[0].text).toBe('echo')
 
     // text 事件更新 output
-    const textEvent: AgentEvent = {
+    const textEvent: RunnerEvent = {
       type: 'text',
       jobId: 'job-1',
       text: 'Hello world',
       delta: false
     }
 
-    chatStore.applyAgentEvent(PROJECT_ID, textEvent)
+    chatStore.applyRunnerEvent(PROJECT_ID, textEvent)
 
     const afterText = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterText?.output).toBe('Hello world')
 
-    const exitEvent: AgentEvent = {
+    const exitEvent: RunnerEvent = {
       type: 'exit',
       jobId: 'job-1',
       code: 0,
       signal: null,
       durationMs: 5
     }
-    chatStore.applyAgentEvent(PROJECT_ID, exitEvent)
+    chatStore.applyRunnerEvent(PROJECT_ID, exitEvent)
 
     const afterExit = useProjectChatStore.getState().projects[PROJECT_ID]?.sessions[0].messages[0]
     expect(afterExit?.status).toBe('success')
@@ -101,12 +101,12 @@ describe('useProjectPreviewStore', () => {
     const previewStore = useProjectPreviewStore.getState()
     previewStore.ensure(PROJECT_ID)
     previewStore.setSelectedDocPath(PROJECT_ID, 'docs/readme.md')
-    previewStore.setRightTab(PROJECT_ID, 'conversation')
+    previewStore.setRightTab(PROJECT_ID, 'trace')
     previewStore.setPreviewTocOpen(PROJECT_ID, true)
 
     const project = useProjectPreviewStore.getState().projects[PROJECT_ID]
     expect(project?.selectedDocPath).toBe('docs/readme.md')
-    expect(project?.rightTab).toBe('conversation')
+    expect(project?.rightTab).toBe('trace')
     expect(project?.previewTocOpen).toBe(true)
   })
 })

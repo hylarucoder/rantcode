@@ -245,21 +245,21 @@ export const messageSchema = z.object({
   errorMessage: z.string().optional(),
   sessionId: z.string().optional(),
   startedAt: z.number().optional(),
-  agent: z.string().optional()
+  runner: z.string().optional()
 })
 
 /**
- * 各 agent 的 sessionId 映射，支持同一会话切换不同 agent 时保持各自上下文
+ * 各 runner 的 sessionId 映射，支持同一会话切换不同 runner 时保持各自上下文
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-export const agentSessionMapSchema = z.record(z.enum(RUNNER_VALUES), z.string())
+export const runnerSessionMapSchema = z.record(z.enum(RUNNER_VALUES), z.string())
 
 /** 会话 */
 export const sessionSchema = z.object({
   id: z.string(),
   title: z.string(),
   messages: z.array(messageSchema),
-  agentSessions: agentSessionMapSchema.optional(),
+  runnerSessions: runnerSessionMapSchema.optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 })
@@ -273,7 +273,7 @@ export const updateSessionInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
   title: z.string().optional(),
-  agentSessions: agentSessionMapSchema.optional()
+  runnerSessions: runnerSessionMapSchema.optional()
 })
 
 export const deleteSessionInputSchema = z.object({

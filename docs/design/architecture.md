@@ -36,7 +36,7 @@ flowchart LR
         subgraph Views["Feature Views"]
           PROJECTS["Projects 页面"]
           WORKSPACE["ProjectPage + SessionsView\n项目工作区"]
-          LOGS["Logs / Conversation 视图"]
+          LOGS["Logs / AgentTrace 视图"]
           SETTINGS_VIEW["Settings 视图"]
         end
 
@@ -109,7 +109,7 @@ flowchart LR
     - `state/store.ts`：使用 Zustand 管理 chat sessions / messages、右侧 preview 状态等。
   - `features/settings`：设置管理，包含 `api/hooks.ts` 等专门的 API hooks。
   - `features/spec`：Explorer / Diff / Work 视图，对 `docs/` 和 Git diff 做 UI 呈现。
-  - `features/logs` + `conversation/`：解析 `conversation.log`，以 Session/事件流形式展示 Codex CLI 的执行记录。
+  - `features/logs`：解析 `conversation.log`（Agent Trace），以 Session/事件流形式展示 Codex CLI 的执行记录。
   - `state/`：
     - `workspace`：提供 `WorkspaceProvider` 与 `useWorkspace`，统一 workspaceId 上下文。
     - `projects.ts`：**新增**项目状态管理，与 Projects 页面配合使用。

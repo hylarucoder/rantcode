@@ -1,6 +1,6 @@
 # Renderer 重构与组件设计方案
 
-本方案目标：梳理 renderer 层的职责边界，统一数据访问与状态管理，细化组件粒度，提升可维护性与可扩展性（Spec/Conversation/TTS/Settings 等）。
+本方案目标：梳理 renderer 层的职责边界，统一数据访问与状态管理，细化组件粒度，提升可维护性与可扩展性（Spec/AgentTrace/TTS/Settings 等）。
 
 ## 设计目标
 
@@ -31,7 +31,7 @@ src/renderer/src/
         SessionList.tsx
         MessageList.tsx
         Composer.tsx
-        RightPanel.tsx           # 右侧 Preview/Conversation 切换容器
+        RightPanel.tsx           # 右侧 Preview/AgentTrace 切换容器
       hooks/
         useWorkspaceContext.tsx
         useCodexRunner.ts        # run/subscribe/状态聚合
@@ -40,11 +40,11 @@ src/renderer/src/
       views/Explorer.tsx
       components/FileTree.tsx
       components/Preview.tsx
-    conversation/
-      lib/conversationLog.ts     # 解析函数（可测）
-      components/ConversationFromExecLogs.tsx
-      components/ConversationInline.tsx
-      components/ConversationLogView.tsx
+    logs/
+      lib/agentTrace.ts          # 解析函数（可测）
+      components/AgentTraceTimeline.tsx
+      components/AgentTracePreview.tsx
+      components/ExecAgentTrace.tsx
     settings/
       views/SettingsPage.tsx
       sections/ProvidersSettings.tsx
@@ -97,9 +97,9 @@ src/renderer/src/
 - 将 `ProjectDetailShell` 拆为 `WorkspacePage + SessionList/MessageList/Composer/RightPanel`。
 - 抽 `useCodexRunner`：统一 run/subscribe/状态聚合。
 
-3. Conversation 收敛（v2）
+3. AgentTrace 收敛（v2）
 
-- 将 conversation 组件迁入 `features/conversation`，统一 UI 与导出接口。
+- 将 Agent Trace 组件统一放入 `features/logs`，统一 UI 与导出接口。
 
 4. Settings 扩展（v2）
 

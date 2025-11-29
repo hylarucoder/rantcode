@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import type { Message, Session, RightPanelTab, AgentSessionMap } from '@/features/workspace/types'
-import type { AgentEvent } from '@shared/types/webui'
+import type { Message, Session, RightPanelTab, RunnerSessionMap } from '@/features/workspace/types'
+import type { RunnerEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
 
 // 稳定的空列表，避免 selector 在工作区未初始化时返回新引用导致不必要的重渲染
@@ -18,7 +18,7 @@ type SessionsNamespace = {
       projectId: string
       sessionId: string
       title?: string
-      agentSessions?: AgentSessionMap
+      runnerSessions?: RunnerSessionMap
     }) => Promise<Session>
   }
   delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
@@ -66,9 +66,9 @@ interface ChatStoreState {
   removeSession: (projectId: string, sessionId: string) => void
   updateSessionTitle: (projectId: string, sessionId: string, title: string) => void
   appendMessages: (projectId: string, sessionId: string, messages: Message[]) => void
-  applyAgentEvent: (projectId: string, event: AgentEvent) => void
-  // 新增：批量应用多个 Codex 事件，减少 React 重渲染次数
-  applyAgentEventsBatch: (projectId: string, events: AgentEvent[]) => void
+  applyRunnerEvent: (projectId: string, event: RunnerEvent) => void
+  // 新增：批量应用多个 Runner 事件，减少 React 重渲染次数
+  applyRunnerEventsBatch: (projectId: string, events: RunnerEvent[]) => void
   // 将本地状态同步到后端
   syncToBackend: (projectId: string, sessionId: string) => Promise<void>
   reset: (projectId: string) => void
@@ -133,12 +133,12 @@ function updateMessageByJobId(
       const message = session.messages[messageIndex]
       const result = updateFn(session, message, messageIndex)
 
-      // 如果是会话标识事件，更新会话级别的 agentSessions
-      if (result.isSessionEvent && result.sessionId && message.agent) {
-        if (!session.agentSessions) {
-          session.agentSessions = {}
+      // 如果是会话标识事件，更新会话级别的 runnerSessions
+      if (result.isSessionEvent && result.sessionId && message.runner) {
+        if (!session.runnerSessions) {
+          session.runnerSessions = {}
         }
-        session.agentSessions[message.agent] = result.sessionId
+        session.runnerSessions[message.runner] = result.sessionId
       }
 
       // 更新索引
@@ -154,7 +154,7 @@ function updateMessageByJobId(
   return false
 }
 
-function applyEventToMessage(msg: Message, event: AgentEvent): Message {
+function applyEventToMessage(msg: Message, event: RunnerEvent): Message {
   if (!msg.jobId || msg.jobId !== event.jobId) return msg
   switch (event.type) {
     case 'session':
@@ -329,7 +329,7 @@ export const useProjectChatStore = create<ChatStoreState>()(
             // 触发观察 sessions 的组件更新（例如让消息列表实时刷新）
             ws.version += 1
           }),
-        applyAgentEvent: (projectId, event) =>
+        applyRunnerEvent: (projectId, event) =>
           set((state) => {
             const ws = state.projects[projectId]
             if (!ws) return
@@ -377,17 +377,17 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
             const updatedMsg = applyEventToMessage(msg, event)
             Object.assign(msg, updatedMsg)
-            // 如果是会话标识事件，同时写回会话级 agentSessions，便于下次 resume
-            if (event.type === 'session' && event.sessionId && msg.agent) {
-              if (!session.agentSessions) {
-                session.agentSessions = {}
+            // 如果是会话标识事件，同时写回会话级 runnerSessions，便于下次 resume
+            if (event.type === 'session' && event.sessionId && msg.runner) {
+              if (!session.runnerSessions) {
+                session.runnerSessions = {}
               }
-              session.agentSessions[msg.agent] = event.sessionId
+              session.runnerSessions[msg.runner] = event.sessionId
             }
             // 消息内容发生变化，递增版本触发 UI 更新
             ws.version += 1
           }),
-        applyAgentEventsBatch: (projectId, events) =>
+        applyRunnerEventsBatch: (projectId, events) =>
           set((state) => {
             const ws = state.projects[projectId]
             if (!ws) return
@@ -435,11 +435,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
               const updatedMsg = applyEventToMessage(msg, event)
               Object.assign(msg, updatedMsg)
-              if (event.type === 'session' && event.sessionId && msg.agent) {
-                if (!session.agentSessions) {
-                  session.agentSessions = {}
+              if (event.type === 'session' && event.sessionId && msg.runner) {
+                if (!session.runnerSessions) {
+                  session.runnerSessions = {}
                 }
-                session.agentSessions[msg.agent] = event.sessionId
+                session.runnerSessions[msg.runner] = event.sessionId
               }
             })
             // 批量事件处理后，仅递增一次版本，减少渲染次数
@@ -457,12 +457,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
           if (!session) return
 
           try {
-            // 先更新 session 的基本信息（包括 agentSessions）
+            // 先更新 session 的基本信息（包括 runnerSessions）
             await api.update.call({
               projectId,
               sessionId,
               title: session.title,
-              agentSessions: session.agentSessions
+              runnerSessions: session.runnerSessions
             })
             // 然后同步所有消息（使用 appendMessages 会重复，所以这里只更新整个 session）
             // 由于后端没有 replaceMessages API，我们通过删除再创建的方式实现
@@ -552,8 +552,8 @@ export function useProjectChat(projectId: string) {
   const removeSessionStore = useProjectChatStore((s) => s.removeSession)
   const updateSessionTitleStore = useProjectChatStore((s) => s.updateSessionTitle)
   const appendMessagesStore = useProjectChatStore((s) => s.appendMessages)
-  const applyAgentEvent = useProjectChatStore((s) => s.applyAgentEvent)
-  const applyAgentEventsBatch = useProjectChatStore((s) => s.applyAgentEventsBatch)
+  const applyRunnerEvent = useProjectChatStore((s) => s.applyRunnerEvent)
+  const applyRunnerEventsBatch = useProjectChatStore((s) => s.applyRunnerEventsBatch)
   const syncToBackend = useProjectChatStore((s) => s.syncToBackend)
 
   // 首次加载：从后端读取 sessions
@@ -687,9 +687,9 @@ export function useProjectChat(projectId: string) {
     removeSession,
     updateSessionTitle,
     appendMessages,
-    applyAgentEvent: (event: AgentEvent) => applyAgentEvent(projectId, event),
+    applyRunnerEvent: (event: RunnerEvent) => applyRunnerEvent(projectId, event),
     // 批量应用事件，减少渲染次数
-    applyAgentEventsBatch: (events: AgentEvent[]) => applyAgentEventsBatch(projectId, events),
+    applyRunnerEventsBatch: (events: RunnerEvent[]) => applyRunnerEventsBatch(projectId, events),
     // 手动同步到后端
     syncToBackend: (sessionId: string) => syncToBackend(projectId, sessionId)
   }
