@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ListTree, PanelsTopLeft } from 'lucide-react'
+import { ListTree, PanelsTopLeft, MessageSquare, FileText, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,11 @@ import {
   Folder as TreeFolder,
   File as TreeFile
 } from '@/components/ui/file-tree'
+import {
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator
+} from '@/components/ui/context-menu'
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { fetchFile } from '@/features/spec/api/fs'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
@@ -22,12 +27,15 @@ interface ExplorerProps {
   showPreview?: boolean
   treeTitle?: ReactNode
   onDocChange?: (doc: SpecDocMeta | null) => void
+  /** 右键"聊聊"文件时的回调，传入文件路径 */
+  onChatWithFile?: (filePath: string) => void
 }
 
 export default function SpecExplorer({
   showPreview = true,
   treeTitle = 'Files',
-  onDocChange
+  onDocChange,
+  onChatWithFile
 }: ExplorerProps = {}) {
   const [root, setRoot] = useState<FsTreeNode | null>(null)
   const [loading] = useState(false)
@@ -240,6 +248,54 @@ export default function SpecExplorer({
 
   const decoratedRoot = useMemo(() => (root ? { ...root, name: 'docs' as string } : null), [root])
 
+  // 复制文件路径
+  const handleCopyPath = useCallback(async (filePath: string) => {
+    try {
+      await navigator.clipboard.writeText(filePath)
+      toast.success('已复制路径')
+    } catch {
+      toast.error('复制失败')
+    }
+  }, [])
+
+  // 聊聊这个文件
+  const handleChatWith = useCallback(
+    (filePath: string) => {
+      if (onChatWithFile) {
+        onChatWithFile(filePath)
+      } else {
+        toast.info(`@docs/${filePath}`, { description: '可以在聊天输入框中引用此文件' })
+      }
+    },
+    [onChatWithFile]
+  )
+
+  // 渲染文件的右键菜单
+  const renderFileContextMenu = useCallback(
+    (filePath: string): React.ReactNode => (
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={() => openPath(filePath)}>
+          <FileText className="h-4 w-4" />
+          打开预览
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleChatWith(filePath)}>
+          <MessageSquare className="h-4 w-4" />
+          聊聊这个文件
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => handleCopyPath(filePath)}>
+          <Copy className="h-4 w-4" />
+          复制路径
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleCopyPath(`@docs/${filePath}`)}>
+          <ExternalLink className="h-4 w-4" />
+          复制引用
+        </ContextMenuItem>
+      </ContextMenuContent>
+    ),
+    [openPath, handleChatWith, handleCopyPath]
+  )
+
   const treeElements: TreeViewElement[] = useMemo(() => {
     if (!decoratedRoot) return []
     const toElements = (node: FsTreeNode): TreeViewElement => ({
@@ -284,6 +340,7 @@ export default function SpecExplorer({
                             key={grand.id}
                             value={grand.id}
                             onClick={() => openPath(grand.id)}
+                            fileContextMenu={renderFileContextMenu(grand.id)}
                           >
                             {grand.name}
                           </TreeFile>
@@ -291,7 +348,12 @@ export default function SpecExplorer({
                       )}
                     </TreeFolder>
                   ) : (
-                    <TreeFile key={child.id} value={child.id} onClick={() => openPath(child.id)}>
+                    <TreeFile
+                      key={child.id}
+                      value={child.id}
+                      onClick={() => openPath(child.id)}
+                      fileContextMenu={renderFileContextMenu(child.id)}
+                    >
                       {child.name}
                     </TreeFile>
                   )

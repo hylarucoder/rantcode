@@ -16,7 +16,8 @@ export const contract = oc.router({
   },
   fs: {
     tree: oc.input(fsTreeInputSchema).output(fsTreeNodeSchema),
-    read: oc.input(fsReadInputSchema).output(fsFileSchema)
+    read: oc.input(fsReadInputSchema).output(fsFileSchema),
+    write: oc.input(fsWriteInputSchema).output(okResponseSchema)
   }
   // ...
 })
@@ -39,7 +40,11 @@ const router = os.router({
     read: os
       .input(fsReadInputSchema)
       .output(fsFileSchema)
-      .handler(async ({ input }) => fsSvc.read(input))
+      .handler(async ({ input }) => fsSvc.read(input)),
+    write: os
+      .input(fsWriteInputSchema)
+      .output(okResponseSchema)
+      .handler(async ({ input }) => fsSvc.write(input))
   }
 })
 
@@ -65,6 +70,22 @@ return useQuery({ ...options, enabled })
 2. 在 `main/orpcBridge.ts` 的 `os.router` 中添加同名端点并实现 `handler`。
 3. 在渲染层使用 `orpc.xxx.yyy.queryOptions()/mutationOptions()` 或直接 `orpc.xxx.yyy.call()`。
 4. 如有需要，补充 zod schema 与共享类型（`src/shared/...`）。
+
+### 实际使用示例
+
+```ts
+// 渲染层 hooks 示例
+export function useFileQuery(path: string) {
+  return useQuery(orpc.fs.read.queryOptions({ input: { path } }))
+}
+
+export function useWriteFileMutation() {
+  return useMutation(orpc.fs.write.mutationOptions())
+}
+
+// 直接调用示例
+const result = await orpc.system.health.call()
+```
 
 ## 错误处理（可选强化）
 

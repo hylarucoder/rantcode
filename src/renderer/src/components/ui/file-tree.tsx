@@ -12,6 +12,7 @@ import { FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 
 type TreeViewElement = {
   id: string
@@ -215,39 +216,60 @@ const Folder = ({
   )
 }
 
-const File = forwardRef<
-  HTMLButtonElement,
-  {
-    value: string
-    isSelectable?: boolean
-    isSelect?: boolean
-    fileIcon?: React.ReactNode
-  } & React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ value, className, isSelectable = true, isSelect, fileIcon, children, ...props }, ref) => {
-  const { direction, selectedId, selectItem } = useTree()
-  const isSelected = isSelect ?? selectedId === value
-  return (
-    <button
-      ref={ref}
-      type="button"
-      disabled={!isSelectable}
-      className={cn(
-        'flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm duration-200 ease-in-out rtl:pr-0 rtl:pl-1',
-        {
-          'bg-accent/40 text-accent-foreground': isSelected && isSelectable
-        },
-        isSelectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
-        direction === 'rtl' ? 'rtl' : 'ltr',
-        className
-      )}
-      onClick={() => selectItem(value)}
-      {...props}
-    >
-      {fileIcon ?? <FileIcon className="size-4" />}
-      {children}
-    </button>
-  )
-})
+interface FileProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'contextMenu'> {
+  value: string
+  isSelectable?: boolean
+  isSelect?: boolean
+  fileIcon?: React.ReactNode
+  /** 右键菜单内容（ContextMenuContent 组件） */
+  fileContextMenu?: React.ReactNode
+  children?: React.ReactNode
+}
+
+const File = forwardRef<HTMLButtonElement, FileProps>(
+  (
+    { value, className, isSelectable = true, isSelect, fileIcon, fileContextMenu, children, ...props },
+    ref
+  ) => {
+    const { direction, selectedId, selectItem } = useTree()
+    const isSelected = isSelect ?? selectedId === value
+
+    const button = (
+      <button
+        ref={ref}
+        type="button"
+        disabled={!isSelectable}
+        className={cn(
+          'flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm duration-200 ease-in-out rtl:pr-0 rtl:pl-1',
+          {
+            'bg-accent/40 text-accent-foreground': isSelected && isSelectable
+          },
+          isSelectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
+          direction === 'rtl' ? 'rtl' : 'ltr',
+          className
+        )}
+        onClick={() => selectItem(value)}
+        {...props}
+      >
+        {fileIcon ?? <FileIcon className="size-4" />}
+        {children}
+      </button>
+    )
+
+    // 如果提供了右键菜单，包装在 ContextMenu 中
+    if (fileContextMenu) {
+      return (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+          {fileContextMenu}
+        </ContextMenu>
+      )
+    }
+
+    return button
+  }
+)
 
 File.displayName = 'File'
 
@@ -300,4 +322,4 @@ const CollapseButton = ({
   )
 }
 
-export { CollapseButton, File, Folder, Tree, type TreeViewElement }
+export { CollapseButton, File, Folder, Tree, type TreeViewElement, type FileProps }

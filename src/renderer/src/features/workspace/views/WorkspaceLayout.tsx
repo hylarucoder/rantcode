@@ -190,7 +190,11 @@ export function WorkspaceLayout({
       case 'docs':
         return (
           <div className="flex min-h-0 flex-1 items-stretch [&>*]:w-full">
-            <SpecExplorer showPreview={false} onDocChange={onDocChange} />
+            <SpecExplorer
+              showPreview={false}
+              onDocChange={onDocChange}
+              onChatWithFile={handleChatWithFile}
+            />
           </div>
         )
       default:
