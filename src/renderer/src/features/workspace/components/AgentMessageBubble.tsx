@@ -1,4 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
+import { Copy, Check } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/hooks/use-theme-mode'
 import { renderMarkdownToHtml } from '@/lib/markdown'
@@ -9,6 +11,7 @@ import type { Message, LogEntry } from '@/features/workspace/types'
 import type { ThemeMode } from '@/types/theme'
 import { RUNNER_UI_LIST } from '@shared/runners'
 import { useMessageLogs } from '../hooks/useMessageLogs'
+import { MessageTimestamp, type TimeDisplayMode } from './MessageTimestamp'
 
 /**
  * 独立的 Markdown 渲染组件
@@ -53,9 +56,19 @@ interface AgentMessageBubbleProps {
   msg: Message
   projectId: string
   sessionId: string
+  timestamp?: number
+  timeMode?: TimeDisplayMode
+  onTimeModeChange?: (mode: TimeDisplayMode) => void
 }
 
-export function AgentMessageBubble({ msg, projectId, sessionId }: AgentMessageBubbleProps) {
+export function AgentMessageBubble({
+  msg,
+  projectId,
+  sessionId,
+  timestamp,
+  timeMode = 'relative',
+  onTimeModeChange
+}: AgentMessageBubbleProps) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
   const themeMode = useThemeMode()
   const [logTab, setLogTab] = useState<'exec' | 'trace'>('trace')
@@ -140,12 +153,28 @@ export function AgentMessageBubble({ msg, projectId, sessionId }: AgentMessageBu
   useAutoScrollBottom(execScrollRef, logTab === 'exec', [displayLogs.length, logTab])
 
   const displayHtml = trimmedOutput ? renderedHtml : null
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const textToCopy = msg.output || msg.content || ''
+    if (!textToCopy) return
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+      setCopied(true)
+      toast.success('已复制到剪贴板')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('复制失败')
+    }
+  }
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[80%] rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'}
+    <div className="flex justify-start group">
+      <div className="flex flex-col items-start gap-0.5 max-w-[80%]">
+        <div className="flex items-center gap-1.5">
+          <div className="rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'}
           {msg.contextId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
               ({msg.contextId.slice(0, 8)})
@@ -242,6 +271,27 @@ export function AgentMessageBubble({ msg, projectId, sessionId }: AgentMessageBu
           </pre>
         )}
         {msg.errorMessage && <p className="mt-2 text-xs text-red-400">{msg.errorMessage}</p>}
+          </div>
+          {/* 复制按钮 - hover 时显示 */}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted self-start mt-1"
+            title="复制消息"
+          >
+            {copied ? (
+              <Check className="size-3 text-green-500" />
+            ) : (
+              <Copy className="size-3 text-muted-foreground" />
+            )}
+          </button>
+        </div>
+        <MessageTimestamp
+          timestamp={timestamp}
+          mode={timeMode}
+          onModeChange={onTimeModeChange}
+          className="ml-1"
+        />
       </div>
     </div>
   )

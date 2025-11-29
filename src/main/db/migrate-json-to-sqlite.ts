@@ -11,6 +11,7 @@ import { getDatabase, getClient } from './client'
 import { sessions, messages } from './schema'
 import { loggerService } from '../services/loggerService'
 import { getSessionsDir as getSessionsDirFromPaths } from '../paths'
+import { humanizeDuration } from '../../shared/utils/humanize'
 
 const log = loggerService.child('db.migration')
 
@@ -206,7 +207,7 @@ export async function runDataMigration(): Promise<void> {
     await markMigrationDone()
 
     const dt = Date.now() - t0
-    log.info(`migration completed: ${totalMigrated} sessions migrated in ${dt}ms`)
+    log.info(`migration completed: ${totalMigrated} sessions migrated in ${humanizeDuration(dt)}`)
   } catch (err) {
     const msg = (err as { message?: string })?.message || 'unknown error'
     log.error(`migration failed: ${msg}`)

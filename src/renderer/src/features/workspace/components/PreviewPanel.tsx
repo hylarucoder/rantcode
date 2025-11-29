@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/hooks/use-theme-mode'
@@ -8,10 +8,12 @@ import type { ThemeMode } from '@/types/theme'
 
 function PreviewMarkdownContent({
   html,
-  previewRef
+  previewRef,
+  onLinkClick
 }: {
   html: string
   previewRef: React.RefObject<HTMLDivElement | null>
+  onLinkClick?: (e: React.MouseEvent<HTMLDivElement>) => void
 }) {
   const themeMode = useThemeMode()
   const renderedRef = useRef<{ html: string; theme: ThemeMode } | null>(null)
@@ -34,7 +36,13 @@ function PreviewMarkdownContent({
     return () => cancelAnimationFrame(frameId)
   }, [html, themeMode, previewRef])
 
-  return <div className="markdown-body" ref={previewRef} />
+  return (
+    <div
+      className="markdown-body [&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary/80"
+      ref={previewRef}
+      onClick={onLinkClick}
+    />
+  )
 }
 
 export default function PreviewPanel({
@@ -45,7 +53,8 @@ export default function PreviewPanel({
   toc,
   tocOpen,
   onToggleToc,
-  onTocClick
+  onTocClick,
+  onNavigate
 }: {
   docPath?: string | null
   html?: string | null
@@ -55,7 +64,60 @@ export default function PreviewPanel({
   tocOpen: boolean
   onToggleToc: (next: boolean) => void
   onTocClick: (index: number) => void
+  /** 导航到其他文档的回调，传入解析后的路径 */
+  onNavigate?: (path: string) => void
 }) {
+  // 处理链接点击
+  const handleLinkClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement
+      const anchor = target.closest('a')
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (!href) return
+
+      // 处理锚点链接（页内跳转）
+      if (href.startsWith('#')) {
+        e.preventDefault()
+        const id = href.slice(1)
+        const el = document.getElementById(id)
+        el?.scrollIntoView({ behavior: 'smooth' })
+        return
+      }
+
+      // 处理相对路径的 .md 文件链接
+      if (href.endsWith('.md') && !href.startsWith('http://') && !href.startsWith('https://')) {
+        e.preventDefault()
+        if (!docPath || !onNavigate) return
+
+        // 解析相对路径
+        const basePath = docPath.split('/').slice(0, -1).join('/')
+        const parts = href.split('/')
+        const resolvedParts = basePath ? basePath.split('/') : []
+
+        for (const part of parts) {
+          if (part === '..') {
+            resolvedParts.pop()
+          } else if (part !== '.') {
+            resolvedParts.push(part)
+          }
+        }
+
+        const resolvedPath = resolvedParts.join('/')
+        onNavigate(resolvedPath)
+        return
+      }
+
+      // 外部链接在新窗口打开
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        e.preventDefault()
+        window.open(href, '_blank', 'noopener,noreferrer')
+      }
+    },
+    [docPath, onNavigate]
+  )
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -80,7 +142,13 @@ export default function PreviewPanel({
             </span>
             <div className="flex-1 min-h-0 overflow-y-auto pr-1">
               {rendering && <p className="text-xs text-muted-foreground">Rendering preview…</p>}
-              {!rendering && <PreviewMarkdownContent html={html} previewRef={previewRef} />}
+              {!rendering && (
+                <PreviewMarkdownContent
+                  html={html}
+                  previewRef={previewRef}
+                  onLinkClick={handleLinkClick}
+                />
+              )}
             </div>
           </>
         )}

@@ -1,3 +1,7 @@
+---
+status: in-progress
+---
+
 # 重构：Runner + Agent 概念分离
 
 > 目标：将现有的 "Agent" 概念拆分为 "Runner"（底层执行器）和 "Agent"（用户可配置的助手），实现清晰的职责分离。

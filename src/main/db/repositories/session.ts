@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import { getDatabase } from '../client'
 import { sessions, messages, type SessionRow, type MessageRow } from '../schema'
 import type { Runner } from '../../../shared/runners'
@@ -33,6 +33,8 @@ export interface Session {
   title: string
   messages: Message[]
   runnerContexts?: RunnerContextMap
+  /** 是否已归档 */
+  archived?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -46,6 +48,7 @@ function rowToSession(row: SessionRow, messageRows: MessageRow[]): Session {
     title: row.title,
     messages: messageRows.map(rowToMessage),
     runnerContexts: row.runnerContexts ? JSON.parse(row.runnerContexts) : undefined,
+    archived: row.archived ?? false,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   }
@@ -73,13 +76,22 @@ function rowToMessage(row: MessageRow): Message {
 /**
  * 获取项目的所有会话
  */
-export async function listSessions(projectId: string): Promise<Session[]> {
+export async function listSessions(
+  projectId: string,
+  options?: { includeArchived?: boolean }
+): Promise<Session[]> {
   const db = getDatabase()
+  const includeArchived = options?.includeArchived ?? false
+
+  // 构建查询条件
+  const whereCondition = includeArchived
+    ? eq(sessions.projectId, projectId)
+    : and(eq(sessions.projectId, projectId), eq(sessions.archived, false))
 
   const sessionRows = await db
     .select()
     .from(sessions)
-    .where(eq(sessions.projectId, projectId))
+    .where(whereCondition)
     .orderBy(desc(sessions.updatedAt))
 
   // 批量获取所有消息
@@ -161,7 +173,7 @@ export async function createSession(projectId: string, title?: string): Promise<
 export async function updateSession(
   projectId: string,
   sessionId: string,
-  data: { title?: string; runnerContexts?: RunnerContextMap }
+  data: { title?: string; runnerContexts?: RunnerContextMap; archived?: boolean }
 ): Promise<Session | null> {
   const db = getDatabase()
   const now = new Date().toISOString()
@@ -175,6 +187,9 @@ export async function updateSession(
   }
   if (data.runnerContexts !== undefined) {
     updateData.runnerContexts = JSON.stringify(data.runnerContexts)
+  }
+  if (data.archived !== undefined) {
+    updateData.archived = data.archived
   }
 
   await db.update(sessions).set(updateData).where(eq(sessions.id, sessionId))

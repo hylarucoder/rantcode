@@ -128,6 +128,57 @@ export default function SpecExplorer({
     [projectId, setInitialDocContent, setPreviewDoc]
   )
 
+  // 处理预览区链接点击
+  const handlePreviewLinkClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement
+      const anchor = target.closest('a')
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (!href) return
+
+      // 处理锚点链接（页内跳转）
+      if (href.startsWith('#')) {
+        e.preventDefault()
+        const id = href.slice(1)
+        const el = document.getElementById(id)
+        el?.scrollIntoView({ behavior: 'smooth' })
+        return
+      }
+
+      // 处理相对路径的 .md 文件链接
+      if (href.endsWith('.md') && !href.startsWith('http://') && !href.startsWith('https://')) {
+        e.preventDefault()
+        if (!doc?.path) return
+
+        // 解析相对路径
+        const basePath = doc.path.split('/').slice(0, -1).join('/')
+        const parts = href.split('/')
+        const resolvedParts = basePath ? basePath.split('/') : []
+
+        for (const part of parts) {
+          if (part === '..') {
+            resolvedParts.pop()
+          } else if (part !== '.') {
+            resolvedParts.push(part)
+          }
+        }
+
+        const resolvedPath = resolvedParts.join('/')
+        void openPath(resolvedPath)
+        return
+      }
+
+      // 外部链接在新窗口打开
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        e.preventDefault()
+        window.open(href, '_blank', 'noopener,noreferrer')
+      }
+    },
+    [doc?.path, openPath]
+  )
+
   useEffect(() => {
     if (!projectId) return
     if (docsTree.isSuccess && docsTree.data) {
@@ -292,9 +343,10 @@ export default function SpecExplorer({
             )}
             {doc && !rendering && renderedHtml && (
               <div
-                className="markdown-body"
+                className="markdown-body [&_a]:text-primary [&_a]:underline [&_a:hover]:text-primary/80"
                 ref={previewRef}
                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                onClick={handlePreviewLinkClick}
               />
             )}
             {rendering && (

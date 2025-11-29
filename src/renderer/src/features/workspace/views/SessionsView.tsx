@@ -204,6 +204,18 @@ export default function SessionsView({ project }: SessionsViewProps) {
     await chat.addSession(newSession)
   }
 
+  const handleRenameSession = async (sessionId: string, newTitle: string) => {
+    await chat.updateSessionTitle(sessionId, newTitle)
+  }
+
+  const handleArchiveSession = async (sessionId: string, archived: boolean) => {
+    await chat.archiveSession(sessionId, archived)
+  }
+
+  const handleDeleteSession = async (sessionId: string) => {
+    await chat.removeSession(sessionId)
+  }
+
   const handleInterrupt = () => {
     if (!runningTraceId || !cancel) return
     void cancel(runningTraceId)
@@ -287,6 +299,9 @@ export default function SessionsView({ project }: SessionsViewProps) {
       activeSessionId={activeSessionId}
       onSelectSession={(id) => chat.setActiveSessionId(id)}
       onNewSession={handleNewSession}
+      onRenameSession={handleRenameSession}
+      onArchiveSession={handleArchiveSession}
+      onDeleteSession={handleDeleteSession}
       messages={messages}
       input={input}
       onInputChange={setInput}

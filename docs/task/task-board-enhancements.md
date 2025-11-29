@@ -1,6 +1,6 @@
 ---
 title: 任务看板增强功能
-status: backlog
+status: in-progress
 priority: P2
 owner: AI
 ---

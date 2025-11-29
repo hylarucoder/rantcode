@@ -13,6 +13,8 @@ export const sessions = sqliteTable(
     title: text('title').notNull(),
     /** 各 runner 的 CLI 上下文标识映射，JSON 字符串 */
     runnerContexts: text('runner_contexts'),
+    /** 是否已归档（不删除但隐藏） */
+    archived: integer('archived', { mode: 'boolean' }).default(false),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull()
   },

@@ -25,6 +25,7 @@ import {
   type TodoItem
 } from '@/lib/logParsers'
 import { useRunnerLogStore } from '@/state/runnerLogs'
+import { humanizeDuration } from '@shared/utils/humanize'
 
 function CollapsibleText({ text, lines = 80 }: { text: string; lines?: number }) {
   const [open, setOpen] = useState(false)
@@ -62,18 +63,6 @@ function EventBadge({ children, className = '' }: { children: string; className?
       {children}
     </span>
   )
-}
-
-/** 将毫秒转换为人类可读的时间格式 */
-function humanizeDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const mins = Math.floor(ms / 60_000)
-  const secs = Math.round((ms % 60_000) / 1000)
-  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`
-  const hours = Math.floor(mins / 60)
-  const remainMins = mins % 60
-  return remainMins > 0 ? `${hours}h ${remainMins}m` : `${hours}h`
 }
 
 /** 渲染 TodoWrite 工具的结构化数据 */

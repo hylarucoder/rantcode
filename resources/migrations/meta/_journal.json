@@ -8,6 +8,13 @@
       "when": 1764434767465,
       "tag": "0000_strong_charles_xavier",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1764441666087,
+      "tag": "0001_luxuriant_black_panther",
+      "breakpoints": true
     }
   ]
 }

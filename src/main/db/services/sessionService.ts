@@ -51,11 +51,14 @@ export class DbSessionService {
    */
   async list(input: ListSessionsInput): Promise<SessionOutput[]> {
     const t0 = Date.now()
-    const sessions = await repo.listSessions(input.projectId)
+    const sessions = await repo.listSessions(input.projectId, {
+      includeArchived: input.includeArchived
+    })
 
     log.debug('sessions.list completed', {
       projectId: input.projectId,
       count: sessions.length,
+      includeArchived: input.includeArchived,
       durationMs: Date.now() - t0
     })
 
@@ -88,11 +91,18 @@ export class DbSessionService {
   async update(input: UpdateSessionInput): Promise<SessionOutput> {
     const session = await repo.updateSession(input.projectId, input.sessionId, {
       title: input.title,
-      runnerContexts: input.runnerContexts
+      runnerContexts: input.runnerContexts,
+      archived: input.archived
     })
     if (!session) {
       throw new Error('Session not found')
     }
+    log.info('session updated', {
+      id: input.sessionId,
+      projectId: input.projectId,
+      title: input.title,
+      archived: input.archived
+    })
     return this.toSessionOutput(session)
   }
 
@@ -247,6 +257,7 @@ export class DbSessionService {
       title: session.title,
       messages: session.messages.map((m) => this.toMessageOutput(m)),
       runnerContexts: this.cleanRunnerContexts(session.runnerContexts),
+      archived: session.archived,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt
     }

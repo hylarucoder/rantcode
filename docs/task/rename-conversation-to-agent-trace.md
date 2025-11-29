@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # 重命名 Conversation → AgentTrace
 
 ## 背景

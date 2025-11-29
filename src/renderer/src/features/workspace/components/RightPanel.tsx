@@ -9,7 +9,8 @@ export function RightPanel({
   previewToc,
   tocOpen,
   onToggleToc,
-  onTocClick
+  onTocClick,
+  onNavigate
 }: {
   docPath?: string | null
   previewHtml?: string | null
@@ -19,6 +20,7 @@ export function RightPanel({
   tocOpen: boolean
   onToggleToc: (next: boolean) => void
   onTocClick: (index: number) => void
+  onNavigate?: (path: string) => void
 }) {
   return (
     <>
@@ -31,6 +33,7 @@ export function RightPanel({
         tocOpen={tocOpen}
         onToggleToc={onToggleToc}
         onTocClick={onTocClick}
+        onNavigate={onNavigate}
       />
     </>
   )

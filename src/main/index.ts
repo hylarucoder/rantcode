@@ -14,6 +14,7 @@ import { onGeneralChange } from './settings/store'
 import { applyAutoLaunch } from './settings/autoLaunch'
 import { generalSettingsSchema } from '../shared/orpc/schemas'
 import { initDatabase, closeDatabase } from './db/client'
+import { humanizeDuration } from '../shared/utils/humanize'
 
 // 修复 macOS/Linux 打包后 PATH 环境变量问题
 // GUI 应用不会继承 shell 的 PATH，导致找不到 node/codex/claude-code 等命令
@@ -172,7 +173,7 @@ if (!gotTheLock) {
     lifeLog.info('main-window-created')
 
     const dt = Date.now() - t0
-    lifeLog.info(`initial window ready in ${dt}ms`)
+    lifeLog.info(`initial window ready in ${humanizeDuration(dt)}`)
 
     // Background initialization (after window is visible)
     ;(async () => {
@@ -183,7 +184,7 @@ if (!gotTheLock) {
           void app.getGPUInfo('basic')
         } catch {}
         const dt1 = Date.now() - t1
-        lifeLog.debug(`GPU warmup in ${dt1}ms`)
+        lifeLog.debug(`GPU warmup in ${humanizeDuration(dt1)}`)
 
         // Load settings (background)
         const t2 = Date.now()
@@ -209,7 +210,7 @@ if (!gotTheLock) {
           }
         })
         const dt2 = Date.now() - t2
-        lifeLog.debug(`settings loaded in ${dt2}ms`)
+        lifeLog.debug(`settings loaded in ${humanizeDuration(dt2)}`)
       } catch {
         // ignore
       }

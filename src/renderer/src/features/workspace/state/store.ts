@@ -11,7 +11,9 @@ const EMPTY_SESSIONS: Session[] = []
 
 // oRPC sessions namespace type
 type SessionsNamespace = {
-  list: { call: (input: { projectId: string }) => Promise<Session[]> }
+  list: {
+    call: (input: { projectId: string; includeArchived?: boolean }) => Promise<Session[]>
+  }
   create: { call: (input: { projectId: string; title?: string }) => Promise<Session> }
   update: {
     call: (input: {
@@ -19,6 +21,7 @@ type SessionsNamespace = {
       sessionId: string
       title?: string
       runnerContexts?: RunnerContextMap
+      archived?: boolean
     }) => Promise<Session>
   }
   delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
@@ -70,6 +73,7 @@ interface ChatStoreState {
   addSession: (projectId: string, session: Session) => void
   removeSession: (projectId: string, sessionId: string) => void
   updateSessionTitle: (projectId: string, sessionId: string, title: string) => void
+  archiveSession: (projectId: string, sessionId: string, archived: boolean) => void
   appendMessages: (projectId: string, sessionId: string, messages: Message[]) => void
   applyRunnerEvent: (projectId: string, event: RunnerEvent) => void
   // 新增：批量应用多个 Runner 事件，减少 React 重渲染次数
@@ -335,6 +339,15 @@ export const useProjectChatStore = create<ChatStoreState>()(
             const session = ws.sessions.find((s) => s.id === sessionId)
             if (!session) return
             session.title = title
+            ws.version += 1
+          }),
+        archiveSession: (projectId, sessionId, archived) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            const session = ws.sessions.find((s) => s.id === sessionId)
+            if (!session) return
+            session.archived = archived
             ws.version += 1
           }),
         appendMessages: (projectId, sessionId, messages) =>
@@ -656,6 +669,7 @@ export function useProjectChat(projectId: string) {
   const addSessionStore = useProjectChatStore((s) => s.addSession)
   const removeSessionStore = useProjectChatStore((s) => s.removeSession)
   const updateSessionTitleStore = useProjectChatStore((s) => s.updateSessionTitle)
+  const archiveSessionStore = useProjectChatStore((s) => s.archiveSession)
   const appendMessagesStore = useProjectChatStore((s) => s.appendMessages)
   const applyRunnerEvent = useProjectChatStore((s) => s.applyRunnerEvent)
   const applyRunnerEventsBatch = useProjectChatStore((s) => s.applyRunnerEventsBatch)
@@ -760,6 +774,22 @@ export function useProjectChat(projectId: string) {
     [projectId, updateSessionTitleStore]
   )
 
+  // 归档/取消归档 session 并同步到后端
+  const archiveSession = useCallback(
+    async (sessionId: string, archived: boolean) => {
+      archiveSessionStore(projectId, sessionId, archived)
+      const api = getSessionsApi()
+      if (api) {
+        try {
+          await api.update.call({ projectId, sessionId, archived })
+        } catch (err) {
+          console.error('[sessions] Failed to archive session in backend:', err)
+        }
+      }
+    },
+    [projectId, archiveSessionStore]
+  )
+
   // 添加消息并同步到后端
   const appendMessages = useCallback(
     async (sessionId: string, messages: Message[]) => {
@@ -793,6 +823,7 @@ export function useProjectChat(projectId: string) {
     addSession,
     removeSession,
     updateSessionTitle,
+    archiveSession,
     appendMessages,
     applyRunnerEvent: (event: RunnerEvent) => applyRunnerEvent(projectId, event),
     // 批量应用事件，减少渲染次数

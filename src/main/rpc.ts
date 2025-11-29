@@ -6,6 +6,7 @@ import * as path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { loggerService } from './services/loggerService'
 import { getProjectsStorePath as getProjectsStorePathFromPaths } from './paths'
+import { humanizeDuration } from '../shared/utils/humanize'
 import type {
   FsTreeNode,
   HealthResponse,
@@ -348,7 +349,7 @@ export class ProjectService {
     const t0 = Date.now()
     const result = await readProjects()
     const dt = Date.now() - t0
-    console.log(`[projects.list] completed in ${dt}ms, projects: ${result.length}`)
+    console.log(`[projects.list] completed in ${humanizeDuration(dt)}, projects: ${result.length}`)
     return result
   }
 

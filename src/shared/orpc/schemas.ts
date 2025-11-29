@@ -274,6 +274,8 @@ export const sessionSchema = z.object({
   messages: z.array(messageSchema),
   /** 各 runner 的 CLI 上下文标识映射 */
   runnerContexts: runnerContextMapSchema.optional(),
+  /** 是否已归档（不删除但隐藏） */
+  archived: z.boolean().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 })
@@ -287,7 +289,9 @@ export const updateSessionInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
   title: z.string().optional(),
-  runnerContexts: runnerContextMapSchema.optional()
+  runnerContexts: runnerContextMapSchema.optional(),
+  /** 归档/取消归档 */
+  archived: z.boolean().optional()
 })
 
 export const deleteSessionInputSchema = z.object({
@@ -309,7 +313,9 @@ export const updateMessageInputSchema = z.object({
 })
 
 export const listSessionsInputSchema = z.object({
-  projectId: z.string()
+  projectId: z.string(),
+  /** 是否包含已归档的会话，默认 false */
+  includeArchived: z.boolean().optional()
 })
 
 export const getSessionInputSchema = z.object({

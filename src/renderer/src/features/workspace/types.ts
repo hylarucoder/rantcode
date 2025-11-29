@@ -25,6 +25,8 @@ export interface Message {
   id: string
   role: MessageRole
   content: string
+  /** 消息创建时间戳（ms） */
+  createdAt?: number
   /** 执行追踪标识（用于关联 RunnerEvent） */
   traceId?: string
   status?: MessageStatus
@@ -55,6 +57,8 @@ export interface Session {
   messages: Message[]
   /** 各 runner 的 CLI 上下文标识映射，支持同一会话切换不同 runner 时保持各自上下文 */
   runnerContexts?: RunnerContextMap
+  /** 是否已归档（不删除但隐藏） */
+  archived?: boolean
 }
 
 export type RightPanelTab = 'preview' | 'trace'

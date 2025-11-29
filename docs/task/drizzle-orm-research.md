@@ -1,6 +1,6 @@
 ---
 title: Drizzle ORM 调研与引入计划
-status: review
+status: done
 priority: P1
 ---
 
