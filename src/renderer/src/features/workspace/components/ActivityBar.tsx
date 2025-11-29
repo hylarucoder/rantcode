@@ -1,7 +1,7 @@
-import { MessageSquare, Bot, FileText, Settings, GitBranch, KanbanSquare } from 'lucide-react'
+import { MessageSquare, FileText, Settings, GitBranch, KanbanSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type ActivityView = 'sessions' | 'kanban' | 'assistant' | 'docs' | 'git' | 'settings'
+export type ActivityView = 'sessions' | 'kanban' | 'docs' | 'git' | 'settings'
 
 interface ActivityBarProps {
   activeView: ActivityView
@@ -9,9 +9,8 @@ interface ActivityBarProps {
 }
 
 const activities: { id: ActivityView; icon: typeof MessageSquare; label: string }[] = [
-  { id: 'sessions', icon: MessageSquare, label: '会话' },
+  { id: 'sessions', icon: MessageSquare, label: '会话 / 助手' },
   { id: 'kanban', icon: KanbanSquare, label: '看板' },
-  { id: 'assistant', icon: Bot, label: '助手' },
   { id: 'docs', icon: FileText, label: '文档' },
   { id: 'git', icon: GitBranch, label: 'Git' },
   { id: 'settings', icon: Settings, label: '设置' }

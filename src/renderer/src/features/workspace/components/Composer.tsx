@@ -12,10 +12,10 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import type { AgentRunOptions } from '@shared/types/webui'
-import { AGENT_UI_LIST } from '@shared/agents'
-import { Send, Square } from 'lucide-react'
+import { RUNNER_UI_LIST } from '@shared/runners'
+import { Send, Square, Cpu } from 'lucide-react'
 
-type ExecAgent = NonNullable<AgentRunOptions['agent']>
+type ExecRunner = NonNullable<AgentRunOptions['runner']>
 
 export function Composer({
   value,
@@ -23,16 +23,17 @@ export function Composer({
   onSend,
   isRunning,
   onInterrupt,
-  agent,
-  onAgentChange
+  runner,
+  onRunnerChange
 }: {
   value: string
   onChange: (v: string) => void
   onSend: () => void
   isRunning: boolean
   onInterrupt: () => void
-  agent: ExecAgent
-  onAgentChange: (a: ExecAgent) => void
+  /** 底层 Runner（执行器） */
+  runner: ExecRunner
+  onRunnerChange: (r: ExecRunner) => void
 }) {
   // 工作区与 docs 列表
   const { projectId } = useProject()
@@ -192,22 +193,26 @@ export function Composer({
 
       {/* 内嵌工具栏 */}
       <div className="flex items-center justify-between gap-2 border-t border-border/40 px-2 py-1.5">
-        {/* 左侧：Agent 选择器 */}
-        <Select value={agent} onValueChange={(v) => onAgentChange(v as ExecAgent)}>
-          <SelectTrigger
-            size="sm"
-            className="h-7 w-auto gap-1.5 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {AGENT_UI_LIST.map((ag) => (
-              <SelectItem key={ag.value} value={ag.value}>
-                {ag.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 左侧：Runner 选择器 */}
+        <div className="flex items-center gap-1">
+          <Select value={runner} onValueChange={(v) => onRunnerChange(v as ExecRunner)}>
+            <SelectTrigger
+              size="sm"
+              className="h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0"
+              title="选择执行器"
+            >
+              <Cpu className="h-3 w-3" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RUNNER_UI_LIST.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* 中间：快捷键提示 */}
         <span className="hidden text-[10px] text-muted-foreground/60 sm:block">

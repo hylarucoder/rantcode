@@ -7,10 +7,10 @@ import type { AgentEvent, AgentRunOptions } from '../../../shared/types/webui'
 import { resolveProjectRoot } from '../../rpc'
 import { isErrorLike } from '../../../shared/utils/errorLike'
 import { buildCodexArgs } from './cli'
-import { findExecutable, AGENT_CONFIGS } from '../detect'
+import { findExecutable, RUNNER_CONFIGS } from '../detect'
 import { runClaudeCodeStreaming, cancelClaudeCode } from '../claudecode'
 
-type ExecAgent = NonNullable<AgentRunOptions['agent']>
+type ExecRunner = NonNullable<AgentRunOptions['runner']>
 
 const runningProcesses = new Map<string, ChildProcessWithoutNullStreams>()
 
@@ -23,9 +23,9 @@ interface CodexJobState {
 
 const jobStates = new Map<string, CodexJobState>()
 
-// 判断是否是 Claude Code 类型的 agent
-function isClaudeCodeAgent(agent: string): boolean {
-  return agent.startsWith('claude-code')
+// 判断是否是 Claude Code 类型的 runner
+function isClaudeCodeRunner(runner: string): boolean {
+  return runner.startsWith('claude-code')
 }
 
 function getWebContents(targetId: number): WebContents | null {
@@ -82,10 +82,10 @@ export async function runCodex(
     throw new Error('Prompt is required to run codex')
   }
 
-  const agent: ExecAgent = (payload.agent as ExecAgent) ?? 'codex'
+  const runner: ExecRunner = (payload.runner as ExecRunner) ?? 'codex'
 
-  // 如果是 Claude Code agent，委托给 claudecode runner
-  if (isClaudeCodeAgent(agent)) {
+  // 如果是 Claude Code runner，委托给 claudecode runner
+  if (isClaudeCodeRunner(runner)) {
     return runClaudeCodeStreaming(targetContentsId, payload)
   }
 
@@ -93,25 +93,25 @@ export async function runCodex(
   const jobId =
     typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
   const repoRoot = await resolveProjectRoot(payload?.projectId)
-  const bin = await findExecutable(agent)
+  const bin = await findExecutable(runner)
   const args =
-    agent === 'codex'
+    runner === 'codex'
       ? buildCodexArgs({ extraArgs: payload?.extraArgs, sessionId: payload?.sessionId })
       : Array.isArray(payload?.extraArgs)
         ? payload!.extraArgs!.filter((s) => typeof s === 'string' && s.length > 0)
         : []
 
   // 构建环境变量
-  const agentConfig = AGENT_CONFIGS[agent]
+  const runnerConfig = RUNNER_CONFIGS[runner]
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }
-  if (agentConfig.baseUrl) {
-    env.ANTHROPIC_BASE_URL = agentConfig.baseUrl
+  if (runnerConfig.baseUrl) {
+    env.ANTHROPIC_BASE_URL = runnerConfig.baseUrl
   }
 
   // Print final command to the terminal for debugging
   try {
     const cmdStr = [bin, ...args].join(' ')
-    console.log(`[rantcode][${agent}] spawn:`, cmdStr, '\n cwd:', repoRoot)
+    console.log(`[rantcode][${runner}] spawn:`, cmdStr, '\n cwd:', repoRoot)
   } catch {
     // ignored - debug logging is non-critical
   }
@@ -216,7 +216,7 @@ export async function runCodex(
     dispatchEvent(targetContentsId, {
       type: 'error',
       jobId,
-      message: isErrorLike(error) ? error.message : `${agent} process error`
+      message: isErrorLike(error) ? error.message : `${runner} process error`
     })
     notifyRunResult(targetContentsId, {
       ok: false,
@@ -273,7 +273,7 @@ export async function runCodex(
     dispatchEvent(targetContentsId, {
       type: 'error',
       jobId,
-      message: err instanceof Error ? err.message : `Failed to pass prompt to ${agent}`
+      message: err instanceof Error ? err.message : `Failed to pass prompt to ${runner}`
     })
     try {
       child.kill()

@@ -141,4 +141,3 @@ function main(): void {
 }
 
 main()
-

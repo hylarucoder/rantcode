@@ -23,11 +23,7 @@ type SessionsNamespace = {
   }
   delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
   appendMessages: {
-    call: (input: {
-      projectId: string
-      sessionId: string
-      messages: Message[]
-    }) => Promise<Session>
+    call: (input: { projectId: string; sessionId: string; messages: Message[] }) => Promise<Session>
   }
   updateMessage: {
     call: (input: {

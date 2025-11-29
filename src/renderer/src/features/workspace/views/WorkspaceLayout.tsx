@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { Card } from '@/components/ui/card'
-import { SessionList } from '@/features/workspace/components/SessionList'
 import { MessageList } from '@/features/workspace/components/MessageList'
 import { Composer } from '@/features/workspace/components/Composer'
 import { RightPanel } from '@/features/workspace/components/RightPanel'
 import { ActivityBar, type ActivityView } from '@/features/workspace/components/ActivityBar'
-import { AssistantPanel } from '@/features/workspace/components/AssistantPanel'
+import { SessionsAssistantsPanel } from '@/features/workspace/components/SessionsAssistantsPanel'
 import { ProjectSettingsPanel } from '@/features/workspace/components/ProjectSettingsPanel'
 import { GitPanel } from '@/features/workspace/components/GitPanel'
 import { KanbanPanel } from '@/features/workspace/components/KanbanPanel'
@@ -44,8 +43,10 @@ export function WorkspaceLayout({
   onSend,
   isRunning,
   onInterrupt,
-  agent,
-  onAgentChange,
+  runner,
+  onRunnerChange,
+  agentId,
+  onAgentIdChange,
   onDocChange,
   previewDocPath,
   previewHtml,
@@ -68,8 +69,12 @@ export function WorkspaceLayout({
   onSend: () => void
   isRunning: boolean
   onInterrupt: () => void
-  agent: NonNullable<AgentRunOptions['agent']>
-  onAgentChange: (a: NonNullable<AgentRunOptions['agent']>) => void
+  /** 底层 Runner（执行器） */
+  runner: NonNullable<AgentRunOptions['runner']>
+  onRunnerChange: (r: NonNullable<AgentRunOptions['runner']>) => void
+  /** Agent ID（角色） */
+  agentId: string
+  onAgentIdChange: (id: string) => void
   onDocChange: (doc: SpecDocMeta | null) => void
   previewDocPath: string | null
   previewHtml: string | null
@@ -88,17 +93,17 @@ export function WorkspaceLayout({
     switch (activeView) {
       case 'sessions':
         return (
-          <Card className="flex h-full min-h-0 flex-1 rounded-none border-0 p-0 shadow-none">
-            <SessionList
+          <Card className="flex h-full min-h-0 flex-1 flex-col rounded-none border-0 p-0 shadow-none">
+            <SessionsAssistantsPanel
               sessions={sessions}
-              activeId={activeSessionId}
-              onSelect={onSelectSession}
-              onNew={onNewSession}
+              activeSessionId={activeSessionId}
+              onSelectSession={onSelectSession}
+              onNewSession={onNewSession}
+              agentId={agentId}
+              onAgentIdChange={onAgentIdChange}
             />
           </Card>
         )
-      case 'assistant':
-        return <AssistantPanel agent={agent} onAgentChange={onAgentChange} />
       case 'docs':
         return (
           <div className="flex min-h-0 flex-1 items-stretch [&>*]:w-full">
@@ -180,8 +185,8 @@ export function WorkspaceLayout({
                 onSend={onSend}
                 isRunning={isRunning}
                 onInterrupt={onInterrupt}
-                agent={agent}
-                onAgentChange={onAgentChange}
+                runner={runner}
+                onRunnerChange={onRunnerChange}
               />
             </Card>
           </div>

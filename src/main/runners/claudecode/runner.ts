@@ -7,8 +7,8 @@ import { randomUUID } from 'node:crypto'
 import { claudeVendorRunInputSchema } from '../../../shared/orpc/schemas'
 import type { AgentEvent, AgentRunOptions } from '../../../shared/types/webui'
 import { notifyCodex } from '../../notifyBridge'
-import { findExecutable, AGENT_CONFIGS } from '../detect'
-import type { Agent } from '../../../shared/agents'
+import { findExecutable, RUNNER_CONFIGS } from '../detect'
+import type { Runner } from '../../../shared/runners'
 import { resolveProjectRoot } from '../../rpc'
 import { readClaudeTokens, type ClaudeTokens } from '../../settings/tokens'
 
@@ -98,7 +98,7 @@ function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[]
 }
 
 /**
- * 流式运行 Claude Code agent，实时发送事件到渲染进程
+ * 流式运行 Claude Code runner，实时发送事件到渲染进程
  */
 export async function runClaudeCodeStreaming(
   targetContentsId: number,
@@ -112,23 +112,23 @@ export async function runClaudeCodeStreaming(
   const jobId =
     typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
   const repoRoot = await resolveProjectRoot(payload?.projectId)
-  const agent = payload.agent as Agent
+  const runner = payload.runner as Runner
 
-  const bin = await findExecutable(agent)
-  const agentConfig = AGENT_CONFIGS[agent]
+  const bin = await findExecutable(runner)
+  const runnerConfig = RUNNER_CONFIGS[runner]
   // 如果有 sessionId，使用 --resume 恢复会话上下文
   const args = buildClaudeCodeArgs(payload.extraArgs, payload.sessionId)
 
   // 构建环境变量
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }
-  if (agentConfig.baseUrl) {
-    env.ANTHROPIC_BASE_URL = agentConfig.baseUrl
+  if (runnerConfig.baseUrl) {
+    env.ANTHROPIC_BASE_URL = runnerConfig.baseUrl
   }
 
   // 读取并设置 API token
-  if (agentConfig.tokenEnvKey) {
+  if (runnerConfig.tokenEnvKey) {
     const tokens = await readClaudeTokens()
-    const tokenValue = tokens[agentConfig.tokenEnvKey as keyof ClaudeTokens]
+    const tokenValue = tokens[runnerConfig.tokenEnvKey as keyof ClaudeTokens]
     if (tokenValue) {
       env.ANTHROPIC_API_KEY = tokenValue
       env.ANTHROPIC_AUTH_TOKEN = tokenValue
@@ -138,7 +138,7 @@ export async function runClaudeCodeStreaming(
   // Print final command to the terminal for debugging
   try {
     const cmdStr = [bin, ...args].join(' ')
-    console.log(`[rantcode][${agent}] spawn:`, cmdStr, '\n cwd:', repoRoot)
+    console.log(`[rantcode][${runner}] spawn:`, cmdStr, '\n cwd:', repoRoot)
   } catch {
     // ignored - debug logging is non-critical
   }

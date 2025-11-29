@@ -3,11 +3,14 @@ import type { AgentEvent, AgentRunOptions } from '../shared/types/webui'
 import type { LoggerBridge } from './bridges/logger'
 import type { DocsBridge } from './bridges/docs'
 
-interface AgentsBridge {
+interface RunnersBridge {
   run(opts: AgentRunOptions): Promise<{ jobId: string }>
   subscribe(handler: (event: AgentEvent) => void): () => void
   cancel(jobId: string): Promise<{ ok: boolean }>
 }
+
+/** @deprecated 使用 RunnersBridge 代替 */
+type AgentsBridge = RunnersBridge
 
 interface ProjectsBridge {
   pickRepoPath(): Promise<{ path: string } | null>
@@ -18,7 +21,9 @@ declare global {
     api: {
       electron: ElectronAPI
       orpcCall: (path: readonly string[], input: unknown) => Promise<unknown>
-      agents: AgentsBridge
+      runners: RunnersBridge
+      /** @deprecated 使用 runners 代替 */
+      agents: RunnersBridge
       docs: DocsBridge
       projects: ProjectsBridge
       logger?: LoggerBridge

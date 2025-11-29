@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // (types consumed via bridges)
 import { setupTelemetry } from './telemetry'
 import { setupOrpc } from './orpc'
-import { createAgentsBridge } from './bridges/agents'
+import { createRunnersBridge } from './bridges/runners'
 import { createLoggerBridge } from './bridges/logger'
 import { createDocsBridge } from './bridges/docs'
 // import { createRouterUtils } from '@orpc/tanstack-query'
@@ -56,8 +56,8 @@ ipcRenderer.on(
   }
 )
 
-// 5) Bridges (agents + projects + logger)
-const agentsBridge = createAgentsBridge(orpcClient, subscribeNotify)
+// 5) Bridges (runners + projects + logger)
+const runnersBridge = createRunnersBridge(orpcClient, subscribeNotify)
 const docsBridge = createDocsBridge(orpcClient, subscribeNotify)
 const projectsBridge = createProjectsBridge(orpcClient)
 const loggerBridge = createLoggerBridge()
@@ -81,7 +81,9 @@ function orpcCall(path: readonly string[], input: unknown): Promise<unknown> {
 const api = {
   electron: electronAPI,
   orpcCall,
-  agents: agentsBridge,
+  runners: runnersBridge,
+  /** @deprecated 使用 runners 代替 */
+  agents: runnersBridge,
   docs: docsBridge,
   projects: projectsBridge,
   logger: loggerBridge,

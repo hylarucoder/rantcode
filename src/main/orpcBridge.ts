@@ -58,10 +58,10 @@ import { spawn } from 'node:child_process'
 import {
   runClaudeOnce as runClaudeOnceFromModule,
   testClaudeVendor as testClaudeVendorFromModule
-} from './agents/claudecode'
+} from './runners/claudecode'
 // Defer loading general settings module to avoid creating store before userData override
-import { detectAll } from './agents/detect'
-import { runCodex, cancelCodex } from './agents/codex'
+import { detectAll } from './runners/detect'
+import { runCodex, cancelCodex } from './runners/codex'
 import { readGeneralSettings, writeGeneralSettings } from './settings/general'
 import { readClaudeTokens, writeClaudeTokens, type ClaudeTokens } from './settings/tokens'
 import { createJsonStore } from './settings/jsonStore'
@@ -278,8 +278,9 @@ export function setupOrpcBridge(): void {
         )
         .handler(async ({ input }) => runClaudeOnce(input))
     },
-    agents: {
-      // 执行 agent
+    // Runner 配置和执行（底层 AI 执行器）
+    runners: {
+      // 执行 runner
       run: os
         .input(agentRunInputSchema)
         .output(z.object({ jobId: z.string() }))

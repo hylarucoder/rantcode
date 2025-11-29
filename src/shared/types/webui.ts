@@ -160,11 +160,14 @@ export type DocsWatcherEvent =
       content?: string
     }
 
-import type { Agent } from '../agents'
+import type { Runner } from '../runners'
 
-/** Agent 执行选项 */
+/** Runner 执行选项 */
 export interface AgentRunOptions {
-  agent?: Agent
+  /** 使用的 Runner（底层执行器） */
+  runner?: Runner
+  /** @deprecated 使用 runner 代替 */
+  agent?: Runner
   projectId?: string
   prompt: string
   extraArgs?: string[]

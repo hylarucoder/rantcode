@@ -7,7 +7,7 @@ import { ExecLogConversation } from '@/features/logs'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
 import type { Message } from '@/features/workspace/types'
 import type { ThemeMode } from '@/types/theme'
-import { AGENT_UI_LIST } from '@shared/agents'
+import { RUNNER_UI_LIST } from '@shared/runners'
 
 /**
  * 独立的 Markdown 渲染组件
@@ -107,7 +107,7 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
     <div className="flex justify-start">
       <div className="max-w-[80%] rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {AGENT_UI_LIST.find((a) => a.value === msg.agent)?.label || msg.agent || 'Agent'}
+          {RUNNER_UI_LIST.find((a) => a.value === msg.agent)?.label || msg.agent || 'Runner'}
           {msg.sessionId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
               ({msg.sessionId.slice(0, 8)})

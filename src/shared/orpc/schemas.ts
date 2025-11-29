@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { FsTreeNode } from '../types/webui'
-import { AGENT_VALUES } from '../agents'
+import { RUNNER_VALUES } from '../runners'
 
 export const baseKeySchema = z.union([
   z.literal('repo'),
@@ -146,9 +146,11 @@ export const codexAgentTestResultSchema = z.object({
   output: z.string().optional()
 })
 
-/** Agent 执行输入 */
+/** Runner 执行输入 */
 export const agentRunInputSchema = z.object({
-  agent: z.enum(AGENT_VALUES).optional(),
+  runner: z.enum(RUNNER_VALUES).optional(),
+  /** @deprecated 使用 runner 代替 */
+  agent: z.enum(RUNNER_VALUES).optional(),
   projectId: z.string().optional(),
   prompt: z.string().min(1),
   extraArgs: z.array(z.string()).optional(),
@@ -250,7 +252,7 @@ export const messageSchema = z.object({
  * 各 agent 的 sessionId 映射，支持同一会话切换不同 agent 时保持各自上下文
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-export const agentSessionMapSchema = z.record(z.enum(AGENT_VALUES), z.string())
+export const agentSessionMapSchema = z.record(z.enum(RUNNER_VALUES), z.string())
 
 /** 会话 */
 export const sessionSchema = z.object({

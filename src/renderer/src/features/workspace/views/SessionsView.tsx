@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useSfx } from '@/hooks/useSfx'
 import type { Message, Session } from '@/features/workspace/types'
 import { playAudioFx } from '@/lib/audioFx'
+import { getPresetAgent, buildAgentPrompt } from '@shared/agents'
 
 interface SessionsViewProps {
   project: ProjectInfo
@@ -56,7 +57,10 @@ export default function SessionsView({ project }: SessionsViewProps) {
     }
   }, [sessions.length, projectId, chat])
   const [input, setInput] = useState('')
-  const [agent, setAgent] = useState<NonNullable<AgentRunOptions['agent']>>('claude-code-glm')
+  /** 底层 Runner（执行器） */
+  const [runner, setRunner] = useState<NonNullable<AgentRunOptions['runner']>>('claude-code-glm')
+  /** Agent ID（角色） */
+  const [agentId, setAgentId] = useState('general')
   const [runningJobId, setRunningJobId] = useState<string | null>(null)
 
   const {
@@ -98,7 +102,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
       logs: [],
       output: '',
       startedAt: Date.now(),
-      agent
+      agent: runner // 记录使用的 runner
     }
 
     await chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
@@ -108,15 +112,19 @@ export default function SessionsView({ project }: SessionsViewProps) {
 
     if (!run) return
 
-    // 根据当前选择的 agent 获取对应的 sessionId，用于上下文续写
-    const agentSessionId = activeSession?.agentSessions?.[agent]
+    // 获取 Agent 配置，注入 System Prompt
+    const agent = getPresetAgent(agentId)
+    const finalPrompt = agent ? buildAgentPrompt(agent, value) : value
+
+    // 根据当前选择的 runner 获取对应的 sessionId，用于上下文续写
+    const runnerSessionId = activeSession?.agentSessions?.[runner]
     setRunningJobId(jobId)
     run({
-      agent,
+      runner,
       projectId: project.id,
-      prompt: value,
+      prompt: finalPrompt,
       jobId,
-      sessionId: agentSessionId
+      sessionId: runnerSessionId
     }).catch(() => {
       setRunningJobId(null)
       // On error, a subsequent Codex 'error' event will update the assistant message via store
@@ -204,8 +212,10 @@ export default function SessionsView({ project }: SessionsViewProps) {
       onSend={handleSend}
       isRunning={!!runningJobId}
       onInterrupt={handleInterrupt}
-      agent={agent}
-      onAgentChange={setAgent}
+      runner={runner}
+      onRunnerChange={setRunner}
+      agentId={agentId}
+      onAgentIdChange={setAgentId}
       onDocChange={handlePreviewDocChange}
       previewDocPath={selectedDocPath}
       previewHtml={previewHtml}

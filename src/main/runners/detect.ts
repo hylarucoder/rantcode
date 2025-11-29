@@ -2,12 +2,12 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { constants as fsConstants } from 'node:fs'
 import { spawn } from 'node:child_process'
-import type { Agent } from '../../shared/agents'
+import type { Runner } from '../../shared/runners'
 
-export type { Agent }
+export type { Runner }
 
-/** Agent 配置：二进制文件候选、环境变量覆盖、显示名称、API 基础 URL */
-interface AgentConfig {
+/** Runner 配置：二进制文件候选、环境变量覆盖、显示名称、API 基础 URL */
+interface RunnerConfig {
   binaries: string[]
   envOverride: string
   displayName: string
@@ -17,7 +17,7 @@ interface AgentConfig {
 
 const isWin = process.platform === 'win32'
 
-const AGENT_CONFIGS: Record<Agent, AgentConfig> = {
+const RUNNER_CONFIGS: Record<Runner, RunnerConfig> = {
   codex: {
     binaries: isWin
       ? ['codex.exe', 'openai-codex.exe', 'codex', 'openai-codex']
@@ -68,16 +68,20 @@ const AGENT_CONFIGS: Record<Agent, AgentConfig> = {
   }
 }
 
-export { AGENT_CONFIGS }
+export { RUNNER_CONFIGS }
+
+// 兼容性导出
+/** @deprecated 使用 RUNNER_CONFIGS 代替 */
+export const AGENT_CONFIGS = RUNNER_CONFIGS
 
 export interface DetectResult {
-  name: Agent
+  name: Runner
   executablePath?: string
   version?: string
 }
 
-export async function findExecutable(agent: Agent): Promise<string> {
-  const config = AGENT_CONFIGS[agent]
+export async function findExecutable(runner: Runner): Promise<string> {
+  const config = RUNNER_CONFIGS[runner]
   const override = (process.env[config.envOverride] || '').trim()
   if (override) {
     try {
@@ -150,13 +154,13 @@ async function trySpawnForVersion(bin: string, args: string[]): Promise<string |
   }
 }
 
-export async function detect(agent: Agent): Promise<DetectResult> {
+export async function detect(runner: Runner): Promise<DetectResult> {
   try {
-    const bin = await findExecutable(agent)
+    const bin = await findExecutable(runner)
     const version = await getVersion(bin)
-    return { name: agent, executablePath: bin, version }
+    return { name: runner, executablePath: bin, version }
   } catch {
-    return { name: agent }
+    return { name: runner }
   }
 }
 

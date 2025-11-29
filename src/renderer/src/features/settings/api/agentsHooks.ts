@@ -2,27 +2,27 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { orpc } from '@/lib/orpcQuery'
 
 export function useAgentsQuery() {
-  return useQuery(orpc.agents.get.queryOptions())
+  return useQuery(orpc.runners.get.queryOptions())
 }
 
 export function useSetAgentsMutation() {
-  return useMutation(orpc.agents.set.mutationOptions())
+  return useMutation(orpc.runners.set.mutationOptions())
 }
 
 export function useTestCodexAgentMutation() {
-  return useMutation(orpc.agents.testCodex.mutationOptions())
+  return useMutation(orpc.runners.testCodex.mutationOptions())
 }
 
 // Detection & info
 export function useAgentsInfoQuery() {
-  return useQuery(orpc.agents.info.queryOptions())
+  return useQuery(orpc.runners.info.queryOptions())
 }
 
 // Claude Code tokens
 export function useClaudeTokensQuery() {
-  return useQuery(orpc.agents.getClaudeTokens.queryOptions())
+  return useQuery(orpc.runners.getClaudeTokens.queryOptions())
 }
 
 export function useSetClaudeTokensMutation() {
-  return useMutation(orpc.agents.setClaudeTokens.mutationOptions())
+  return useMutation(orpc.runners.setClaudeTokens.mutationOptions())
 }

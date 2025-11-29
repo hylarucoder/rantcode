@@ -65,8 +65,9 @@ export const contract = oc.router({
     testClaudeCode: oc.input(claudeVendorConfigSchema).output(claudeVendorTestResultSchema),
     runClaudePrompt: oc.input(claudeVendorRunInputSchema).output(claudeVendorTestResultSchema)
   },
-  agents: {
-    // 执行 agent
+  // Runner 配置和执行（底层 AI 执行器）
+  runners: {
+    // 执行 runner
     run: oc.input(agentRunInputSchema).output(z.object({ jobId: z.string() })),
     cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() })),
     // 配置管理

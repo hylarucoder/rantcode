@@ -1,4 +1,4 @@
-import type { Agent } from '@shared/agents'
+import type { Runner } from '@shared/runners'
 
 /** 消息角色 */
 export type MessageRole = 'user' | 'assistant'
@@ -32,10 +32,10 @@ export interface Message {
 }
 
 /**
- * 每个 Agent 类型对应一个 sessionId，用于上下文续写
+ * 每个 Runner 类型对应一个 sessionId，用于上下文续写
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-export type AgentSessionMap = Partial<Record<Agent, string>>
+export type AgentSessionMap = Partial<Record<Runner, string>>
 
 /** 会话 */
 export interface Session {
