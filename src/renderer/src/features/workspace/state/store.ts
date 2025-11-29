@@ -482,7 +482,23 @@ export const useProjectChatStore = create<ChatStoreState>()(
       name: 'rantcode.workspace.chat',
       version: 2, // 升级版本号，因为添加了新功能
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ projects: state.projects })
+      partialize: (state) => ({ projects: state.projects }),
+      // 从 localStorage 恢复状态后，修复那些异常的 running 状态
+      // 应用重启后，之前运行的任务不可能还在运行
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        for (const projectId in state.projects) {
+          const ws = state.projects[projectId]
+          for (const session of ws.sessions) {
+            for (const msg of session.messages) {
+              if (msg.status === 'running') {
+                msg.status = 'error'
+                msg.errorMessage = '任务被中断（应用重启）'
+              }
+            }
+          }
+        }
+      }
     }
   )
 )
