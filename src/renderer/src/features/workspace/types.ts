@@ -11,6 +11,12 @@ export interface LogEntry {
   timestamp?: number
 }
 
+/** 日志元信息（用于按需加载） */
+export interface LogMeta {
+  count: number
+  sizeBytes: number
+}
+
 /** 消息状态 */
 export type MessageStatus = 'running' | 'success' | 'error'
 
@@ -19,12 +25,17 @@ export interface Message {
   id: string
   role: MessageRole
   content: string
-  jobId?: string
+  /** 执行追踪标识（用于关联 RunnerEvent） */
+  traceId?: string
   status?: MessageStatus
+  /** @deprecated 使用 getMessageLogs 按需加载 */
   logs?: LogEntry[]
+  /** 日志元信息，通过 traceId 关联到独立文件 */
+  logMeta?: LogMeta
   output?: string
   errorMessage?: string
-  sessionId?: string
+  /** Runner CLI 上下文标识（用于显示） */
+  contextId?: string
   /** 任务开始执行的时间戳（ms） */
   startedAt?: number
   /** 执行任务的 runner */
@@ -32,18 +43,18 @@ export interface Message {
 }
 
 /**
- * 每个 Runner 类型对应一个 sessionId，用于上下文续写
+ * 每个 Runner 类型对应一个 CLI 上下文标识，用于上下文续写
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-export type RunnerSessionMap = Partial<Record<Runner, string>>
+export type RunnerContextMap = Partial<Record<Runner, string>>
 
 /** 会话 */
 export interface Session {
   id: string
   title: string
   messages: Message[]
-  /** 各 runner 的 sessionId 映射，支持同一会话切换不同 runner 时保持各自上下文 */
-  runnerSessions?: RunnerSessionMap
+  /** 各 runner 的 CLI 上下文标识映射，支持同一会话切换不同 runner 时保持各自上下文 */
+  runnerContexts?: RunnerContextMap
 }
 
 export type RightPanelTab = 'preview' | 'trace'

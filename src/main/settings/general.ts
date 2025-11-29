@@ -1,15 +1,13 @@
-import { app } from 'electron'
 import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 import { z } from 'zod'
 import { generalSettingsSchema } from '../../shared/orpc/schemas'
 import { readGeneral, writeGeneral } from './store'
+import { getSettingsPath, getConfigRoot } from '../paths'
 
 export type GeneralSettings = z.infer<typeof generalSettingsSchema>
 
 function getLegacyPath(): string {
-  const userData = app.getPath('userData')
-  return path.join(userData, 'general.settings.json')
+  return getSettingsPath('general.settings.json')
 }
 
 function defaultGeneral(): GeneralSettings {
@@ -50,7 +48,7 @@ export async function writeGeneralSettings(settings: GeneralSettings): Promise<v
   } catch {
     // legacy fallback
     const file = getLegacyPath()
-    await fs.mkdir(path.dirname(file), { recursive: true })
+    await fs.mkdir(getConfigRoot(), { recursive: true })
     await fs.writeFile(file, JSON.stringify(settings, null, 2), 'utf8')
   }
 }

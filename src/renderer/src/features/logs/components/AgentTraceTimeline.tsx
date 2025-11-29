@@ -224,7 +224,7 @@ function TraceEventItem({ ev }: { ev: TraceEvent }) {
           <span>Session</span>
           {ev.meta.parentSessionId && <EventBadge className="bg-blue-500/20">resumed</EventBadge>}
           {ev.meta.model && <EventBadge className="bg-accent/40">{ev.meta.model}</EventBadge>}
-          {ev.meta.sessionId && <span className="truncate">id: {ev.meta.sessionId}</span>}
+          {ev.meta.contextId && <span className="truncate">id: {ev.meta.contextId}</span>}
           {ev.meta.workdir && <span className="truncate">in {ev.meta.workdir}</span>}
         </div>
       )
@@ -452,10 +452,10 @@ export default function AgentTraceTimeline() {
         {sessions.map((s, idx) => (
           <div key={idx} className="mb-6">
             <div className="mb-1 text-xs text-muted-foreground">
-              Session {idx + 1} — {s.meta.model || 'model'} — {s.meta.sessionId || 'id'}
+              Session {idx + 1} — {s.meta.model || 'model'} — {s.meta.contextId || 'id'}
             </div>
             {s.events.map((ev, i) => (
-              <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
+              <TraceEventItem key={`${s.meta.contextId ?? idx}-${i}`} ev={ev} />
             ))}
           </div>
         ))}

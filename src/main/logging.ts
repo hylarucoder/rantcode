@@ -3,6 +3,7 @@ import { join } from 'path'
 import { promises as fs } from 'fs'
 import winston from 'winston'
 import 'winston-daily-rotate-file'
+import { getLogsPath } from './paths'
 
 type LogLevel = 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly'
 
@@ -30,7 +31,7 @@ function getCrashExtra(): Record<string, string> | undefined {
 }
 
 function buildLogger(): winston.Logger {
-  const userLogs = join(app.getPath('userData'), 'logs')
+  const userLogs = getLogsPath()
   // ensure dir
   fs.mkdir(userLogs, { recursive: true }).catch(() => {})
 

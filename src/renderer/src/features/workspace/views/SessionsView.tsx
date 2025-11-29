@@ -12,6 +12,50 @@ import { useSfx } from '@/hooks/useSfx'
 import type { Message, Session } from '@/features/workspace/types'
 import { playAudioFx } from '@/lib/audioFx'
 import { getPresetAgent, buildAgentPrompt } from '@shared/agents'
+import { useClaudeTokensQuery } from '@/features/settings/api/agentsHooks'
+import type { Runner } from '@shared/runners'
+
+/**
+ * 获取 runner 对应的 token key
+ * 返回 null 表示该 runner 不需要检查 token
+ */
+function getTokenKeyForRunner(runner: Runner): 'official' | 'kimi' | 'glm' | 'minmax' | null {
+  switch (runner) {
+    case 'claude-code-glm':
+      return 'glm'
+    case 'claude-code-kimi':
+    case 'kimi-cli':
+      return 'kimi'
+    case 'claude-code-minimax':
+      return 'minmax'
+    case 'claude-code':
+      return 'official'
+    case 'codex':
+      // Codex 使用环境变量 OPENAI_API_KEY，不在应用内配置
+      return null
+    default:
+      return null
+  }
+}
+
+/** 获取 runner 对应的设置页面路由参数 */
+function getSettingsRouteForRunner(runner: Runner): string {
+  switch (runner) {
+    case 'claude-code-glm':
+      return '/settings?agents=glm'
+    case 'claude-code-kimi':
+    case 'kimi-cli':
+      return '/settings?agents=kimi'
+    case 'claude-code-minimax':
+      return '/settings?agents=minmax'
+    case 'claude-code':
+      return '/settings?agents=claude'
+    case 'codex':
+      return '/settings?agents=codex'
+    default:
+      return '/settings'
+  }
+}
 
 interface SessionsViewProps {
   project: ProjectInfo
@@ -37,11 +81,13 @@ export default function SessionsView({ project }: SessionsViewProps) {
   }, [projectId, chat])
 
   const sessions = chat.sessions
+  const loaded = chat.loaded
   const activeSessionId = chat.activeSessionId ?? sessions[0]?.id ?? null
 
   // 如果没有任何 session，自动创建一个
+  // 重要：必须等待后端数据加载完成后再判断，避免竞态条件
   useEffect(() => {
-    if (sessions.length === 0 && projectId) {
+    if (loaded && sessions.length === 0 && projectId) {
       const defaultSession: Session = {
         id: `session-${Date.now()}`,
         title: 'New Session',
@@ -55,13 +101,13 @@ export default function SessionsView({ project }: SessionsViewProps) {
       }
       void chat.addSession(defaultSession)
     }
-  }, [sessions.length, projectId, chat])
+  }, [loaded, sessions.length, projectId, chat])
   const [input, setInput] = useState('')
   /** 底层 Runner（执行器） */
   const [runner, setRunner] = useState<NonNullable<RunnerRunOptions['runner']>>('claude-code-glm')
   /** Agent ID（角色） */
   const [agentId, setAgentId] = useState('general')
-  const [runningJobId, setRunningJobId] = useState<string | null>(null)
+  const [runningTraceId, setRunningTraceId] = useState<string | null>(null)
 
   const {
     html: previewHtml,
@@ -83,21 +129,39 @@ export default function SessionsView({ project }: SessionsViewProps) {
   const { run, subscribe, cancel } = useAgentRunner()
   const { play: playSfx } = useSfx()
 
+  // 获取 tokens 用于检查 API key 是否已配置
+  const tokensQuery = useClaudeTokensQuery()
+  const tokens = tokensQuery.data ?? {}
+
   const handleSend = async () => {
-    if (runningJobId || !project) return
+    if (runningTraceId || !project) return
     const value = input.trim()
     if (!value) return
     const targetSessionId = activeSession?.id ?? sessions[0]?.id
     if (!targetSessionId) return
 
+    // 检查当前 runner 是否需要 API key，如果需要且未配置则提示
+    const tokenKey = getTokenKeyForRunner(runner)
+    if (tokenKey && !tokens[tokenKey]) {
+      const settingsRoute = getSettingsRouteForRunner(runner)
+      toast.error(`请先配置 API Key`, {
+        description: `当前选择的 ${runner} 需要配置 API Key 才能使用`,
+        action: {
+          label: '去设置',
+          onClick: () => navigate(settingsRoute)
+        }
+      })
+      return
+    }
+
     const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: value }
-    const jobId =
+    const traceId =
       typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `codex-${Date.now()}`
     const assistantMsg: Message = {
-      id: `assistant-${jobId}`,
+      id: `assistant-${traceId}`,
       role: 'assistant',
       content: '',
-      jobId,
+      traceId,
       status: 'running',
       logs: [],
       output: '',
@@ -116,17 +180,17 @@ export default function SessionsView({ project }: SessionsViewProps) {
     const agent = getPresetAgent(agentId)
     const finalPrompt = agent ? buildAgentPrompt(agent, value) : value
 
-    // 根据当前选择的 runner 获取对应的 sessionId，用于上下文续写
-    const runnerSessionId = activeSession?.runnerSessions?.[runner]
-    setRunningJobId(jobId)
+    // 根据当前选择的 runner 获取对应的 contextId，用于上下文续写
+    const runnerContextId = activeSession?.runnerContexts?.[runner]
+    setRunningTraceId(traceId)
     run({
       runner,
       projectId: project.id,
       prompt: finalPrompt,
-      jobId,
-      sessionId: runnerSessionId
+      traceId,
+      contextId: runnerContextId
     }).catch(() => {
-      setRunningJobId(null)
+      setRunningTraceId(null)
       // On error, a subsequent Codex 'error' event will update the assistant message via store
     })
   }
@@ -141,8 +205,8 @@ export default function SessionsView({ project }: SessionsViewProps) {
   }
 
   const handleInterrupt = () => {
-    if (!runningJobId || !cancel) return
-    void cancel(runningJobId)
+    if (!runningTraceId || !cancel) return
+    void cancel(runningTraceId)
   }
 
   const handleRemoveProject = async () => {
@@ -158,6 +222,8 @@ export default function SessionsView({ project }: SessionsViewProps) {
   // Subscribe to Codex events
   useEffect(() => {
     const queueRef = { current: [] as RunnerEvent[] }
+    // 记录需要同步的消息 (traceId -> sessionId)
+    const pendingSync = { current: new Map<string, string>() }
     let scheduled = false
     const flush = () => {
       scheduled = false
@@ -165,6 +231,14 @@ export default function SessionsView({ project }: SessionsViewProps) {
       if (batch.length === 0) return
       chat.applyRunnerEventsBatch(batch)
       queueRef.current = []
+
+      // 同步已完成的消息到后端
+      for (const [traceId, sessionId] of pendingSync.current) {
+        const messageId = `assistant-${traceId}`
+        // immediate=true 立即同步，因为任务已完成
+        chat.syncMessageToBackend(sessionId, messageId, true)
+      }
+      pendingSync.current.clear()
     }
     const unsubscribe = subscribe((event: RunnerEvent) => {
       if (event.type === 'exit') {
@@ -177,14 +251,20 @@ export default function SessionsView({ project }: SessionsViewProps) {
         } else {
           toast.error(`执行失败 (exit ${event.code ?? '?'}) ${ms}`)
         }
-      } else if (event.type === 'error') {
-        toast.error(event.message || '执行出错')
-        setRunningJobId(null)
-      }
-      if (event.type === 'exit') {
         // 会话结束：播放结束音效（若启用）
         playAudioFx('end')
-        setRunningJobId(null)
+        setRunningTraceId(null)
+        // 标记需要同步到后端
+        if (activeSessionId) {
+          pendingSync.current.set(event.traceId, activeSessionId)
+        }
+      } else if (event.type === 'error') {
+        toast.error(event.message || '执行出错')
+        setRunningTraceId(null)
+        // 错误时也需要同步
+        if (activeSessionId) {
+          pendingSync.current.set(event.traceId, activeSessionId)
+        }
       }
       queueRef.current.push(event)
       if (!scheduled) {
@@ -196,8 +276,9 @@ export default function SessionsView({ project }: SessionsViewProps) {
       unsubscribe()
       // 清空未处理事件，避免内存泄漏
       queueRef.current = []
+      pendingSync.current.clear()
     }
-  }, [subscribe])
+  }, [subscribe, activeSessionId, chat])
 
   return (
     <WorkspaceLayout
@@ -210,7 +291,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
       input={input}
       onInputChange={setInput}
       onSend={handleSend}
-      isRunning={!!runningJobId}
+      isRunning={!!runningTraceId}
       onInterrupt={handleInterrupt}
       runner={runner}
       onRunnerChange={setRunner}

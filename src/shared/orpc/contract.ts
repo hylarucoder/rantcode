@@ -33,7 +33,10 @@ import {
   appendMessagesInputSchema,
   updateMessageInputSchema,
   listSessionsInputSchema,
-  getSessionInputSchema
+  getSessionInputSchema,
+  getMessageLogsInputSchema,
+  logsResultSchema,
+  appendLogInputSchema
 } from './schemas'
 
 // Shared type-only oRPC contract for full inference on client and server.
@@ -68,8 +71,8 @@ export const contract = oc.router({
   // Runner 配置和执行（底层 AI 执行器）
   runners: {
     // 执行 runner
-    run: oc.input(agentRunInputSchema).output(z.object({ jobId: z.string() })),
-    cancel: oc.input(z.object({ jobId: z.string() })).output(z.object({ ok: z.boolean() })),
+    run: oc.input(agentRunInputSchema).output(z.object({ traceId: z.string() })),
+    cancel: oc.input(z.object({ traceId: z.string() })).output(z.object({ ok: z.boolean() })),
     // 配置管理
     get: oc.output(agentsCatalogSchema),
     set: oc.input(agentsCatalogSchema).output(agentsCatalogSchema),
@@ -134,7 +137,11 @@ export const contract = oc.router({
     update: oc.input(updateSessionInputSchema).output(sessionSchema),
     delete: oc.input(deleteSessionInputSchema).output(okResponseSchema),
     appendMessages: oc.input(appendMessagesInputSchema).output(sessionSchema),
-    updateMessage: oc.input(updateMessageInputSchema).output(sessionSchema)
+    updateMessage: oc.input(updateMessageInputSchema).output(sessionSchema),
+    /** 按需加载消息日志 */
+    getMessageLogs: oc.input(getMessageLogsInputSchema).output(logsResultSchema),
+    /** 追加单条日志（Runner 执行时调用） */
+    appendLog: oc.input(appendLogInputSchema).output(okResponseSchema)
   }
 }) satisfies AnyContractRouter
 

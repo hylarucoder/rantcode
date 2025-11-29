@@ -5,9 +5,10 @@ import { renderMarkdownToHtml } from '@/lib/markdown'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import { ExecAgentTrace } from '@/features/logs'
 import { useAutoScrollBottom } from '@/shared/hooks/useAutoScroll'
-import type { Message } from '@/features/workspace/types'
+import type { Message, LogEntry } from '@/features/workspace/types'
 import type { ThemeMode } from '@/types/theme'
 import { RUNNER_UI_LIST } from '@shared/runners'
+import { useMessageLogs } from '../hooks/useMessageLogs'
 
 /**
  * 独立的 Markdown 渲染组件
@@ -48,11 +49,16 @@ const MarkdownContent = memo(function MarkdownContent({
   return <div ref={containerRef} className="markdown-body mt-2 max-h-96 overflow-auto text-xs" />
 })
 
-export function AgentMessageBubble({ msg }: { msg: Message }) {
+interface AgentMessageBubbleProps {
+  msg: Message
+  projectId: string
+  sessionId: string
+}
+
+export function AgentMessageBubble({ msg, projectId, sessionId }: AgentMessageBubbleProps) {
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null)
   const themeMode = useThemeMode()
   const [logTab, setLogTab] = useState<'exec' | 'trace'>('trace')
-  const hasLogs = (msg.logs?.length ?? 0) > 0
   const execScrollRef = useRef<HTMLDivElement | null>(null)
   const trimmedOutput = (msg.output ?? '').trim()
   const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(() => {
@@ -60,6 +66,38 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
     const diff = Math.floor((Date.now() - msg.startedAt) / 1000)
     return diff >= 0 ? diff : 0
   })
+
+  // 按需加载日志（仅在非 running 状态时从后端加载）
+  const {
+    logs: loadedLogs,
+    loading: logsLoading,
+    load: loadLogs,
+    hasMore,
+    loadMore
+  } = useMessageLogs({
+    projectId,
+    sessionId,
+    traceId: msg.traceId,
+    autoLoad: false // 手动触发加载
+  })
+
+  // 决定使用哪些日志：
+  // - running 状态：使用 msg.logs（实时流式日志）
+  // - 其他状态：优先使用已加载的日志，否则回退到 msg.logs
+  const isRunning = msg.status === 'running'
+  const displayLogs: LogEntry[] = isRunning
+    ? (msg.logs ?? [])
+    : loadedLogs.length > 0
+      ? loadedLogs
+      : (msg.logs ?? [])
+  const hasLogs = displayLogs.length > 0 || (msg.logMeta?.count ?? 0) > 0
+
+  // 当切换到执行日志 tab 且不是 running 状态时，加载日志
+  useEffect(() => {
+    if (logTab === 'exec' && !isRunning && loadedLogs.length === 0 && msg.traceId) {
+      void loadLogs()
+    }
+  }, [logTab, isRunning, loadedLogs.length, msg.traceId, loadLogs])
 
   useEffect(() => {
     if (!trimmedOutput) {
@@ -99,7 +137,7 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
     return () => window.clearInterval(id)
   }, [msg.status, msg.startedAt])
 
-  useAutoScrollBottom(execScrollRef, logTab === 'exec', [msg.logs?.length, logTab])
+  useAutoScrollBottom(execScrollRef, logTab === 'exec', [displayLogs.length, logTab])
 
   const displayHtml = trimmedOutput ? renderedHtml : null
 
@@ -108,9 +146,9 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
       <div className="max-w-[80%] rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'}
-          {msg.sessionId && (
+          {msg.contextId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
-              ({msg.sessionId.slice(0, 8)})
+              ({msg.contextId.slice(0, 8)})
             </span>
           )}
           {msg.status === 'running' && (
@@ -162,25 +200,39 @@ export function AgentMessageBubble({ msg }: { msg: Message }) {
               ref={execScrollRef}
               className="max-h-64 space-y-1 overflow-auto text-[11px] font-mono"
             >
-              {hasLogs ? (
-                msg.logs?.map((log) => (
-                  <pre
-                    key={log.id}
-                    className={cn(
-                      'whitespace-pre-wrap rounded-md bg-background/80 px-2 py-1',
-                      log.stream === 'stderr' ? 'text-red-300' : 'text-foreground'
-                    )}
-                  >
-                    <span className="mr-2 opacity-70">[{log.stream}]</span>
-                    {log.text}
-                  </pre>
-                ))
+              {logsLoading && displayLogs.length === 0 ? (
+                <span className="text-[11px] text-muted-foreground">加载日志中...</span>
+              ) : hasLogs ? (
+                <>
+                  {displayLogs.map((log) => (
+                    <pre
+                      key={log.id}
+                      className={cn(
+                        'whitespace-pre-wrap rounded-md bg-background/80 px-2 py-1',
+                        log.stream === 'stderr' ? 'text-red-300' : 'text-foreground'
+                      )}
+                    >
+                      <span className="mr-2 opacity-70">[{log.stream}]</span>
+                      {log.text}
+                    </pre>
+                  ))}
+                  {hasMore && (
+                    <button
+                      type="button"
+                      onClick={() => void loadMore()}
+                      disabled={logsLoading}
+                      className="text-[11px] text-primary hover:underline disabled:opacity-50"
+                    >
+                      {logsLoading ? '加载中...' : '加载更多'}
+                    </button>
+                  )}
+                </>
               ) : (
                 <span className="text-[11px] text-muted-foreground">No exec logs.</span>
               )}
             </div>
           ) : (
-            <ExecAgentTrace logs={msg.logs ?? []} />
+            <ExecAgentTrace logs={displayLogs} />
           )}
         </div>
         {displayHtml && <MarkdownContent html={displayHtml} themeMode={themeMode} />}

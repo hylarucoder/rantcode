@@ -9,7 +9,8 @@ import { ServerPeer } from '@orpc/standard-server-peer'
 import type { EncodedMessage } from '@orpc/standard-server-peer'
 import { createServerPeerHandleRequestFn } from '@orpc/server/standard-peer'
 import type { Context } from '@orpc/server'
-import { SystemService, FsService, ProjectService, GitService, SessionService } from './rpc'
+import { SystemService, FsService, ProjectService, GitService } from './rpc'
+import { dbSessionService } from './db/services/sessionService'
 import { addDocsSubscriber, removeDocsSubscriber } from './docsWatcher'
 import { registerNotifyPort, unregisterNotifyPort } from './notifyBridge'
 import { loggerService } from './services/loggerService'
@@ -52,7 +53,10 @@ import {
   appendMessagesInputSchema,
   updateMessageInputSchema,
   listSessionsInputSchema,
-  getSessionInputSchema
+  getSessionInputSchema,
+  getMessageLogsInputSchema,
+  logsResultSchema,
+  appendLogInputSchema
 } from '../shared/orpc/schemas'
 import { spawn } from 'node:child_process'
 import {
@@ -77,7 +81,7 @@ export function setupOrpcBridge(): void {
   const fsSvc = new FsService()
   const projects = new ProjectService()
   const gitSvc = new GitService()
-  const sessionSvc = new SessionService()
+  const sessionSvc = dbSessionService
 
   const orpcLog = loggerService.child('orpc')
 
@@ -283,7 +287,7 @@ export function setupOrpcBridge(): void {
       // 执行 runner
       run: os
         .input(agentRunInputSchema)
-        .output(z.object({ jobId: z.string() }))
+        .output(z.object({ traceId: z.string() }))
         .handler(async ({ input }) => {
           const win = BrowserWindow.getFocusedWindow()
           const wc = win?.webContents
@@ -293,9 +297,9 @@ export function setupOrpcBridge(): void {
           return runCodex(wc.id, input)
         }),
       cancel: os
-        .input(z.object({ jobId: z.string() }))
+        .input(z.object({ traceId: z.string() }))
         .output(z.object({ ok: z.boolean() }))
-        .handler(async ({ input }) => cancelCodex(input.jobId)),
+        .handler(async ({ input }) => cancelCodex(input.traceId)),
       // 配置管理
       get: os.output(agentsCatalogSchema).handler(async () => agentsStore.read()),
       set: os
@@ -465,6 +469,20 @@ export function setupOrpcBridge(): void {
           withInputErrorHandler('sessions.updateMessage', (input) =>
             sessionSvc.updateMessage(input)
           )
+        ),
+      getMessageLogs: os
+        .input(getMessageLogsInputSchema)
+        .output(logsResultSchema)
+        .handler(
+          withInputErrorHandler('sessions.getMessageLogs', (input) =>
+            sessionSvc.getMessageLogs(input)
+          )
+        ),
+      appendLog: os
+        .input(appendLogInputSchema)
+        .output(okResponseSchema)
+        .handler(
+          withInputErrorHandler('sessions.appendLog', (input) => sessionSvc.appendLog(input))
         )
     }
   })

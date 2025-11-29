@@ -9,6 +9,7 @@ import {
   CircleX,
   FileDiff,
   FileText,
+  Info,
   MessageSquare,
   Puzzle,
   Search,
@@ -213,6 +214,94 @@ function CollapsibleToolArgs({ argsText, data }: { argsText: string; data?: Tool
   )
 }
 
+import type { TraceSession } from '@/lib/logParsers'
+
+/** Session 信息 Popover */
+function SessionInfoPopover({ session }: { session: TraceSession }) {
+  const [open, setOpen] = useState(false)
+  const { meta } = session
+  const hasDetails =
+    meta.workdir || meta.provider || meta.approval || meta.sandbox || meta.reasoningEffort
+
+  if (!hasDetails) return null
+
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="ml-1 inline-flex items-center text-muted-foreground hover:text-foreground"
+        title="Session 详情"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-md border border-border bg-popover p-2 text-[10px] text-popover-foreground shadow-md">
+            <div className="space-y-1">
+              {meta.contextId && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Context ID:</span>
+                  <span className="truncate font-mono">{meta.contextId.slice(0, 12)}...</span>
+                </div>
+              )}
+              {meta.workdir && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Workdir:</span>
+                  <span className="truncate font-mono max-w-[150px]">{meta.workdir}</span>
+                </div>
+              )}
+              {meta.provider && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Provider:</span>
+                  <span>{meta.provider}</span>
+                </div>
+              )}
+              {meta.approval && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Approval:</span>
+                  <span>{meta.approval}</span>
+                </div>
+              )}
+              {meta.sandbox && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Sandbox:</span>
+                  <span>{meta.sandbox}</span>
+                </div>
+              )}
+              {meta.reasoningEffort && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Reasoning:</span>
+                  <span>{meta.reasoningEffort}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Session 追踪块 */
+function SessionTraceBlock({ session, index }: { session: TraceSession; index: number }) {
+  return (
+    <div className="mb-3">
+      <div className="mb-0.5 flex items-center text-[11px] text-muted-foreground">
+        <span>
+          Session {index + 1}
+          {session.meta.model && <span className="ml-1">— {session.meta.model}</span>}
+        </span>
+        <SessionInfoPopover session={session} />
+      </div>
+      {session.events.map((ev, i) => (
+        <TraceEventItem key={`${session.meta.contextId ?? index}-${i}`} ev={ev} />
+      ))}
+    </div>
+  )
+}
+
 function TraceEventItem({ ev }: { ev: TraceEvent }) {
   switch (ev.type) {
     case 'session_start':
@@ -222,7 +311,7 @@ function TraceEventItem({ ev }: { ev: TraceEvent }) {
           <span>Session</span>
           {ev.meta.parentSessionId && <Badge className="bg-blue-500/20">resumed</Badge>}
           {ev.meta.model && <Badge className="bg-accent/40">{ev.meta.model}</Badge>}
-          {ev.meta.sessionId && <span className="truncate">{ev.meta.sessionId}</span>}
+          {ev.meta.contextId && <span className="truncate">{ev.meta.contextId}</span>}
         </div>
       )
     case 'user':
@@ -393,31 +482,7 @@ export default function ExecAgentTrace({ logs }: { logs: ExecLogEntry[] }) {
   return (
     <div ref={scrollRef} className="max-h-64 overflow-auto">
       {sessions.map((s, idx) => (
-        <div key={idx} className="mb-3">
-          <div className="mb-0.5 text-[11px] text-muted-foreground">
-            Session {idx + 1} — {s.meta.model || 'model'}
-          </div>
-          {(s.meta.workdir ||
-            s.meta.provider ||
-            s.meta.approval ||
-            s.meta.sandbox ||
-            s.meta.reasoningEffort) && (
-            <div className="mb-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-              {s.meta.workdir && (
-                <span>
-                  workdir: <span className="font-mono">{s.meta.workdir}</span>
-                </span>
-              )}
-              {s.meta.provider && <span>provider: {s.meta.provider}</span>}
-              {s.meta.approval && <span>approval: {s.meta.approval}</span>}
-              {s.meta.sandbox && <span>sandbox: {s.meta.sandbox}</span>}
-              {s.meta.reasoningEffort && <span>reasoning: {s.meta.reasoningEffort}</span>}
-            </div>
-          )}
-          {s.events.map((ev, i) => (
-            <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
-          ))}
-        </div>
+        <SessionTraceBlock key={idx} session={s} index={idx} />
       ))}
       {sessions.length === 0 && (
         <div className="space-y-1">

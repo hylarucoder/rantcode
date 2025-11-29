@@ -1,4 +1,4 @@
-# 核心实体规范：Agent / Session / Message
+# 核心实体规范：Runner / Session / Message
 
 本文档定义 rantcode 中三个核心实体的规范，用于统一前后端的数据结构和行为约定。
 
@@ -7,27 +7,42 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      Workspace                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  Session 1  │  │  Session 2  │  │  Session 3  │     │
-│  │  ┌───────┐  │  │  ┌───────┐  │  │             │     │
-│  │  │Message│  │  │  │Message│  │  │   (empty)   │     │
-│  │  │Message│  │  │  │Message│  │  │             │     │
-│  │  │Message│  │  │  └───────┘  │  │             │     │
-│  │  └───────┘  │  │             │  │             │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │                    Session                       │   │
+│  │  ┌───────────────────────────────────────────┐  │   │
+│  │  │              Message (user)                │  │   │
+│  │  │              Message (assistant)           │  │   │
+│  │  │                - traceId                   │  │   │
+│  │  │                - status, logs, output      │  │   │
+│  │  └───────────────────────────────────────────┘  │   │
+│  │  runnerContexts: { "claude-code-glm": "xyz" }   │   │
+│  └─────────────────────────────────────────────────┘   │
 │                                                         │
-│  Agent: claude-code-glm                                │
+│  Runner: claude-code-glm (执行器)                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 1. Agent（代理/助手）
+## 术语表
 
-Agent 代表一个可执行代码任务的 AI 助手后端。
+| 术语 | 说明 |
+|------|------|
+| **Runner** | 底层 CLI 执行器（如 codex, claude-code-glm） |
+| **Session** | 用户的对话会话线程 |
+| **Message** | 会话中的单条消息（user 或 assistant） |
+| **traceId** | 一次执行的追踪标识，用于关联 RunnerEvent |
+| **contextId** | Runner CLI 的上下文标识，用于上下文续写 |
+| **RunnerContextMap** | 各 Runner 的 contextId 映射 |
+
+---
+
+## 1. Runner（执行器）
+
+Runner 代表一个可执行代码任务的底层 CLI 工具。
 
 ### 1.1 类型定义
 
 ```ts
-type Agent =
+type Runner =
   | 'codex'              // OpenAI Codex CLI
   | 'claude-code'        // Claude Code 原生
   | 'claude-code-glm'    // Claude Code + GLM 后端
@@ -35,58 +50,58 @@ type Agent =
   | 'claude-code-minimax'// Claude Code + MiniMax 后端
   | 'kimi-cli'           // Kimi CLI
 
-interface AgentUIConfig {
-  value: Agent
+interface RunnerUIConfig {
+  value: Runner
   label: string       // UI 显示名称
   description?: string // 助手描述
   available?: boolean  // 是否可用（检测到 CLI）
 }
 ```
 
-### 1.2 Agent 职责
+### 1.2 Runner 职责
 
 | 职责 | 说明 |
 |------|------|
 | 接收 prompt | 从用户消息中获取任务指令 |
 | 执行代码任务 | 调用底层 CLI 工具执行代码生成/修改 |
-| 产生事件流 | 输出 `AgentEvent` 流（start/log/exit/session/error） |
-| 管理会话上下文 | 可选支持 session 续写（通过 sessionId） |
+| 产生事件流 | 输出 `RunnerEvent` 流（start/log/exit/context/error） |
+| 管理上下文 | 可选支持上下文续写（通过 contextId） |
 
-### 1.3 Agent 事件（AgentEvent）
+### 1.3 Runner 事件（RunnerEvent）
 
 ```ts
-type AgentEvent =
-  | { type: 'start'; jobId: string; command: string[]; cwd: string }
-  | { type: 'log'; jobId: string; stream: 'stdout' | 'stderr'; data: string }
-  | { type: 'exit'; jobId: string; code: number | null; signal: string | null; durationMs: number }
-  | { type: 'session'; jobId: string; sessionId: string }
-  | { type: 'error'; jobId: string; message: string }
-  | { type: 'text'; jobId: string; text: string; delta?: boolean }
-  | { type: 'claude_message'; jobId: string; messageType: string; content?: string; raw?: unknown }
+type RunnerEvent =
+  | { type: 'start'; traceId: string; command: string[]; cwd: string }
+  | { type: 'log'; traceId: string; stream: 'stdout' | 'stderr'; data: string }
+  | { type: 'exit'; traceId: string; code: number | null; signal: string | null; durationMs: number }
+  | { type: 'context'; traceId: string; contextId: string }
+  | { type: 'error'; traceId: string; message: string }
+  | { type: 'text'; traceId: string; text: string; delta?: boolean }
+  | { type: 'claude_message'; traceId: string; messageType: string; content?: string; raw?: unknown }
 ```
 
 ---
 
 ## 2. Session（会话）
 
-Session 是用户与 Agent 交互的一个对话线程，用于组织和管理多轮对话。
+Session 是用户与 Runner 交互的一个对话线程，用于组织和管理多轮对话。
 
 ### 2.1 类型定义
 
 ```ts
 /**
- * 各 Agent 的 sessionId 映射，支持同一会话切换不同 agent 时保持各自上下文
+ * 各 Runner 的 CLI 上下文标识映射，支持同一会话切换不同 Runner 时保持各自上下文
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-type AgentSessionMap = Partial<Record<Agent, string>>
+type RunnerContextMap = Partial<Record<Runner, string>>
 
 interface Session {
-  id: string                    // 唯一标识（UUID 或时间戳）
-  title: string                 // 会话标题，如 "重构登录页"
-  messages: Message[]           // 消息列表
-  agentSessions?: AgentSessionMap // 各 agent 的 sessionId 映射（用于上下文续写）
-  createdAt?: number            // 创建时间戳
-  updatedAt?: number            // 最后更新时间戳
+  id: string                      // 唯一标识（UUID）
+  title: string                   // 会话标题，如 "重构登录页"
+  messages: Message[]             // 消息列表
+  runnerContexts?: RunnerContextMap // 各 Runner 的 contextId 映射（用于上下文续写）
+  createdAt?: string              // 创建时间
+  updatedAt?: string              // 最后更新时间
 }
 ```
 
@@ -100,8 +115,8 @@ interface Session {
                        │
                        ▼
                  ┌─────────────────┐
-                 │  绑定各 Agent   │
-                 │  的 SessionId   │
+                 │ 绑定各 Runner   │
+                 │ 的 contextId    │
                  └─────────────────┘
 ```
 
@@ -109,36 +124,38 @@ interface Session {
 
 | 操作 | 说明 |
 |------|------|
-| `create` | 创建新会话，初始 messages 为空或包含欢迎消息 |
+| `create` | 创建新会话，初始 messages 为空 |
 | `select` | 切换当前活跃会话 |
 | `rename` | 修改会话标题 |
 | `delete` | 删除会话及其所有消息 |
-| `bindAgent` | 当 Agent 返回 session 事件时，将 sessionId 写入 agentSessions[agent] |
+| `bindContext` | 当 Runner 返回 context 事件时，将 contextId 写入 runnerContexts[runner] |
 
 ### 2.4 上下文续写
 
-当 Session 中某个 Agent 已绑定 sessionId 时（存储在 `agentSessions[agent]`），后续使用该 Agent 发送请求会带上对应的 sessionId，使 Agent CLI 能够续写上下文：
+当 Session 中某个 Runner 已绑定 contextId 时（存储在 `runnerContexts[runner]`），后续使用该 Runner 发送请求会带上对应的 contextId，使 Runner CLI 能够续写上下文：
 
 ```ts
-interface AgentRunOptions {
-  agent: Agent
+interface RunnerRunOptions {
+  runner: Runner
   prompt: string
-  sessionId?: string  // 来自 Session.agentSessions[agent]
+  traceId?: string    // 执行追踪标识
+  contextId?: string  // 来自 Session.runnerContexts[runner]
   // ...
 }
 
 // 使用示例：
-const agentSessionId = activeSession?.agentSessions?.[currentAgent]
+const runnerContextId = activeSession?.runnerContexts?.[currentRunner]
 run({
-  agent: currentAgent,
+  runner: currentRunner,
   prompt: userInput,
-  sessionId: agentSessionId  // 根据当前 agent 获取对应的 sessionId
+  traceId: generateUUID(),
+  contextId: runnerContextId  // 根据当前 Runner 获取对应的 contextId
 })
 ```
 
 这样设计的好处：
-- 同一会话中可以切换不同的 Agent，每个 Agent 保持独立的上下文
-- 切换回之前用过的 Agent 时，可以继续之前的上下文
+- 同一会话中可以切换不同的 Runner，每个 Runner 保持独立的上下文
+- 切换回之前用过的 Runner 时，可以继续之前的上下文
 
 ---
 
@@ -166,13 +183,14 @@ interface Message {
   content: string               // 消息文本内容
 
   // 以下字段仅 assistant 消息使用
-  jobId?: string                // 关联的 Agent Job ID
+  traceId?: string              // 执行追踪标识（关联 RunnerEvent）
   status?: MessageStatus        // 执行状态
   logs?: LogEntry[]             // 执行日志（stdout/stderr）
   output?: string               // 最终输出摘要
   errorMessage?: string         // 错误信息
+  contextId?: string            // Runner CLI 上下文标识
   startedAt?: number            // 开始执行时间戳
-  finishedAt?: number           // 完成时间戳
+  runner?: string               // 执行任务的 Runner
 }
 ```
 
@@ -181,10 +199,11 @@ interface Message {
 | 字段 | User Message | Assistant Message |
 |------|--------------|-------------------|
 | `role` | `'user'` | `'assistant'` |
-| `content` | 用户输入的问题 | Agent 产出的回复 |
-| `jobId` | ❌ | ✅ Agent Job 标识 |
+| `content` | 用户输入的问题 | Runner 产出的回复 |
+| `traceId` | ❌ | ✅ 执行追踪标识 |
 | `status` | ❌ | ✅ running/success/error |
 | `logs` | ❌ | ✅ CLI 输出日志 |
+| `runner` | ❌ | ✅ 使用的 Runner |
 
 ### 3.3 Message 状态流转
 
@@ -198,12 +217,12 @@ User 发送 prompt
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐     AgentEvent: log
+┌─────────────────┐     RunnerEvent: log
 │ Assistant Msg   │◀────────────────────┐
 │ status: running │                     │
 │ logs: []        │─────────────────────┘
 └────────┬────────┘
-         │ AgentEvent: exit
+         │ RunnerEvent: exit
          ▼
 ┌─────────────────┐
 │ Assistant Msg   │
@@ -218,11 +237,10 @@ User 发送 prompt
 
 ```
 ┌──────────┐    onSend()     ┌──────────────┐    run()     ┌──────────┐
-│ Composer │────────────────▶│ WorkspacePage│─────────────▶│  Agent   │
-└──────────┘                 └──────────────┘              │  Runner  │
-                                    │                      └────┬─────┘
+│ Composer │────────────────▶│ SessionsView │─────────────▶│  Runner  │
+└──────────┘                 └──────────────┘              └────┬─────┘
                                     │                           │
-                              appendMessages()             AgentEvent
+                              appendMessages()             RunnerEvent
                                     │                           │
                                     ▼                           ▼
                              ┌──────────────┐          ┌──────────────┐
@@ -242,17 +260,37 @@ User 发送 prompt
 
 ### 5.1 当前实现
 
-- **Sessions**: localStorage（per workspace）
-- **Messages**: 内嵌在 Session.messages 数组中
-- **Agent 配置**: 运行时状态，不持久化
+- **Sessions**: SQLite（per workspace）
+- **Messages**: SQLite，独立表，外键关联 Session
+- **Runner 配置**: electron-store（用户偏好）
 
-### 5.2 未来考虑
+### 5.2 数据库 Schema
 
-| 实体 | 存储方案 |
-|------|----------|
-| Session | SQLite / IndexedDB（支持搜索和分页） |
-| Message | 同上，独立表，外键关联 Session |
-| Agent | electron-store（用户偏好） |
+```sql
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  runner_contexts TEXT,  -- JSON 格式的 RunnerContextMap
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE messages (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  trace_id TEXT,
+  status TEXT,
+  logs TEXT,           -- JSON 格式的 LogEntry[]
+  output TEXT,
+  error_message TEXT,
+  started_at INTEGER,
+  runner TEXT,
+  created_at TEXT NOT NULL
+);
+```
 
 ---
 
@@ -260,20 +298,27 @@ User 发送 prompt
 
 | 实体 | 类型定义文件 |
 |------|--------------|
-| Agent | `src/shared/agents.ts` |
+| Runner | `src/shared/runners.ts` |
 | Session | `src/renderer/src/features/workspace/types.ts` |
 | Message | `src/renderer/src/features/workspace/types.ts` |
 | LogEntry | `src/renderer/src/features/workspace/types.ts` |
-| AgentEvent | `src/shared/types/webui.ts` |
-| AgentRunOptions | `src/shared/types/webui.ts` |
+| RunnerEvent | `src/shared/types/webui.ts` |
+| RunnerRunOptions | `src/shared/types/webui.ts` |
 
 ---
 
-## 7. 后续任务
+## 7. 设计决策
 
-- [ ] 实现 Session 持久化到 SQLite
-- [ ] 支持 Session 搜索和过滤
-- [ ] 添加 Message 时间戳显示
-- [ ] 支持 Message 复制/重发
-- [ ] Agent 可用性检测集成到 UI
+### 7.1 不独立实现 Job 实体
 
+设计文档中原本定义了完整的 `Job` 实体，但经过讨论决定：
+- **不需要** 独立实现 Job 实体
+- 用 `Message + traceId` 足够满足需求
+- Job 的概念通过 Message 的 assistant 消息隐式表达
+
+### 7.2 CLI 上下文使用 contextId
+
+为避免与 Session.id 混淆：
+- Runner CLI 的上下文标识统一使用 `contextId`
+- Session 级别的映射使用 `runnerContexts`
+- RunnerEvent 使用 `type: 'context'` 而非 `type: 'session'`

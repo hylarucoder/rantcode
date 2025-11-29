@@ -5,6 +5,7 @@ import type { Dirent } from 'node:fs'
 import * as path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { loggerService } from './services/loggerService'
+import { getProjectsStorePath as getProjectsStorePathFromPaths } from './paths'
 import type {
   FsTreeNode,
   HealthResponse,
@@ -66,8 +67,7 @@ type ProjectRecord = ProjectInfo
 const projectStoreLog = loggerService.child('projects.store')
 
 function getProjectsStorePath(): string {
-  const userData = app.getPath('userData')
-  return path.join(userData, 'projects.json')
+  return getProjectsStorePathFromPaths()
 }
 
 async function readProjects(): Promise<ProjectRecord[]> {
@@ -654,186 +654,8 @@ export class GitService {
   }
 }
 
-// Session Service - persistent chat sessions per workspace
-const sessionStoreLog = loggerService.child('sessions.store')
-
-function getSessionsStorePath(projectId: string): string {
-  const userData = app.getPath('userData')
-  // Store sessions in a subdirectory per workspace
-  return path.join(userData, 'sessions', `${projectId}.json`)
-}
-
-async function readSessions(projectId: string): Promise<Session[]> {
-  const file = getSessionsStorePath(projectId)
-  const t0 = Date.now()
-  try {
-    const raw = await fs.readFile(file, 'utf8')
-    const parsed = JSON.parse(raw) as Session[]
-    const dt = Date.now() - t0
-    if (!Array.isArray(parsed)) {
-      sessionStoreLog.warn('sessions store invalid payload', {
-        file,
-        durationMs: dt,
-        size: raw.length,
-        projectId
-      })
-      return []
-    }
-    sessionStoreLog.debug('sessions store loaded', {
-      file,
-      durationMs: dt,
-      size: raw.length,
-      records: parsed.length,
-      projectId
-    })
-    return parsed
-  } catch (err) {
-    const dt = Date.now() - t0
-    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-      sessionStoreLog.debug('sessions store missing, initializing empty list', {
-        file,
-        durationMs: dt,
-        projectId
-      })
-      return []
-    }
-    sessionStoreLog.error('failed to read sessions store', {
-      file,
-      durationMs: dt,
-      message: (err as { message?: string })?.message,
-      projectId
-    })
-    throw err
-  }
-}
-
-async function writeSessions(projectId: string, sessions: Session[]): Promise<void> {
-  const file = getSessionsStorePath(projectId)
-  const t0 = Date.now()
-  const payload = JSON.stringify(sessions, null, 2)
-  try {
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    await fs.writeFile(file, payload, 'utf8')
-    const dt = Date.now() - t0
-    sessionStoreLog.debug('sessions store saved', {
-      file,
-      durationMs: dt,
-      size: payload.length,
-      records: sessions.length,
-      projectId
-    })
-  } catch (err) {
-    const dt = Date.now() - t0
-    sessionStoreLog.error('failed to write sessions store', {
-      file,
-      durationMs: dt,
-      size: payload.length,
-      records: sessions.length,
-      message: (err as { message?: string })?.message,
-      projectId
-    })
-    throw err
-  }
-}
-
-export class SessionService {
-  async list(input: ListSessionsInput): Promise<Session[]> {
-    const t0 = Date.now()
-    const result = await readSessions(input.projectId)
-    const dt = Date.now() - t0
-    sessionStoreLog.debug(`[sessions.list] completed in ${dt}ms`, {
-      projectId: input.projectId,
-      sessions: result.length
-    })
-    return result
-  }
-
-  async get(input: GetSessionInput): Promise<Session | null> {
-    const sessions = await readSessions(input.projectId)
-    return sessions.find((s) => s.id === input.sessionId) ?? null
-  }
-
-  async create(input: CreateSessionInput): Promise<Session> {
-    const sessions = await readSessions(input.projectId)
-    const now = new Date().toISOString()
-    const session: Session = {
-      id: randomUUID(),
-      title: input.title?.trim() || `Session ${sessions.length + 1}`,
-      messages: [],
-      createdAt: now,
-      updatedAt: now
-    }
-    sessions.push(session)
-    await writeSessions(input.projectId, sessions)
-    return session
-  }
-
-  async update(input: UpdateSessionInput): Promise<Session> {
-    const sessions = await readSessions(input.projectId)
-    const idx = sessions.findIndex((s) => s.id === input.sessionId)
-    if (idx === -1) {
-      throw new Error('Session not found')
-    }
-    const session = sessions[idx]
-    if (typeof input.title === 'string') {
-      const trimmed = input.title.trim()
-      if (trimmed.length > 0) {
-        session.title = trimmed
-      }
-    }
-    if (input.runnerSessions !== undefined) {
-      session.runnerSessions = input.runnerSessions
-    }
-    session.updatedAt = new Date().toISOString()
-    sessions[idx] = session
-    await writeSessions(input.projectId, sessions)
-    return session
-  }
-
-  async delete(input: DeleteSessionInput): Promise<{ ok: boolean }> {
-    const sessions = await readSessions(input.projectId)
-    const filtered = sessions.filter((s) => s.id !== input.sessionId)
-    if (filtered.length === sessions.length) {
-      throw new Error('Session not found')
-    }
-    await writeSessions(input.projectId, filtered)
-    return { ok: true }
-  }
-
-  async appendMessages(input: AppendMessagesInput): Promise<Session> {
-    const sessions = await readSessions(input.projectId)
-    const idx = sessions.findIndex((s) => s.id === input.sessionId)
-    if (idx === -1) {
-      throw new Error('Session not found')
-    }
-    const session = sessions[idx]
-    session.messages.push(...input.messages)
-    session.updatedAt = new Date().toISOString()
-    sessions[idx] = session
-    await writeSessions(input.projectId, sessions)
-    return session
-  }
-
-  async updateMessage(input: UpdateMessageInput): Promise<Session> {
-    const sessions = await readSessions(input.projectId)
-    const idx = sessions.findIndex((s) => s.id === input.sessionId)
-    if (idx === -1) {
-      throw new Error('Session not found')
-    }
-    const session = sessions[idx]
-    const msgIdx = session.messages.findIndex((m) => m.id === input.messageId)
-    if (msgIdx === -1) {
-      throw new Error('Message not found')
-    }
-    // Apply partial update
-    const message = session.messages[msgIdx]
-    Object.assign(message, input.patch)
-    session.updatedAt = new Date().toISOString()
-    sessions[idx] = session
-    await writeSessions(input.projectId, sessions)
-    return session
-  }
-}
+// Session Service moved to storage/FileSessionService.ts (file-based storage)
+// SQLite implementation deprecated in favor of file storage for better performance with large logs.
 
 // Legacy ipc-based RPC removed in favor of oRPC. Keep services as pure classes
-// (SystemService, FsService, ProjectService, GitService, SessionService) for reuse in oRPC bridge.
+// (SystemService, FsService, ProjectService, GitService) for reuse in oRPC bridge.

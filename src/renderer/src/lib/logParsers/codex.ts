@@ -29,7 +29,7 @@ type CodexMetaKey =
   | 'provider'
   | 'approval'
   | 'sandbox'
-  | 'sessionId'
+  | 'contextId'
   | 'reasoningEffort'
   | 'reasoningSummaries'
   | 'version'
@@ -41,7 +41,7 @@ function normalizeMetaKey(key: string): CodexMetaKey | undefined {
   if (k === 'provider') return 'provider'
   if (k === 'approval') return 'approval'
   if (k === 'sandbox') return 'sandbox'
-  if (k === 'session id') return 'sessionId'
+  if (k === 'session id') return 'contextId'
   if (k === 'reasoning effort') return 'reasoningEffort'
   if (k === 'reasoning summaries') return 'reasoningSummaries'
   return undefined

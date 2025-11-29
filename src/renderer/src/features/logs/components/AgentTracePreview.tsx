@@ -47,7 +47,7 @@ function TraceEventItem({ ev }: { ev: TraceEvent }) {
           <CalendarClock className="h-3 w-3" />
           <span>Session</span>
           {ev.meta.model && <Badge className="bg-accent/40">{ev.meta.model}</Badge>}
-          {ev.meta.sessionId && <span className="truncate">{ev.meta.sessionId}</span>}
+          {ev.meta.contextId && <span className="truncate">{ev.meta.contextId}</span>}
         </div>
       )
     case 'user':
@@ -237,7 +237,7 @@ export default function AgentTracePreview() {
               Session {idx + 1} — {s.meta.model || 'model'}
             </div>
             {s.events.map((ev, i) => (
-              <TraceEventItem key={`${s.meta.sessionId ?? idx}-${i}`} ev={ev} />
+              <TraceEventItem key={`${s.meta.contextId ?? idx}-${i}`} ev={ev} />
             ))}
           </div>
         ))}

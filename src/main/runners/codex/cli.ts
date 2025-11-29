@@ -27,7 +27,8 @@ function dedupeSingletonFlags(args: string[]): string[] {
 
 export interface BuildArgsOptions {
   extraArgs?: string[]
-  sessionId?: string
+  /** Runner CLI 上下文标识（用于上下文续写） */
+  contextId?: string
 }
 
 export function buildCodexArgs(opts: BuildArgsOptions = {}): string[] {
@@ -36,11 +37,11 @@ export function buildCodexArgs(opts: BuildArgsOptions = {}): string[] {
   // Always include bypass flag here; keep it centralized and deduped locally
   const coreArgs = dedupeSingletonFlags([BYPASS_FLAG, ...DEFAULT_ARGS, ...userArgs])
 
-  // Command and session handling. We want the final shape to look like:
+  // Command and context handling. We want the final shape to look like:
   //   codex exec --yolo -m gpt-5.1 -c model_reasoning_effort=high [resume <id> -]
   const args: string[] = ['exec', ...coreArgs]
-  if (opts.sessionId && opts.sessionId.trim().length > 0) {
-    args.push('resume', opts.sessionId.trim(), '-')
+  if (opts.contextId && opts.contextId.trim().length > 0) {
+    args.push('resume', opts.contextId.trim(), '-')
   }
 
   return args

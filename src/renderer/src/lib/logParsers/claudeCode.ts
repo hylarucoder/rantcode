@@ -125,8 +125,8 @@ export function parseClaudeCodeTrace(text: string): TraceSession[] | null {
         const meta: TraceMeta = {
           workdir: json.cwd,
           model: json.model,
-          // 如果是 resume，优先显示 parent_session_id（被恢复的会话）
-          sessionId: json.parent_session_id || json.session_id,
+          // 如果是 resume，优先显示 parent_session_id（被恢复的上下文）
+          contextId: json.parent_session_id || json.session_id,
           parentSessionId: json.parent_session_id,
           version: json.claude_code_version
         }

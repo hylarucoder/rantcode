@@ -39,11 +39,14 @@
 
 ### Session / 会话
 
-- 针对当前 Project 的一条对话线程，未来会接入实际的 LLM：
+- 针对当前 Project 的一条对话线程，通过 Runner 执行 AI 任务：
   - 角色：`user` / `assistant`。
-  - 形式上类似 IDE 里的“对话面板”，但上下文会绑定到当前项目。
+  - 形式上类似 IDE 里的"对话面板"，上下文绑定到当前项目。
 - 多 Session 并存：
-  - 比如“Feature A 的讨论”、“Bug B 的排查”、“重构计划”等。
+  - 比如"Feature A 的讨论"、"Bug B 的排查"、"重构计划"等。
+- 上下文续写：
+  - 每个 Session 记录各 Runner 的 `contextId`，支持上下文续写。
+  - 例如：切换 Runner 后再切回，可以继续之前的对话上下文。
 
 ### Docs / 文档
 

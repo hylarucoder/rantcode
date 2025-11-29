@@ -54,7 +54,8 @@ interface ClaudeCodeJobState {
   stderrBuffer: string
   stdoutLineBuffer: string
   stderrLineBuffer: string
-  sessionId?: string
+  /** Runner CLI 上下文标识 */
+  contextId?: string
   accumulatedText: string
 }
 
@@ -68,9 +69,9 @@ function dispatchEvent(targetId: number, payload: RunnerEvent): void {
 /**
  * 构建 Claude Code CLI 的默认参数
  * 确保包含 --print, --dangerously-skip-permissions, --output-format stream-json, --verbose
- * 如果提供了 sessionId，添加 --resume 参数以恢复会话
+ * 如果提供了 contextId，添加 --resume 参数以恢复上下文
  */
-function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[] {
+function buildClaudeCodeArgs(extraArgs?: string[], contextId?: string): string[] {
   const args = Array.isArray(extraArgs)
     ? extraArgs.filter((s) => typeof s === 'string' && s.length > 0)
     : []
@@ -89,9 +90,9 @@ function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[]
     args.push('--verbose')
   }
 
-  // 如果有 sessionId，添加 --resume 参数以恢复会话上下文
-  if (sessionId && !args.includes('--resume') && !args.includes('-r')) {
-    args.push('--resume', sessionId)
+  // 如果有 contextId，添加 --resume 参数以恢复上下文
+  if (contextId && !args.includes('--resume') && !args.includes('-r')) {
+    args.push('--resume', contextId)
   }
 
   return args
@@ -103,21 +104,23 @@ function buildClaudeCodeArgs(extraArgs?: string[], sessionId?: string): string[]
 export async function runClaudeCodeStreaming(
   targetContentsId: number,
   payload: RunnerRunOptions
-): Promise<{ jobId: string }> {
+): Promise<{ traceId: string }> {
   const prompt = payload?.prompt?.trim()
   if (!prompt) {
     throw new Error('Prompt is required to run Claude Code')
   }
 
-  const jobId =
-    typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
+  const traceId =
+    typeof payload?.traceId === 'string' && payload.traceId.length > 0
+      ? payload.traceId
+      : randomUUID()
   const repoRoot = await resolveProjectRoot(payload?.projectId)
   const runner = payload.runner as Runner
 
   const bin = await findExecutable(runner)
   const runnerConfig = RUNNER_CONFIGS[runner]
-  // 如果有 sessionId，使用 --resume 恢复会话上下文
-  const args = buildClaudeCodeArgs(payload.extraArgs, payload.sessionId)
+  // 如果有 contextId，使用 --resume 恢复上下文
+  const args = buildClaudeCodeArgs(payload.extraArgs, payload.contextId)
 
   // 构建环境变量
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' }
@@ -149,19 +152,19 @@ export async function runClaudeCodeStreaming(
     stdio: 'pipe'
   })
 
-  jobStates.set(jobId, {
+  jobStates.set(traceId, {
     stderrBuffer: '',
     stdoutLineBuffer: '',
     stderrLineBuffer: '',
-    sessionId: payload.sessionId,
+    contextId: payload.contextId,
     accumulatedText: ''
   })
-  runningProcesses.set(jobId, child)
+  runningProcesses.set(traceId, child)
 
   const startedAt = Date.now()
   dispatchEvent(targetContentsId, {
     type: 'start',
-    jobId,
+    traceId,
     command: [bin, ...args],
     cwd: repoRoot
   })
@@ -169,13 +172,13 @@ export async function runClaudeCodeStreaming(
   // 处理 stdout：解析 JSON Lines
   child.stdout.setEncoding('utf8')
   child.stdout.on('data', (chunk: string) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
     const data = chunk.toString()
 
     if (!state) {
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stdout',
         data
       })
@@ -193,13 +196,13 @@ export async function runClaudeCodeStreaming(
         try {
           const json = JSON.parse(trimmedLine) as ClaudeJsonMessage
 
-          // 提取 session_id
-          if (json.session_id && !state.sessionId) {
-            state.sessionId = json.session_id
+          // 提取 CLI 上下文标识 (session_id)
+          if (json.session_id && !state.contextId) {
+            state.contextId = json.session_id
             dispatchEvent(targetContentsId, {
-              type: 'session',
-              jobId,
-              sessionId: json.session_id
+              type: 'context',
+              traceId,
+              contextId: json.session_id
             })
           }
 
@@ -209,7 +212,7 @@ export async function runClaudeCodeStreaming(
             // 发送流式文本事件
             dispatchEvent(targetContentsId, {
               type: 'text',
-              jobId,
+              traceId,
               text: extractedText,
               delta: false
             })
@@ -218,7 +221,7 @@ export async function runClaudeCodeStreaming(
           // 发送原始消息用于调试
           dispatchEvent(targetContentsId, {
             type: 'claude_message',
-            jobId,
+            traceId,
             messageType:
               (json.type as 'init' | 'assistant' | 'result' | 'user' | 'system') || 'system',
             content: extractedText || undefined,
@@ -233,7 +236,7 @@ export async function runClaudeCodeStreaming(
       const text = line + '\n'
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stdout',
         data: text
       })
@@ -243,13 +246,13 @@ export async function runClaudeCodeStreaming(
   // 处理 stderr
   child.stderr.setEncoding('utf8')
   child.stderr.on('data', (chunk: string) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
     const data = chunk.toString()
 
     if (!state) {
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stderr',
         data
       })
@@ -265,7 +268,7 @@ export async function runClaudeCodeStreaming(
       const text = line + '\n'
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stderr',
         data: text
       })
@@ -275,20 +278,20 @@ export async function runClaudeCodeStreaming(
   child.on('error', (error) => {
     dispatchEvent(targetContentsId, {
       type: 'error',
-      jobId,
+      traceId,
       message: error instanceof Error ? error.message : 'Claude Code process error'
     })
   })
 
   child.on('close', (code, signal) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
 
     // Flush remaining partial lines
     if (state) {
       if (state.stdoutLineBuffer) {
         dispatchEvent(targetContentsId, {
           type: 'log',
-          jobId,
+          traceId,
           stream: 'stdout',
           data: state.stdoutLineBuffer
         })
@@ -296,18 +299,18 @@ export async function runClaudeCodeStreaming(
       if (state.stderrLineBuffer) {
         dispatchEvent(targetContentsId, {
           type: 'log',
-          jobId,
+          traceId,
           stream: 'stderr',
           data: state.stderrLineBuffer
         })
       }
     }
 
-    runningProcesses.delete(jobId)
-    jobStates.delete(jobId)
+    runningProcesses.delete(traceId)
+    jobStates.delete(traceId)
     dispatchEvent(targetContentsId, {
       type: 'exit',
-      jobId,
+      traceId,
       code,
       signal,
       durationMs: Date.now() - startedAt
@@ -321,7 +324,7 @@ export async function runClaudeCodeStreaming(
   } catch (err) {
     dispatchEvent(targetContentsId, {
       type: 'error',
-      jobId,
+      traceId,
       message: err instanceof Error ? err.message : 'Failed to pass prompt to Claude Code'
     })
     try {
@@ -331,14 +334,14 @@ export async function runClaudeCodeStreaming(
     }
   }
 
-  return { jobId }
+  return { traceId }
 }
 
 /**
  * 取消正在运行的 Claude Code 任务
  */
-export function cancelClaudeCode(jobId: string): { ok: boolean } {
-  const child = runningProcesses.get(jobId)
+export function cancelClaudeCode(traceId: string): { ok: boolean } {
+  const child = runningProcesses.get(traceId)
   if (!child) return { ok: false }
   try {
     const killed = child.kill()

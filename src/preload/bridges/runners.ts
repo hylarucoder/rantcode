@@ -4,9 +4,9 @@ import type { RunnerEvent, RunnerRunOptions } from '../../shared/types/webui'
 import type { Runner } from '../../shared/runners'
 
 export type RunnersBridge = {
-  run(opts: RunnerRunOptions): Promise<{ jobId: string }>
+  run(opts: RunnerRunOptions): Promise<{ traceId: string }>
   subscribe(handler: (event: RunnerEvent) => void): () => void
-  cancel(jobId: string): Promise<{ ok: boolean }>
+  cancel(traceId: string): Promise<{ ok: boolean }>
 }
 
 export function createRunnersBridge(
@@ -19,8 +19,8 @@ export function createRunnersBridge(
       const input: RunnerRunOptions = { ...opts, runner }
       return client.runners.run(input)
     },
-    cancel(jobId) {
-      return client.runners.cancel({ jobId })
+    cancel(traceId) {
+      return client.runners.cancel({ traceId })
     },
     subscribe(handler) {
       return subscribeNotify<RunnerEvent>('codex', handler)

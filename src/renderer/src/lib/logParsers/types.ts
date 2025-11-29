@@ -11,7 +11,8 @@ export interface TraceMeta {
   sandbox?: string
   reasoningEffort?: string
   reasoningSummaries?: string
-  sessionId?: string
+  /** Runner CLI 上下文标识 */
+  contextId?: string
   parentSessionId?: string // resume 时被恢复的 session ID
   version?: string
   costUsd?: number

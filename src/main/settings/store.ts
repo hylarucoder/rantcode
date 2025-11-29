@@ -1,6 +1,7 @@
 import Store from 'electron-store'
 import type { z } from 'zod'
 import { generalSettingsSchema } from '../../shared/orpc/schemas'
+import { getConfigRoot } from '../paths'
 
 export type GeneralSettings = z.infer<typeof generalSettingsSchema>
 
@@ -28,7 +29,11 @@ let settingsStoreInstance: Store<RootSchema> | null = null
 
 export function getSettingsStore(): Store<RootSchema> {
   if (!settingsStoreInstance) {
-    settingsStoreInstance = new Store<RootSchema>({ name: 'settings', defaults })
+    settingsStoreInstance = new Store<RootSchema>({
+      name: 'settings',
+      defaults,
+      cwd: getConfigRoot()
+    })
   }
   return settingsStoreInstance
 }

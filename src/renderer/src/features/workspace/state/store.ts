@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import type { Message, Session, RightPanelTab, RunnerSessionMap } from '@/features/workspace/types'
+import type { Message, Session, RightPanelTab, RunnerContextMap } from '@/features/workspace/types'
 import type { RunnerEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
 
@@ -18,7 +18,7 @@ type SessionsNamespace = {
       projectId: string
       sessionId: string
       title?: string
-      runnerSessions?: RunnerSessionMap
+      runnerContexts?: RunnerContextMap
     }) => Promise<Session>
   }
   delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
@@ -35,6 +35,9 @@ type SessionsNamespace = {
   }
 }
 
+// 消息同步队列，用于防抖和去重
+const messageSyncQueue = new Map<string, NodeJS.Timeout>()
+
 function getSessionsApi(): SessionsNamespace | null {
   const sessions = (orpc as { sessions?: SessionsNamespace }).sessions
   return sessions ?? null
@@ -43,11 +46,13 @@ function getSessionsApi(): SessionsNamespace | null {
 type ChatProjectState = {
   sessions: Session[]
   activeSessionId: string | null
-  // 添加索引：jobId -> { sessionId, messageIndex }
+  // 添加索引：traceId -> { sessionId, messageIndex }
   // 使用对象而不是 Map，因为 Map 不能被序列化
-  jobIndex: Record<string, { sessionId: string; messageIndex: number }>
+  traceIndex: Record<string, { sessionId: string; messageIndex: number }>
   // 细粒度更新计数器：当消息内容流式变化时递增，用于触发选择 sessions 的组件重渲染
   version: number
+  // 是否已从后端加载完成
+  loaded: boolean
 }
 
 type PreviewProjectState = {
@@ -71,6 +76,13 @@ interface ChatStoreState {
   applyRunnerEventsBatch: (projectId: string, events: RunnerEvent[]) => void
   // 将本地状态同步到后端
   syncToBackend: (projectId: string, sessionId: string) => Promise<void>
+  // 同步单个消息到后端（用于 runner 完成后保存结果）
+  syncMessageToBackend: (
+    projectId: string,
+    sessionId: string,
+    messageId: string,
+    immediate?: boolean
+  ) => void
   reset: (projectId: string) => void
 }
 
@@ -86,8 +98,9 @@ interface PreviewStoreState {
 const defaultChatProjectState = (): ChatProjectState => ({
   sessions: [],
   activeSessionId: null,
-  jobIndex: {},
-  version: 0
+  traceIndex: {},
+  version: 0,
+  loaded: false
 })
 
 const defaultPreviewProjectState = (): PreviewProjectState => ({
@@ -96,54 +109,54 @@ const defaultPreviewProjectState = (): PreviewProjectState => ({
   previewTocOpen: false
 })
 
-// 构建 jobId -> message 索引
-function buildJobIndex(
+// 构建 traceId -> message 索引
+function buildTraceIndex(
   session: Session,
   sessionId: string,
   index: Record<string, { sessionId: string; messageIndex: number }>
 ) {
   session.messages.forEach((msg, msgIndex) => {
-    if (msg.jobId) {
-      index[msg.jobId] = { sessionId, messageIndex: msgIndex }
+    if (msg.traceId) {
+      index[msg.traceId] = { sessionId, messageIndex: msgIndex }
     }
   })
 }
 
 /**
- * 通过 jobId 查找并更新消息的统一函数
+ * 通过 traceId 查找并更新消息的统一函数
  * @param sessions 所有会话
- * @param jobId 要查找的 jobId
+ * @param traceId 要查找的 traceId
  * @param updateFn 更新回调，返回更新结果
  * @param options 可选项，包含 workspace 引用以更新索引
  * @returns 是否找到并更新了消息
  */
-function updateMessageByJobId(
+function updateMessageByTraceId(
   sessions: Session[],
-  jobId: string,
+  traceId: string,
   updateFn: (
     session: Session,
     message: Message,
     messageIndex: number
-  ) => { shouldUpdateIndex: boolean; isSessionEvent?: boolean; sessionId?: string },
+  ) => { shouldUpdateIndex: boolean; isContextEvent?: boolean; contextId?: string },
   options?: { workspace?: ChatProjectState }
 ): boolean {
   for (const session of sessions) {
-    const messageIndex = session.messages.findIndex((msg) => msg.jobId === jobId)
+    const messageIndex = session.messages.findIndex((msg) => msg.traceId === traceId)
     if (messageIndex !== -1) {
       const message = session.messages[messageIndex]
       const result = updateFn(session, message, messageIndex)
 
-      // 如果是会话标识事件，更新会话级别的 runnerSessions
-      if (result.isSessionEvent && result.sessionId && message.runner) {
-        if (!session.runnerSessions) {
-          session.runnerSessions = {}
+      // 如果是上下文标识事件，更新会话级别的 runnerContexts
+      if (result.isContextEvent && result.contextId && message.runner) {
+        if (!session.runnerContexts) {
+          session.runnerContexts = {}
         }
-        session.runnerSessions[message.runner] = result.sessionId
+        session.runnerContexts[message.runner] = result.contextId
       }
 
       // 更新索引
-      if (result.shouldUpdateIndex && options?.workspace?.jobIndex) {
-        options.workspace.jobIndex[jobId] = {
+      if (result.shouldUpdateIndex && options?.workspace?.traceIndex) {
+        options.workspace.traceIndex[traceId] = {
           sessionId: session.id,
           messageIndex
         }
@@ -155,13 +168,14 @@ function updateMessageByJobId(
 }
 
 function applyEventToMessage(msg: Message, event: RunnerEvent): Message {
-  if (!msg.jobId || msg.jobId !== event.jobId) return msg
+  if (!msg.traceId || msg.traceId !== event.traceId) return msg
   switch (event.type) {
-    case 'session':
-      return { ...msg, sessionId: event.sessionId }
+    case 'context':
+      // 收到上下文标识事件，同时存储到消息中便于显示
+      return { ...msg, contextId: event.contextId }
     case 'log': {
       const entry = {
-        id: `${event.jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: `${event.traceId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         stream: event.stream,
         text: event.data,
         timestamp: Date.now()
@@ -201,6 +215,10 @@ export const useProjectChatStore = create<ChatStoreState>()(
           set((state) => {
             const current = state.projects[projectId]
             if (current) {
+              // 确保关键字段存在（处理从旧版本持久化恢复的状态）
+              if (!current.traceIndex) {
+                current.traceIndex = {}
+              }
               if (!initializer) return
               const patch = initializer() ?? {}
               Object.assign(current, patch)
@@ -213,6 +231,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
           const api = getSessionsApi()
           if (!api) {
             console.warn('[sessions] oRPC sessions API not available')
+            // API 不可用时也标记为已加载，避免卡住
+            set((state) => {
+              const ws = state.projects[projectId]
+              if (ws) ws.loaded = true
+            })
             return
           }
           try {
@@ -222,16 +245,18 @@ export const useProjectChatStore = create<ChatStoreState>()(
               if (!ws) {
                 state.projects[projectId] = {
                   ...defaultChatProjectState(),
-                  sessions
+                  sessions,
+                  loaded: true
                 }
               } else {
                 ws.sessions = sessions
+                ws.loaded = true
               }
               // 重建所有 session 的索引
               const wsRef = state.projects[projectId]
-              wsRef.jobIndex = {}
+              wsRef.traceIndex = {}
               for (const session of wsRef.sessions) {
-                buildJobIndex(session, session.id, wsRef.jobIndex)
+                buildTraceIndex(session, session.id, wsRef.traceIndex)
               }
               // 如果当前没有活跃 session，选择第一个
               if (!wsRef.activeSessionId && wsRef.sessions.length > 0) {
@@ -242,6 +267,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
             console.log(`[sessions] Loaded ${sessions.length} sessions from backend`)
           } catch (err) {
             console.error('[sessions] Failed to load from backend:', err)
+            // 加载失败时也标记为已加载，避免卡住
+            set((state) => {
+              const ws = state.projects[projectId]
+              if (ws) ws.loaded = true
+            })
           }
         },
         setSessions: (projectId, sessions) =>
@@ -257,9 +287,9 @@ export const useProjectChatStore = create<ChatStoreState>()(
             }
             const wsRef = state.projects[projectId]
             // 重建索引
-            wsRef.jobIndex = {}
+            wsRef.traceIndex = {}
             for (const session of sessions) {
-              buildJobIndex(session, session.id, wsRef.jobIndex)
+              buildTraceIndex(session, session.id, wsRef.traceIndex)
             }
             wsRef.version += 1
           }),
@@ -276,7 +306,7 @@ export const useProjectChatStore = create<ChatStoreState>()(
             ws.sessions.push(session)
             ws.activeSessionId = session.id
             // 建立新 session 的索引
-            buildJobIndex(session, session.id, ws.jobIndex)
+            buildTraceIndex(session, session.id, ws.traceIndex)
             // 触发观察 sessions 的组件更新
             ws.version += 1
           }),
@@ -285,12 +315,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
             const ws = state.projects[projectId]
             if (!ws) return
             ws.sessions = ws.sessions.filter((s) => s.id !== sessionId)
-            // 清理相关的 jobIndex
-            const keysToDelete = Object.entries(ws.jobIndex)
+            // 清理相关的 traceIndex
+            const keysToDelete = Object.entries(ws.traceIndex)
               .filter(([, ref]) => ref.sessionId === sessionId)
               .map(([key]) => key)
             for (const key of keysToDelete) {
-              delete ws.jobIndex[key]
+              delete ws.traceIndex[key]
             }
             // 如果删除的是当前活跃 session，切换到第一个
             if (ws.activeSessionId === sessionId) {
@@ -318,8 +348,8 @@ export const useProjectChatStore = create<ChatStoreState>()(
             }
             // 记录新消息的索引
             messages.forEach((msg, index) => {
-              if (msg.jobId) {
-                ws.jobIndex[msg.jobId] = {
+              if (msg.traceId) {
+                ws.traceIndex[msg.traceId] = {
                   sessionId,
                   messageIndex: session.messages.length + index
                 }
@@ -335,19 +365,19 @@ export const useProjectChatStore = create<ChatStoreState>()(
             if (!ws) return
 
             // 使用索引快速定位 O(1) 而不是 O(n*m)
-            const jobRef = ws.jobIndex[event.jobId]
-            if (!jobRef) {
+            const traceRef = ws.traceIndex[event.traceId]
+            if (!traceRef) {
               // 如果没有找到索引，回退到全量扫描（适用于旧数据或特殊情况）
-              updateMessageByJobId(
+              updateMessageByTraceId(
                 ws.sessions,
-                event.jobId,
+                event.traceId,
                 (_session, message) => {
                   const updatedMsg = applyEventToMessage(message, event)
                   Object.assign(message, updatedMsg)
                   return {
                     shouldUpdateIndex: true,
-                    isSessionEvent: event.type === 'session',
-                    sessionId: event.type === 'session' ? event.sessionId : undefined
+                    isContextEvent: event.type === 'context',
+                    contextId: event.type === 'context' ? event.contextId : undefined
                   }
                 },
                 { workspace: ws }
@@ -356,15 +386,15 @@ export const useProjectChatStore = create<ChatStoreState>()(
             }
 
             // 快速路径：直接通过索引访问
-            const session = ws.sessions.find((s) => s.id === jobRef.sessionId)
+            const session = ws.sessions.find((s) => s.id === traceRef.sessionId)
             if (!session) return
 
-            const msg = session.messages[jobRef.messageIndex]
-            if (!msg || msg.jobId !== event.jobId) {
+            const msg = session.messages[traceRef.messageIndex]
+            if (!msg || msg.traceId !== event.traceId) {
               // 索引失效，回退到全量扫描
-              updateMessageByJobId(
+              updateMessageByTraceId(
                 ws.sessions,
-                event.jobId,
+                event.traceId,
                 (_session, message) => {
                   const updatedMsg = applyEventToMessage(message, event)
                   Object.assign(message, updatedMsg)
@@ -377,12 +407,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
             const updatedMsg = applyEventToMessage(msg, event)
             Object.assign(msg, updatedMsg)
-            // 如果是会话标识事件，同时写回会话级 runnerSessions，便于下次 resume
-            if (event.type === 'session' && event.sessionId && msg.runner) {
-              if (!session.runnerSessions) {
-                session.runnerSessions = {}
+            // 如果是上下文标识事件，同时写回会话级 runnerContexts，便于下次 resume
+            if (event.type === 'context' && event.contextId && msg.runner) {
+              if (!session.runnerContexts) {
+                session.runnerContexts = {}
               }
-              session.runnerSessions[msg.runner] = event.sessionId
+              session.runnerContexts[msg.runner] = event.contextId
             }
             // 消息内容发生变化，递增版本触发 UI 更新
             ws.version += 1
@@ -394,19 +424,19 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
             // 批量处理多个事件，只触发一次 set
             events.forEach((event) => {
-              const jobRef = ws.jobIndex[event.jobId]
-              if (!jobRef) {
+              const traceRef = ws.traceIndex[event.traceId]
+              if (!traceRef) {
                 // 回退到全量扫描
-                updateMessageByJobId(
+                updateMessageByTraceId(
                   ws.sessions,
-                  event.jobId,
+                  event.traceId,
                   (_session, message) => {
                     const updatedMsg = applyEventToMessage(message, event)
                     Object.assign(message, updatedMsg)
                     return {
                       shouldUpdateIndex: true,
-                      isSessionEvent: event.type === 'session',
-                      sessionId: event.type === 'session' ? event.sessionId : undefined
+                      isContextEvent: event.type === 'context',
+                      contextId: event.type === 'context' ? event.contextId : undefined
                     }
                   },
                   { workspace: ws }
@@ -414,15 +444,15 @@ export const useProjectChatStore = create<ChatStoreState>()(
                 return
               }
 
-              const session = ws.sessions.find((s) => s.id === jobRef.sessionId)
+              const session = ws.sessions.find((s) => s.id === traceRef.sessionId)
               if (!session) return
 
-              const msg = session.messages[jobRef.messageIndex]
-              if (!msg || msg.jobId !== event.jobId) {
+              const msg = session.messages[traceRef.messageIndex]
+              if (!msg || msg.traceId !== event.traceId) {
                 // 索引失效，回退
-                updateMessageByJobId(
+                updateMessageByTraceId(
                   ws.sessions,
-                  event.jobId,
+                  event.traceId,
                   (_session, message) => {
                     const updatedMsg = applyEventToMessage(message, event)
                     Object.assign(message, updatedMsg)
@@ -435,11 +465,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
               const updatedMsg = applyEventToMessage(msg, event)
               Object.assign(msg, updatedMsg)
-              if (event.type === 'session' && event.sessionId && msg.runner) {
-                if (!session.runnerSessions) {
-                  session.runnerSessions = {}
+              if (event.type === 'context' && event.contextId && msg.runner) {
+                if (!session.runnerContexts) {
+                  session.runnerContexts = {}
                 }
-                session.runnerSessions[msg.runner] = event.sessionId
+                session.runnerContexts[msg.runner] = event.contextId
               }
             })
             // 批量事件处理后，仅递增一次版本，减少渲染次数
@@ -457,12 +487,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
           if (!session) return
 
           try {
-            // 先更新 session 的基本信息（包括 runnerSessions）
+            // 先更新 session 的基本信息（包括 runnerContexts）
             await api.update.call({
               projectId,
               sessionId,
               title: session.title,
-              runnerSessions: session.runnerSessions
+              runnerContexts: session.runnerContexts
             })
             // 然后同步所有消息（使用 appendMessages 会重复，所以这里只更新整个 session）
             // 由于后端没有 replaceMessages API，我们通过删除再创建的方式实现
@@ -470,6 +500,61 @@ export const useProjectChatStore = create<ChatStoreState>()(
             console.log(`[sessions] Synced session ${sessionId} to backend`)
           } catch (err) {
             console.error('[sessions] Failed to sync to backend:', err)
+          }
+        },
+        syncMessageToBackend: (projectId, sessionId, messageId, immediate = false) => {
+          const queueKey = `${projectId}:${sessionId}:${messageId}`
+
+          // 清除已有的延迟同步
+          const existingTimeout = messageSyncQueue.get(queueKey)
+          if (existingTimeout) {
+            clearTimeout(existingTimeout)
+          }
+
+          const doSync = async () => {
+            messageSyncQueue.delete(queueKey)
+
+            const api = getSessionsApi()
+            if (!api) {
+              console.warn('[sessions] oRPC sessions API not available for message sync')
+              return
+            }
+
+            const ws = get().projects[projectId]
+            if (!ws) return
+
+            const session = ws.sessions.find((s) => s.id === sessionId)
+            if (!session) return
+
+            const message = session.messages.find((m) => m.id === messageId)
+            if (!message) return
+
+            try {
+              await api.updateMessage.call({
+                projectId,
+                sessionId,
+                messageId,
+                patch: {
+                  content: message.content,
+                  status: message.status,
+                  logs: message.logs,
+                  output: message.output,
+                  errorMessage: message.errorMessage,
+                  runner: message.runner
+                }
+              })
+              console.log(`[sessions] Message ${messageId} synced to backend`)
+            } catch (err) {
+              console.error('[sessions] Failed to sync message to backend:', err)
+            }
+          }
+
+          if (immediate) {
+            void doSync()
+          } else {
+            // 防抖：500ms 后执行同步
+            const timeout = setTimeout(() => void doSync(), 500)
+            messageSyncQueue.set(queueKey, timeout)
           }
         },
         reset: (projectId) =>
@@ -489,6 +574,8 @@ export const useProjectChatStore = create<ChatStoreState>()(
         if (!state) return
         for (const projectId in state.projects) {
           const ws = state.projects[projectId]
+          // 重置 loaded 状态，强制从后端重新加载
+          ws.loaded = false
           for (const session of ws.sessions) {
             for (const msg of session.messages) {
               if (msg.status === 'running') {
@@ -560,6 +647,8 @@ export function useProjectChat(projectId: string) {
   const _version = useProjectChatStore((s) => s.projects[projectId]?.version ?? 0)
   void _version
   const activeSessionId = useProjectChatStore((s) => s.projects[projectId]?.activeSessionId ?? null)
+  // 是否已从后端加载完成
+  const loaded = useProjectChatStore((s) => s.projects[projectId]?.loaded ?? false)
   const ensure = useProjectChatStore((s) => s.ensure)
   const loadFromBackend = useProjectChatStore((s) => s.loadFromBackend)
   const setSessions = useProjectChatStore((s) => s.setSessions)
@@ -571,6 +660,7 @@ export function useProjectChat(projectId: string) {
   const applyRunnerEvent = useProjectChatStore((s) => s.applyRunnerEvent)
   const applyRunnerEventsBatch = useProjectChatStore((s) => s.applyRunnerEventsBatch)
   const syncToBackend = useProjectChatStore((s) => s.syncToBackend)
+  const syncMessageToBackendStore = useProjectChatStore((s) => s.syncMessageToBackend)
 
   // 首次加载：从后端读取 sessions
   const loadedRef = useRef(false)
@@ -695,6 +785,7 @@ export function useProjectChat(projectId: string) {
   return {
     sessions,
     activeSessionId,
+    loaded,
     ensure,
     reload,
     setSessions: (sessions: Session[]) => setSessions(projectId, sessions),
@@ -707,7 +798,10 @@ export function useProjectChat(projectId: string) {
     // 批量应用事件，减少渲染次数
     applyRunnerEventsBatch: (events: RunnerEvent[]) => applyRunnerEventsBatch(projectId, events),
     // 手动同步到后端
-    syncToBackend: (sessionId: string) => syncToBackend(projectId, sessionId)
+    syncToBackend: (sessionId: string) => syncToBackend(projectId, sessionId),
+    // 同步单个消息到后端
+    syncMessageToBackend: (sessionId: string, messageId: string, immediate?: boolean) =>
+      syncMessageToBackendStore(projectId, sessionId, messageId, immediate)
   }
 }
 

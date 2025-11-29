@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, crashReporter } from 'electron'
 import { electronApp } from '@electron-toolkit/utils'
 import { execSync } from 'node:child_process'
+import * as os from 'node:os'
 import { setupOrpcBridge } from './orpcBridge'
 import { setupProductionExceptionHandlers, logRendererTelemetry, setupLoggingIPC } from './logging'
 import { windowService } from './windowService'
@@ -12,6 +13,7 @@ import type { GeneralSettings } from './settings/general'
 import { onGeneralChange } from './settings/store'
 import { applyAutoLaunch } from './settings/autoLaunch'
 import { generalSettingsSchema } from '../shared/orpc/schemas'
+import { initDatabase, closeDatabase } from './db/client'
 
 // 修复 macOS/Linux 打包后 PATH 环境变量问题
 // GUI 应用不会继承 shell 的 PATH，导致找不到 node/codex/claude-code 等命令
@@ -64,11 +66,17 @@ try {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 // Early settings to decide platform-level behavior
+function getEarlyConfigRoot(): string {
+  const home = os.homedir()
+  const isDev = !app.isPackaged || process.env.NODE_ENV !== 'production'
+  return path.join(home, isDev ? '.rantcode-dev' : '.rantcode')
+}
+
 function readEarlySettings(): GeneralSettings {
   try {
-    const userData = app.getPath('userData')
+    const configRoot = getEarlyConfigRoot()
     // Prefer electron-store file
-    const storeFile = path.join(userData, 'settings.json')
+    const storeFile = path.join(configRoot, 'settings.json')
     try {
       const raw = fs.readFileSync(storeFile, 'utf8')
       const parsed = JSON.parse(raw)
@@ -77,7 +85,7 @@ function readEarlySettings(): GeneralSettings {
       if (result.success) return result.data
     } catch {}
     // Fallback legacy file
-    const legacy = path.join(userData, 'general.settings.json')
+    const legacy = path.join(configRoot, 'general.settings.json')
     const raw = fs.readFileSync(legacy, 'utf8')
     const result = generalSettingsSchema.safeParse(JSON.parse(raw))
     if (result.success) return result.data
@@ -141,11 +149,19 @@ if (!gotTheLock) {
     }
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     const t0 = Date.now()
     lifeLog.info('app-ready')
     // Set app user model id for Windows to match electron-builder appId
     electronApp.setAppUserModelId('com.electron.app')
+
+    // Initialize SQLite database
+    try {
+      await initDatabase()
+      lifeLog.info('database-initialized')
+    } catch (err) {
+      lifeLog.error('database initialization failed', { error: (err as Error).message })
+    }
 
     // Setup RPC bridge between renderer and main process (synchronous, must be first)
     setupLoggingIPC()
@@ -284,6 +300,17 @@ app.on('window-all-closed', () => {
   loggerService.child('app.lifecycle').info('window-all-closed')
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// App quit handler
+app.on('before-quit', () => {
+  loggerService.child('app.lifecycle').info('app-quitting')
+  // Close database connection
+  try {
+    closeDatabase()
+  } catch {
+    // ignore close errors
   }
 })
 

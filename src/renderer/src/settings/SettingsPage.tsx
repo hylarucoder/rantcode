@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
@@ -65,8 +65,15 @@ const SOUNDS_ITEMS: { key: SoundsItem; label: string; icon: React.ReactNode }[] 
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const [cat, setCat] = useState<Cat>('agents')
-  const [agentsItem, setAgentsItem] = useState<AgentsItem>('kimi')
+  const [searchParams] = useSearchParams()
+
+  // 从 URL 参数读取初始选中的 agent
+  const agentsParam = searchParams.get('agents') as AgentsItem | null
+  const validAgentsItems: AgentsItem[] = ['codex', 'claude', 'kimi', 'glm', 'minmax']
+  const initialAgentsItem = agentsParam && validAgentsItems.includes(agentsParam) ? agentsParam : 'kimi'
+
+  const [cat, setCat] = useState<Cat>(agentsParam ? 'agents' : 'agents')
+  const [agentsItem, setAgentsItem] = useState<AgentsItem>(initialAgentsItem)
   const [soundsItem, setSoundsItem] = useState<SoundsItem>('audioFx')
 
   const infoQuery = useAgentsInfoQuery()

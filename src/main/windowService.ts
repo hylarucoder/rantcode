@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 // electron-window-state is CJS; default import works at runtime
 // Types are not provided; treat as untyped module
 import windowStateKeeper from 'electron-window-state'
+import { getConfigRoot } from './paths'
 
 import icon from '../../resources/icon.png?asset'
 const appIcon = nativeImage.createFromPath(icon)
@@ -79,6 +80,7 @@ export class WindowService {
     // Persist and restore bounds/maximized/fullscreen state
     const state = windowStateKeeper({
       file: 'main-window.json',
+      path: getConfigRoot(),
       defaultWidth: 1200,
       defaultHeight: 800,
       maximize: true,
@@ -179,6 +181,7 @@ export class WindowService {
 
     const state = windowStateKeeper({
       file: 'mini-window.json',
+      path: getConfigRoot(),
       defaultWidth: 360,
       defaultHeight: 120,
       maximize: false,
@@ -255,6 +258,7 @@ export class WindowService {
 
     const state = windowStateKeeper({
       file: `child-${key}.json`,
+      path: getConfigRoot(),
       defaultWidth: options?.width ?? 800,
       defaultHeight: options?.height ?? 600,
       maximize: true,

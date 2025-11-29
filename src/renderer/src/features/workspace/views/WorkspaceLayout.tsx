@@ -21,14 +21,16 @@ import type { PreviewTocItem } from '@/features/preview'
 
 // moved to features/workspace/components/AgentMessageBubble
 
-function renderBubble(msg: Message) {
-  const isUser = msg.role === 'user'
-  const isAgent = msg.role === 'assistant' && !!msg.jobId
-  if (isAgent) {
-    return <AgentMessageBubble msg={msg} />
+function createRenderBubble(projectId: string, sessionId: string) {
+  return function renderBubble(msg: Message) {
+    const isUser = msg.role === 'user'
+    const isAgent = msg.role === 'assistant' && !!msg.traceId
+    if (isAgent) {
+      return <AgentMessageBubble msg={msg} projectId={projectId} sessionId={sessionId} />
+    }
+    if (isUser) return <UserMessageBubble key={msg.id} text={msg.content} />
+    return <AssistantMessageBubble key={msg.id} text={msg.content} />
   }
-  if (isUser) return <UserMessageBubble key={msg.id} text={msg.content} />
-  return <AssistantMessageBubble key={msg.id} text={msg.content} />
 }
 
 export function WorkspaceLayout({
@@ -178,7 +180,10 @@ export function WorkspaceLayout({
                 </span>
                 .
               </p>
-              <MessageList<Message> messages={messages} renderMessage={renderBubble} />
+              <MessageList<Message>
+                messages={messages}
+                renderMessage={createRenderBubble(project.id, activeSessionId)}
+              />
               <Composer
                 value={input}
                 onChange={onInputChange}

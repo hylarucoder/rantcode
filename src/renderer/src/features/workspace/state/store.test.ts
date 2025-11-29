@@ -13,7 +13,7 @@ const baseSession: Session = {
       id: 'assistant-1',
       role: 'assistant',
       content: '',
-      jobId: 'job-1',
+      traceId: 'job-1',
       logs: [],
       status: 'running'
     }
@@ -58,7 +58,7 @@ describe('useProjectChatStore', () => {
     // log 事件只更新 logs 数组
     const logEvent: RunnerEvent = {
       type: 'log',
-      jobId: 'job-1',
+      traceId: 'job-1',
       stream: 'stdout',
       data: 'echo'
     }
@@ -72,7 +72,7 @@ describe('useProjectChatStore', () => {
     // text 事件更新 output
     const textEvent: RunnerEvent = {
       type: 'text',
-      jobId: 'job-1',
+      traceId: 'job-1',
       text: 'Hello world',
       delta: false
     }
@@ -84,7 +84,7 @@ describe('useProjectChatStore', () => {
 
     const exitEvent: RunnerEvent = {
       type: 'exit',
-      jobId: 'job-1',
+      traceId: 'job-1',
       code: 0,
       signal: null,
       durationMs: 5

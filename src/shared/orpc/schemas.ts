@@ -155,8 +155,10 @@ export const agentRunInputSchema = z.object({
   prompt: z.string().min(1),
   extraArgs: z.array(z.string()).optional(),
   timeoutMs: z.number().int().optional(),
-  jobId: z.string().optional(),
-  sessionId: z.string().optional()
+  /** 执行追踪标识 */
+  traceId: z.string().optional(),
+  /** Runner CLI 上下文标识（用于上下文续写） */
+  contextId: z.string().optional()
 })
 
 // Agent detection info (CLI path & version)
@@ -233,14 +235,24 @@ export const logEntrySchema = z.object({
   timestamp: z.number().optional()
 })
 
+/** 日志元信息（用于按需加载） */
+export const logMetaSchema = z.object({
+  count: z.number(),
+  sizeBytes: z.number()
+})
+
 /** 消息 */
 export const messageSchema = z.object({
   id: z.string(),
   role: z.enum(['user', 'assistant']),
   content: z.string(),
-  jobId: z.string().optional(),
+  /** 执行追踪标识（用于关联 RunnerEvent） */
+  traceId: z.string().optional(),
   status: z.enum(['running', 'success', 'error']).optional(),
+  /** @deprecated 使用 getMessageLogs 按需加载，仅用于向后兼容 */
   logs: z.array(logEntrySchema).optional(),
+  /** 日志元信息，通过 traceId 关联到独立文件 */
+  logMeta: logMetaSchema.optional(),
   output: z.string().optional(),
   errorMessage: z.string().optional(),
   sessionId: z.string().optional(),
@@ -249,17 +261,19 @@ export const messageSchema = z.object({
 })
 
 /**
- * 各 runner 的 sessionId 映射，支持同一会话切换不同 runner 时保持各自上下文
+ * 各 runner 的 CLI 上下文标识映射，支持同一会话切换不同 runner 时保持各自上下文
  * 例如: { "codex": "abc123", "claude-code-glm": "xyz789" }
  */
-export const runnerSessionMapSchema = z.record(z.enum(RUNNER_VALUES), z.string())
+/** 各 runner 的 CLI 上下文标识映射，键是可选的 */
+export const runnerContextMapSchema = z.record(z.enum(RUNNER_VALUES), z.string().optional())
 
 /** 会话 */
 export const sessionSchema = z.object({
   id: z.string(),
   title: z.string(),
   messages: z.array(messageSchema),
-  runnerSessions: runnerSessionMapSchema.optional(),
+  /** 各 runner 的 CLI 上下文标识映射 */
+  runnerContexts: runnerContextMapSchema.optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 })
@@ -273,7 +287,7 @@ export const updateSessionInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string(),
   title: z.string().optional(),
-  runnerSessions: runnerSessionMapSchema.optional()
+  runnerContexts: runnerContextMapSchema.optional()
 })
 
 export const deleteSessionInputSchema = z.object({
@@ -301,6 +315,30 @@ export const listSessionsInputSchema = z.object({
 export const getSessionInputSchema = z.object({
   projectId: z.string(),
   sessionId: z.string()
+})
+
+/** 获取消息日志输入 */
+export const getMessageLogsInputSchema = z.object({
+  projectId: z.string(),
+  sessionId: z.string(),
+  traceId: z.string(),
+  offset: z.number().optional(),
+  limit: z.number().optional()
+})
+
+/** 获取消息日志输出 */
+export const logsResultSchema = z.object({
+  logs: z.array(logEntrySchema),
+  total: z.number(),
+  hasMore: z.boolean()
+})
+
+/** 追加日志输入 */
+export const appendLogInputSchema = z.object({
+  projectId: z.string(),
+  sessionId: z.string(),
+  traceId: z.string(),
+  entry: logEntrySchema
 })
 
 // App-level general settings (UI prefs; non-sensitive)

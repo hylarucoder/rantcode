@@ -1,6 +1,5 @@
 import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
-import { app } from 'electron'
+import { getSettingsPath, getConfigRoot } from '../paths'
 
 export type ClaudeTokens = {
   official?: string
@@ -10,7 +9,7 @@ export type ClaudeTokens = {
 }
 
 function getClaudeTokensPath(): string {
-  return path.join(app.getPath('userData'), 'claude.tokens.json')
+  return getSettingsPath('claude.tokens.json')
 }
 
 export async function readClaudeTokens(): Promise<ClaudeTokens> {
@@ -27,6 +26,6 @@ export async function readClaudeTokens(): Promise<ClaudeTokens> {
 
 export async function writeClaudeTokens(tokens: ClaudeTokens): Promise<void> {
   const file = getClaudeTokensPath()
-  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.mkdir(getConfigRoot(), { recursive: true })
   await fs.writeFile(file, JSON.stringify(tokens, null, 2), 'utf8')
 }

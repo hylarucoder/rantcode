@@ -66,8 +66,7 @@ interface Task {
   owner?: string
 
   // 关联的 Session / Job
-  sessionIds: SessionId[] // 与这个任务相关的工作会话（例如“实现”“review”“补文档”）
-  jobIds: JobId[] // 直接为这个任务执行的 agent 回合
+  sessionIds: SessionId[] // 与这个任务相关的工作会话（例如"实现""review""补文档"）
 
   createdAt: string
   updatedAt: string
@@ -133,7 +132,7 @@ interface Session {
   contextDocs: DocRefId[]
 
   // 与本会话关联的 agent 回合
-  jobIds: JobId[]
+  // 执行追踪通过 Message.traceId 关联
 
   // 人类侧的输入记录（文字/未来语音转文字）
   messages: {
@@ -163,67 +162,40 @@ interface Session {
   - ✅ `workspace/state/store.ts` 提供本地状态管理
   - ⚠️ 与 Task 的关联待实现
 
-## 6. Job：无状态 coding agent 回合
+## 6. ~~Job~~ → Message + traceId
 
-> Job 是一次无状态请求：从文档/任务/代码上下文 → 得到产物。  
-> 内部可以是多轮对话，但对用户视角是一个“黑盒回合”。
+> **设计决策：不独立实现 Job 实体**
+> 
+> 经过讨论，决定用 `Message + traceId` 替代独立的 Job 实体。
+> 原因：当前需求用 Message 的 assistant 消息已足够表达执行概念。
+
+### 6.1 traceId 的作用
+
+`traceId` 是一次 Runner 执行的追踪标识，用于：
+- 关联 `RunnerEvent` 事件流与具体消息
+- 构建执行日志索引
+- 支持系统通知（任务完成/失败）
+
+### 6.2 实现方式
 
 ```ts
-type JobId = string
-
-type JobStatus = 'pending' | 'running' | 'done' | 'failed'
-
-interface Job {
-  id: JobId
-  projectId: ProjectId
-
-  sessionId?: SessionId // 所属会话（可为空，用于系统内部 job）
-  taskId?: TaskId // 若这次回合属于某个 Task，则挂在这里
-
-  // 输入意图（由用户文字/语音转换而来）
-  intent: string
-
-  // 上下文引用
-  inputDocs: DocRefId[] // 本次回合使用到的主要文档/文件
-
-  // 使用的模型/策略
-  providerId: ProviderId
-  modelId: ModelId
-  strategy?: string // 可选：如 "review", "implement", "doc-sync"
-
-  // 状态与时间
-  status: JobStatus
-  startedAt?: string
-  finishedAt?: string
-
-  // 产出：对用户可见的总结 + 结构化产物
-  summary?: string // 给人看的短总结
-  outputDocs?: DocRefId[] // 新增/修改的文档引用
-  diffRef?: string // 与某个 Git diff / patch 标识关联（具体实现待定）
-
-  // 命令行式输出日志（完整保留，但默认不打扰）
-  logs?: {
-    stdout: string
-    stderr: string
-  }
+interface Message {
+  // ...
+  traceId?: string        // 执行追踪标识（关联 RunnerEvent）
+  status?: MessageStatus  // 'running' | 'success' | 'error'
+  logs?: LogEntry[]       // 执行日志
+  output?: string         // 最终输出
+  runner?: string         // 使用的 Runner
+  startedAt?: number      // 开始时间
 }
 ```
 
-**实现状态：🚧 部分实现**
+**实现状态：✅ 已实现**
 
-说明：
-
-- Job 是通知系统的直接对象：
-  - 当 Job 的 `status` 从 `running → done/failed` 时，可以触发系统通知。
-- Job 是"无状态"的：
-  - 每一个 Job 都有完整的 `intent + contextDocs`；
-  - 不依赖前一个 Job 的对话历史，因此可重放、可在不同模型上复跑。
-- **当前实现**：
-  - ✅ `Message` 中的 `jobId` 和 `status` 字段实现 Job 跟踪
-  - ✅ Codex CLI 执行和事件流处理完整实现
-  - ✅ 系统通知集成（成功/失败提示）
-  - ⚠️ 结构化 Job 实体和持久化存储待完善
-  - ⚠️ 与 DocRef 的关联待实现
+- ✅ `Message` 中的 `traceId` 和 `status` 字段实现执行跟踪
+- ✅ Runner CLI 执行和事件流处理完整实现
+- ✅ 系统通知集成（成功/失败提示）
+- ✅ SQLite 持久化存储
 
 ## 7. Provider / Model：底层模型配置
 
@@ -255,7 +227,7 @@ interface ModelConfig {
 - Job 通过 `providerId + modelId` 指向具体模型，Session / Task 只看到"策略名"即可。
 - **当前实现**：
   - ✅ Settings 页面完整的 Provider/Model 配置管理
-  - ✅ 多种 Agent 类型支持（Codex, Claude Code GLM, Claude Code Official 等）
+  - ✅ 多种 Runner 类型支持（Codex, Claude Code GLM, Claude Code Official 等）
   - ✅ 配置验证和测试功能
 
 ## 8. 设计原则回顾
@@ -282,8 +254,8 @@ interface ModelConfig {
 | 实体 | 状态 | 主要实现 |
 |------|------|----------|
 | **Project** | ✅ 已实现 | `features/projects/` + `projects/api/hooks.ts` |
-| **Session** | 🚧 部分实现 | `Session` 类型 + API Hooks + 状态管理 |
-| **Job** | 🚧 部分实现 | `Message.jobId` + Codex 执行 + 事件流 |
+| **Session** | ✅ 已实现 | `Session` 类型 + API Hooks + SQLite 持久化 |
+| **执行追踪** | ✅ 已实现 | `Message.traceId` + Runner 执行 + 事件流 |
 | **Provider/Model** | ✅ 已实现 | Settings 页面完整配置管理 |
 | **Task** | 🚧 部分实现 | `KanbanPanel` 看板视图 + frontmatter 解析 |
 | **DocRef** | ⚠️ 设计阶段 | 概念设计，文件系统 API 部分支持 |

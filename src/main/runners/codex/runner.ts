@@ -18,7 +18,8 @@ interface CodexJobState {
   stderrBuffer: string
   stdoutLineBuffer: string
   stderrLineBuffer: string
-  sessionId?: string
+  /** Runner CLI 上下文标识 */
+  contextId?: string
 }
 
 const jobStates = new Map<string, CodexJobState>()
@@ -76,7 +77,7 @@ function notifyRunResult(
 export async function runCodex(
   targetContentsId: number,
   payload: RunnerRunOptions
-): Promise<{ jobId: string }> {
+): Promise<{ traceId: string }> {
   const prompt = payload?.prompt?.trim()
   if (!prompt) {
     throw new Error('Prompt is required to run codex')
@@ -90,13 +91,15 @@ export async function runCodex(
   }
 
   // 以下是 Codex 原生逻辑
-  const jobId =
-    typeof payload?.jobId === 'string' && payload.jobId.length > 0 ? payload.jobId : randomUUID()
+  const traceId =
+    typeof payload?.traceId === 'string' && payload.traceId.length > 0
+      ? payload.traceId
+      : randomUUID()
   const repoRoot = await resolveProjectRoot(payload?.projectId)
   const bin = await findExecutable(runner)
   const args =
     runner === 'codex'
-      ? buildCodexArgs({ extraArgs: payload?.extraArgs, sessionId: payload?.sessionId })
+      ? buildCodexArgs({ extraArgs: payload?.extraArgs, contextId: payload?.contextId })
       : Array.isArray(payload?.extraArgs)
         ? payload!.extraArgs!.filter((s) => typeof s === 'string' && s.length > 0)
         : []
@@ -122,31 +125,31 @@ export async function runCodex(
     stdio: 'pipe'
   })
 
-  jobStates.set(jobId, {
+  jobStates.set(traceId, {
     stderrBuffer: '',
     stdoutLineBuffer: '',
     stderrLineBuffer: '',
-    sessionId: payload.sessionId
+    contextId: payload.contextId
   })
-  runningProcesses.set(jobId, child)
+  runningProcesses.set(traceId, child)
 
   const startedAt = Date.now()
   dispatchEvent(targetContentsId, {
     type: 'start',
-    jobId,
+    traceId,
     command: [bin, ...args],
     cwd: repoRoot
   })
 
   child.stdout.setEncoding('utf8')
   child.stdout.on('data', (chunk: string) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
     const data = chunk.toString()
 
     if (!state) {
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stdout',
         data
       })
@@ -162,7 +165,7 @@ export async function runCodex(
       const text = line + '\n'
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stdout',
         data: text
       })
@@ -171,28 +174,29 @@ export async function runCodex(
 
   child.stderr.setEncoding('utf8')
   child.stderr.on('data', (chunk: string) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
     const data = chunk.toString()
 
     if (!state) {
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stderr',
         data
       })
       return
     }
 
-    if (!state.sessionId) {
+    if (!state.contextId) {
       state.stderrBuffer += data
+      // 从 Codex CLI 输出中提取上下文标识 (session id)
       const match = state.stderrBuffer.match(/session id:\s*([0-9a-fA-F-]+)/i)
       if (match && match[1]) {
-        state.sessionId = match[1]
+        state.contextId = match[1]
         dispatchEvent(targetContentsId, {
-          type: 'session',
-          jobId,
-          sessionId: state.sessionId
+          type: 'context',
+          traceId,
+          contextId: state.contextId
         } as RunnerEvent)
       }
     }
@@ -205,7 +209,7 @@ export async function runCodex(
       const text = line + '\n'
       dispatchEvent(targetContentsId, {
         type: 'log',
-        jobId,
+        traceId,
         stream: 'stderr',
         data: text
       })
@@ -215,7 +219,7 @@ export async function runCodex(
   child.on('error', (error) => {
     dispatchEvent(targetContentsId, {
       type: 'error',
-      jobId,
+      traceId,
       message: isErrorLike(error) ? error.message : `${runner} process error`
     })
     notifyRunResult(targetContentsId, {
@@ -227,14 +231,14 @@ export async function runCodex(
   })
 
   child.on('close', (code, signal) => {
-    const state = jobStates.get(jobId)
+    const state = jobStates.get(traceId)
 
     // Flush any remaining partial lines so they are not lost
     if (state) {
       if (state.stdoutLineBuffer) {
         dispatchEvent(targetContentsId, {
           type: 'log',
-          jobId,
+          traceId,
           stream: 'stdout',
           data: state.stdoutLineBuffer
         })
@@ -242,18 +246,18 @@ export async function runCodex(
       if (state.stderrLineBuffer) {
         dispatchEvent(targetContentsId, {
           type: 'log',
-          jobId,
+          traceId,
           stream: 'stderr',
           data: state.stderrLineBuffer
         })
       }
     }
 
-    runningProcesses.delete(jobId)
-    jobStates.delete(jobId)
+    runningProcesses.delete(traceId)
+    jobStates.delete(traceId)
     dispatchEvent(targetContentsId, {
       type: 'exit',
-      jobId,
+      traceId,
       code,
       signal,
       durationMs: Date.now() - startedAt
@@ -272,7 +276,7 @@ export async function runCodex(
   } catch (err) {
     dispatchEvent(targetContentsId, {
       type: 'error',
-      jobId,
+      traceId,
       message: err instanceof Error ? err.message : `Failed to pass prompt to ${runner}`
     })
     try {
@@ -282,12 +286,12 @@ export async function runCodex(
     }
   }
 
-  return { jobId }
+  return { traceId }
 }
 
-export function cancelCodex(jobId: string): { ok: boolean } {
+export function cancelCodex(traceId: string): { ok: boolean } {
   // 先尝试在 codex 进程中取消
-  const child = runningProcesses.get(jobId)
+  const child = runningProcesses.get(traceId)
   if (child) {
     try {
       const killed = child.kill()
@@ -297,5 +301,5 @@ export function cancelCodex(jobId: string): { ok: boolean } {
     }
   }
   // 否则尝试在 claudecode 进程中取消
-  return cancelClaudeCode(jobId)
+  return cancelClaudeCode(traceId)
 }

@@ -4,9 +4,9 @@ import type { LoggerBridge } from './bridges/logger'
 import type { DocsBridge } from './bridges/docs'
 
 interface RunnersBridge {
-  run(opts: RunnerRunOptions): Promise<{ jobId: string }>
+  run(opts: RunnerRunOptions): Promise<{ traceId: string }>
   subscribe(handler: (event: RunnerEvent) => void): () => void
-  cancel(jobId: string): Promise<{ ok: boolean }>
+  cancel(traceId: string): Promise<{ ok: boolean }>
 }
 
 /** @deprecated 使用 RunnersBridge 代替 */

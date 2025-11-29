@@ -8,7 +8,7 @@ import type { RunnerEvent, RunnerRunOptions } from '@shared/types/webui'
 export function useAgentRunner() {
   const run = useCallback(async (opts: RunnerRunOptions) => {
     const win = window as unknown as {
-      api?: { runners?: { run?: (o: RunnerRunOptions) => Promise<{ jobId: string }> } }
+      api?: { runners?: { run?: (o: RunnerRunOptions) => Promise<{ traceId: string }> } }
     }
     const bridge = win.api?.runners
     if (!bridge?.run) throw new Error('Runner bridge unavailable')
@@ -24,13 +24,13 @@ export function useAgentRunner() {
     return bridge.subscribe(handler)
   }, [])
 
-  const cancel = useCallback(async (jobId: string) => {
+  const cancel = useCallback(async (traceId: string) => {
     const win = window as unknown as {
       api?: { runners?: { cancel?: (id: string) => Promise<{ ok: boolean }> } }
     }
     const bridge = win.api?.runners
     if (!bridge?.cancel) return { ok: false }
-    return bridge.cancel(jobId)
+    return bridge.cancel(traceId)
   }, [])
 
   return { run, subscribe, cancel }

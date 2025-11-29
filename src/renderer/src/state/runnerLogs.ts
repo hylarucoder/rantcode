@@ -4,7 +4,7 @@ import type { RunnerEvent } from '@shared/types/webui'
 
 export interface RunnerLogEntry {
   id: string
-  jobId: string
+  traceId: string
   stream: 'stdout' | 'stderr'
   text: string
   timestamp: number
@@ -22,8 +22,8 @@ export const useRunnerLogStore = create<RunnerLogState>((set) => ({
     set((state) => {
       if (event.type !== 'log') return state
       const entry: RunnerLogEntry = {
-        id: `${event.jobId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        jobId: event.jobId,
+        id: `${event.traceId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        traceId: event.traceId,
         stream: event.stream,
         text: event.data,
         timestamp: Date.now()
@@ -54,4 +54,3 @@ export function useRunnerLogSubscription(): void {
     }
   }, [appendFromEvent])
 }
-

@@ -170,52 +170,55 @@ export interface RunnerRunOptions {
   prompt: string
   extraArgs?: string[]
   timeoutMs?: number
-  jobId?: string
-  sessionId?: string
+  /** 执行追踪标识（用于关联消息和事件） */
+  traceId?: string
+  /** Runner CLI 上下文标识（用于上下文续写） */
+  contextId?: string
 }
 
 /** Runner 执行事件流 */
 export type RunnerEvent =
   | {
       type: 'start'
-      jobId: string
+      traceId: string
       command: string[]
       cwd: string
     }
   | {
       type: 'log'
-      jobId: string
+      traceId: string
       stream: 'stdout' | 'stderr'
       data: string
     }
   | {
       type: 'exit'
-      jobId: string
+      traceId: string
       code: number | null
       signal: NodeJS.Signals | null
       durationMs: number
     }
   | {
-      type: 'session'
-      jobId: string
-      sessionId: string
+      type: 'context'
+      traceId: string
+      /** Runner CLI 上下文标识 */
+      contextId: string
     }
   | {
       type: 'error'
-      jobId: string
+      traceId: string
       message: string
     }
   | {
       // 流式文本内容（从 Claude Code assistant 消息中提取）
       type: 'text'
-      jobId: string
+      traceId: string
       text: string
       delta?: boolean // true 表示增量文本，false 表示完整文本
     }
   | {
       // Claude Code 特有的结构化消息
       type: 'claude_message'
-      jobId: string
+      traceId: string
       messageType: 'init' | 'assistant' | 'result' | 'user' | 'system'
       content?: string
       raw?: unknown // 原始 JSON 数据
