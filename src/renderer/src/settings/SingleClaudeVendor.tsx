@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardTitle, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -69,6 +70,7 @@ export default function SingleClaudeVendor({
   label: string
   defaultConfig: ClaudeVendorConfig
 }) {
+  const { t } = useTranslation()
   const vendorsQuery = useClaudeVendorsQuery()
   const setVendors = useSetClaudeVendorsMutation()
   const runPromptMutation = useRunClaudePromptMutation()
@@ -267,12 +269,12 @@ export default function SingleClaudeVendor({
           {config.active ? (
             <>
               <PinOff className="h-3.5 w-3.5" />
-              已启用
+              {t('common.status.enabled')}
             </>
           ) : (
             <>
               <Pin className="h-3.5 w-3.5" />
-              启用
+              {t('common.status.enable')}
             </>
           )}
         </Button>
@@ -295,12 +297,12 @@ export default function SingleClaudeVendor({
               {saving ? (
                 <>
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  保存中…
+                  {t('common.status.saving')}
                 </>
               ) : (
                 <>
                   <Save className="h-3.5 w-3.5" />
-                  保存配置
+                  {t('settings.vendor.saveConfig')}
                 </>
               )}
             </Button>
@@ -315,12 +317,12 @@ export default function SingleClaudeVendor({
               {testing ? (
                 <>
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  测试中…
+                  {t('common.status.testing')}
                 </>
               ) : (
                 <>
                   <TestTube2 className="h-3.5 w-3.5" />
-                  测试连接
+                  {t('settings.vendor.testConnection')}
                 </>
               )}
             </Button>
@@ -331,7 +333,7 @@ export default function SingleClaudeVendor({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="h-4 w-4 text-muted-foreground" />
-                显示名称
+                {t('settings.vendor.displayName')}
               </div>
               <Input
                 placeholder={label}
@@ -342,12 +344,12 @@ export default function SingleClaudeVendor({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Terminal className="h-4 w-4 text-muted-foreground" />
-                可执行路径
+                {t('settings.vendor.executablePath')}
               </div>
               <Input
                 value={binForSave}
                 disabled
-                placeholder="Detecting claude/claude-code…"
+                placeholder={t('settings.vendor.detectingPath')}
                 className="bg-muted/30"
               />
             </div>
@@ -357,7 +359,7 @@ export default function SingleClaudeVendor({
           <div className="space-y-2 mb-6">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Key className="h-4 w-4 text-muted-foreground" />
-              API Key <span className="text-red-500">*</span>
+              {t('settings.vendor.apiKey')} <span className="text-red-500">{t('common.label.required')}</span>
             </div>
             <FormField
               control={form.control}
@@ -410,7 +412,7 @@ export default function SingleClaudeVendor({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Cpu className="h-4 w-4 text-muted-foreground" />
-                主要模型 <span className="text-red-500">*</span>
+                {t('settings.vendor.primaryModel')} <span className="text-red-500">{t('common.label.required')}</span>
               </div>
               <FormField
                 control={form.control}
@@ -422,7 +424,7 @@ export default function SingleClaudeVendor({
                     ) : (
                       <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="选择模型" />
+                          <SelectValue placeholder={t('settings.vendor.selectModel')} />
                         </SelectTrigger>
                         <SelectContent>
                           {vendorOptions.map((m) => (
@@ -441,8 +443,8 @@ export default function SingleClaudeVendor({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Cpu className="h-4 w-4 text-muted-foreground" />
-                快速模型
-                <span className="text-xs text-muted-foreground font-normal">(可选)</span>
+                {t('settings.vendor.fastModel')}
+                <span className="text-xs text-muted-foreground font-normal">{t('common.label.optional')}</span>
               </div>
               <FormField
                 control={form.control}
@@ -454,7 +456,7 @@ export default function SingleClaudeVendor({
                     ) : (
                       <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="选择快速模型（可选）" />
+                          <SelectValue placeholder={t('settings.vendor.selectFastModel')} />
                         </SelectTrigger>
                         <SelectContent>
                           {vendorOptions.map((m) => (
@@ -478,8 +480,8 @@ export default function SingleClaudeVendor({
                 <span
                   className={`inline-block h-2 w-2 rounded-full ${config.lastTestOk ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
-                上次测试: {new Date(config.lastTestAt).toLocaleString()} ·{' '}
-                {config.lastTestOk ? '成功' : '失败'}
+                {t('settings.vendor.lastTest')}: {new Date(config.lastTestAt).toLocaleString()} ·{' '}
+                {config.lastTestOk ? t('common.status.success') : t('common.status.failed')}
               </div>
             </div>
           )}
@@ -487,17 +489,17 @@ export default function SingleClaudeVendor({
           {/* Test output */}
           {(testing || testOutput || testError || testCommand) && (
             <div className="mt-4 pt-4 border-t border-border/50">
-              <div className="text-sm font-medium mb-3">测试输出</div>
+              <div className="text-sm font-medium mb-3">{t('settings.vendor.testOutput')}</div>
               {testing ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  运行中…
+                  {t('common.status.running')}
                 </div>
               ) : (
                 <div className="space-y-3">
                   {testCommand && (
                     <div>
-                      <div className="text-xs text-muted-foreground mb-1">执行命令</div>
+                      <div className="text-xs text-muted-foreground mb-1">{t('settings.vendor.command')}</div>
                       <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-24 whitespace-pre-wrap font-mono">
                         {testCommand}
                       </pre>
@@ -505,13 +507,13 @@ export default function SingleClaudeVendor({
                   )}
                   {testError && (
                     <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
-                      错误: {testError}
+                      {t('settings.vendor.error')}: {testError}
                     </div>
                   )}
                   <div>
-                    <div className="text-xs text-muted-foreground mb-1">输出结果</div>
+                    <div className="text-xs text-muted-foreground mb-1">{t('settings.vendor.output')}</div>
                     <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-48 whitespace-pre-wrap font-mono">
-                      {testOutput && testOutput.trim().length > 0 ? testOutput : '(无输出)'}
+                      {testOutput && testOutput.trim().length > 0 ? testOutput : t('common.label.noOutput')}
                     </pre>
                   </div>
                 </div>

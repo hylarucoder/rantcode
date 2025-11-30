@@ -30,6 +30,7 @@
 |------|------|
 | [file-tree.md](./file-tree.md) | 文件树组件规范 |
 | [tts.md](./tts.md) | TTS 语音提醒设计 |
+| [i18n.md](./i18n.md) | 国际化（i18n）设计 |
 
 ## 规范原则
 

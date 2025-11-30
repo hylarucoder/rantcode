@@ -1,0 +1,246 @@
+{
+  "common": {
+    "button": {
+      "ok": "确定",
+      "cancel": "取消",
+      "save": "保存",
+      "delete": "删除",
+      "add": "添加",
+      "edit": "编辑",
+      "close": "关闭",
+      "refresh": "刷新",
+      "back": "返回",
+      "open": "打开",
+      "remove": "移除",
+      "browse": "浏览…",
+      "browsing": "选择中…",
+      "preview": "试听",
+      "reset": "恢复默认"
+    },
+    "status": {
+      "loading": "加载中…",
+      "saving": "保存中…",
+      "adding": "添加中…",
+      "detecting": "检测中…",
+      "testing": "测试中…",
+      "running": "运行中…",
+      "success": "成功",
+      "failed": "失败",
+      "active": "活跃",
+      "enabled": "已启用",
+      "enable": "启用"
+    },
+    "label": {
+      "optional": "(可选)",
+      "required": "*",
+      "noOutput": "(无输出)",
+      "noFileSelected": "未选择文件",
+      "chooseFile": "选择文件"
+    }
+  },
+  "layout": {
+    "projects": "项目",
+    "noProjects": "暂无项目",
+    "selectProject": "选择项目",
+    "noProjectsYet": "暂无项目",
+    "addOrManageProjects": "添加或管理项目…",
+    "removeCurrentProject": "移除当前项目",
+    "openSettings": "打开设置",
+    "toggleTheme": "切换主题"
+  },
+  "projects": {
+    "title": "项目",
+    "empty": "暂无项目",
+    "emptyHint": "选择现有工作区或添加本地仓库开始工作",
+    "loadingProjects": "加载项目中…",
+    "add": {
+      "title": "添加项目",
+      "button": "新建项目",
+      "firstProject": "添加第一个项目",
+      "description": "通过选择仓库路径创建新项目",
+      "name": "名称",
+      "namePlaceholder": "My repo",
+      "nameHint": "可选的显示名称",
+      "path": "仓库路径",
+      "pathPlaceholder": "/Users/me/Projects/my-repo",
+      "pathError": "请输入仓库的绝对路径"
+    },
+    "remove": {
+      "confirm": "确定从 rantcode 移除 {{name}} 吗？文件将保留在磁盘上。",
+      "success": "项目已移除"
+    },
+    "errors": {
+      "addFailed": "添加项目失败",
+      "removeFailed": "移除项目失败",
+      "selectFolderFailed": "选择文件夹失败"
+    }
+  },
+  "workspace": {
+    "session": {
+      "title": "会话",
+      "new": "新建"
+    },
+    "composer": {
+      "placeholder": "描述你想要完成的任务…",
+      "selectRunner": "选择执行器",
+      "sendHint": "发送",
+      "send": "发送",
+      "interrupt": "中断"
+    },
+    "kanban": {
+      "title": "任务看板",
+      "taskCount": "{{count}} 个任务",
+      "loading": "加载任务中…",
+      "empty": "暂无任务",
+      "emptyHint": "在 docs/task/ 目录创建 .md 文件",
+      "frontmatterHint": "文件需要包含 frontmatter:",
+      "statusHint": "status: backlog | in-progress | review | done",
+      "footerHint": "任务来自 docs/task/*.md · 修改文件 frontmatter 中的 status 字段来移动任务",
+      "dropHere": "放置到此处",
+      "dragHere": "拖拽任务到此处",
+      "openFile": "打开文件",
+      "chat": "聊聊",
+      "moveTo": "移至 {{column}}",
+      "movedTo": "任务已移至「{{column}}」",
+      "updateFailed": "更新任务状态失败",
+      "columns": {
+        "backlog": "待办",
+        "inProgress": "进行中",
+        "review": "审核",
+        "done": "完成"
+      }
+    },
+    "git": {
+      "loading": "加载 Git 状态…",
+      "loadingDiff": "加载差异…",
+      "selectFile": "选择一个文件查看差异",
+      "noDiff": "没有差异内容",
+      "clean": "工作区干净",
+      "noChanges": "没有待提交的更改",
+      "staged": "已暂存",
+      "unstaged": "未暂存"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "closeSettings": "关闭设置",
+    "categories": {
+      "general": "通用",
+      "generalDesc": "外观与语言设置",
+      "agents": "代理",
+      "agentsDesc": "AI 代理配置",
+      "sounds": "音效",
+      "soundsDesc": "音效与语音"
+    },
+    "nav": {
+      "aiAgents": "AI 代理",
+      "soundEffects": "音效设置",
+      "preferences": "偏好设置"
+    },
+    "agents": {
+      "codex": "Codex",
+      "codexSubtitle": "OpenAI Codex CLI",
+      "claude": "Claude Code",
+      "claudeSubtitle": "Anthropic Claude CLI",
+      "kimi": "Kimi",
+      "glm": "GLM",
+      "minmax": "Minmax",
+      "executablePath": "可执行路径",
+      "version": "版本",
+      "codexNotFound": "未发现 codex，可检查 PATH",
+      "claudeNotFound": "未发现 claude/claude-code，可检查 PATH",
+      "versionEmpty": "--version 输出为空",
+      "redetect": "重新检测",
+      "agentConfig": "代理配置"
+    },
+    "vendor": {
+      "displayName": "显示名称",
+      "executablePath": "可执行路径",
+      "detectingPath": "Detecting claude/claude-code…",
+      "apiKey": "API Key",
+      "primaryModel": "主要模型",
+      "fastModel": "快速模型",
+      "selectModel": "选择模型",
+      "selectFastModel": "选择快速模型（可选）",
+      "saveConfig": "保存配置",
+      "testConnection": "测试连接",
+      "lastTest": "上次测试",
+      "testOutput": "测试输出",
+      "command": "执行命令",
+      "error": "错误",
+      "output": "输出结果"
+    },
+    "sounds": {
+      "uiSfx": "UI 音效",
+      "sessionSfx": "会话音效",
+      "tts": "语音播报",
+      "soundSettings": "音效设置"
+    },
+    "sfx": {
+      "title": "内置 UI 音效",
+      "description": "配置界面交互的声音反馈",
+      "enableUiSounds": "启用 UI 音效",
+      "volume": "音量",
+      "click": "点击",
+      "success": "成功",
+      "error": "失败",
+      "notify": "提醒",
+      "hint": "默认使用内置 WAV 文件；你也可以为某个键选择自定义音频覆盖。首次用户手势会自动解锁音频上下文。"
+    },
+    "audioFx": {
+      "title": "会话音效",
+      "description": "配置会话开始和结束的提示音",
+      "enableSessionSounds": "启用会话音效",
+      "startSound": "开始音效",
+      "endSound": "结束音效",
+      "chooseAudioFile": "选择音频文件",
+      "hint": "支持 mp3 / wav 格式。启用开关后立即播放当前选择的音效用于确认。"
+    },
+    "tts": {
+      "title": "语音播报",
+      "description": "配置 AI 响应的语音朗读",
+      "voiceEngine": "语音引擎",
+      "selectEngine": "选择语音引擎",
+      "engineOff": "关闭",
+      "engineWebSpeech": "本地合成（Web Speech）",
+      "engineDoubao": "豆包（云）",
+      "engineMinimax": "Minimax（云）",
+      "comingSoon": "(即将支持)",
+      "speed": "语速",
+      "volume": "音量",
+      "minDuration": "最短播报时长",
+      "milliseconds": "(毫秒)",
+      "onlyOnFailure": "仅失败时播报",
+      "hint": "云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech 作为基础播报与试听。"
+    },
+    "general": {
+      "title": "通用设置",
+      "basic": "基础设置",
+      "basicDesc": "应用通用配置",
+      "basicPlaceholder": "更多通用设置将陆续加入…",
+      "appearance": "外观与语言",
+      "appearanceDesc": "主题和界面语言设置",
+      "language": "语言",
+      "languageEn": "Language",
+      "selectLanguage": "选择语言",
+      "zhCN": "中文（简体）",
+      "enUS": "English",
+      "theme": "主题",
+      "themeEn": "Theme",
+      "selectTheme": "选择主题",
+      "lightMode": "浅色模式",
+      "darkMode": "深色模式"
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "页面不存在",
+    "message": "您访问的页面不存在或已被移除",
+    "backToPrevious": "返回上页",
+    "backToHome": "返回首页"
+  },
+  "errors": {
+    "unknown": "发生未知错误",
+    "networkError": "网络连接失败"
+  }
+}

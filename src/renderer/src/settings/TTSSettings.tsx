@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import {
@@ -46,14 +47,15 @@ function saveLocal(cfg: TTSConfig): void {
   localStorage.setItem('rantcode.tts', JSON.stringify(cfg))
 }
 
-const ENGINE_OPTIONS: { value: Engine; label: string; icon: string; available: boolean }[] = [
-  { value: 'off', label: '关闭', icon: '🔇', available: true },
-  { value: 'web-speech', label: '本地合成（Web Speech）', icon: '🗣️', available: true },
-  { value: 'doubao', label: '豆包（云）', icon: '☁️', available: false },
-  { value: 'minimax', label: 'Minimax（云）', icon: '☁️', available: false }
+const ENGINE_OPTIONS: { value: Engine; labelKey: string; icon: string; available: boolean }[] = [
+  { value: 'off', labelKey: 'settings.tts.engineOff', icon: '🔇', available: true },
+  { value: 'web-speech', labelKey: 'settings.tts.engineWebSpeech', icon: '🗣️', available: true },
+  { value: 'doubao', labelKey: 'settings.tts.engineDoubao', icon: '☁️', available: false },
+  { value: 'minimax', labelKey: 'settings.tts.engineMinimax', icon: '☁️', available: false }
 ]
 
 export default function TTSSettings() {
+  const { t } = useTranslation()
   const form = useForm<TTSConfig>({ defaultValues: loadLocal() })
 
   useEffect(() => {
@@ -85,8 +87,8 @@ export default function TTSSettings() {
             <Mic className="h-5 w-5 text-cyan-500" />
           </div>
           <div>
-            <CardTitle className="text-base">语音播报</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">配置 AI 响应的语音朗读</p>
+            <CardTitle className="text-base">{t('settings.tts.title')}</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.tts.description')}</p>
           </div>
         </div>
       </CardHeader>
@@ -97,7 +99,7 @@ export default function TTSSettings() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Mic className="h-4 w-4 text-muted-foreground" />
-                语音引擎
+                {t('settings.tts.voiceEngine')}
               </div>
               <FormField
                 control={form.control}
@@ -106,16 +108,16 @@ export default function TTSSettings() {
                   <FormItem>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="选择语音引擎" />
+                        <SelectValue placeholder={t('settings.tts.selectEngine')} />
                       </SelectTrigger>
                       <SelectContent>
                         {ENGINE_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value} disabled={!opt.available}>
                             <span className="flex items-center gap-2">
                               <span>{opt.icon}</span>
-                              <span>{opt.label}</span>
+                              <span>{t(opt.labelKey)}</span>
                               {!opt.available && (
-                                <span className="text-xs text-muted-foreground">(即将支持)</span>
+                                <span className="text-xs text-muted-foreground">{t('settings.tts.comingSoon')}</span>
                               )}
                             </span>
                           </SelectItem>
@@ -132,7 +134,7 @@ export default function TTSSettings() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Gauge className="h-4 w-4 text-muted-foreground" />
-                  语速
+                  {t('settings.tts.speed')}
                   <span className="text-xs text-muted-foreground font-normal">(0.5–2.0)</span>
                 </div>
                 <FormField
@@ -164,7 +166,7 @@ export default function TTSSettings() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Volume2 className="h-4 w-4 text-muted-foreground" />
-                  音量
+                  {t('settings.tts.volume')}
                   <span className="text-xs text-muted-foreground font-normal">(0–1)</span>
                 </div>
                 <FormField
@@ -198,8 +200,8 @@ export default function TTSSettings() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                最短播报时长
-                <span className="text-xs text-muted-foreground font-normal">(毫秒)</span>
+                {t('settings.tts.minDuration')}
+                <span className="text-xs text-muted-foreground font-normal">{t('settings.tts.milliseconds')}</span>
               </div>
               <FormField
                 control={form.control}
@@ -240,7 +242,7 @@ export default function TTSSettings() {
                       </label>
                       <FormLabel className="text-sm font-medium cursor-pointer flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                        仅失败时播报
+                        {t('settings.tts.onlyOnFailure')}
                       </FormLabel>
                     </div>
                   </FormItem>
@@ -249,7 +251,7 @@ export default function TTSSettings() {
 
               <Button type="button" size="sm" onClick={test} disabled={!canTest} className="gap-2">
                 <Play className="h-3.5 w-3.5" />
-                试听
+                {t('common.button.preview')}
               </Button>
             </div>
           </div>
@@ -258,8 +260,7 @@ export default function TTSSettings() {
         <div className="mt-6 pt-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            云端语音合成将在后续版本接入（豆包/Minimax）。当前使用本地 Web Speech
-            作为基础播报与试听。
+            {t('settings.tts.hint')}
           </p>
         </div>
       </CardContent>

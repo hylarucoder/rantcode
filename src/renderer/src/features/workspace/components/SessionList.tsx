@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Session } from '@/features/workspace/types'
@@ -13,11 +14,12 @@ export function SessionList({
   onSelect: (id: string) => void
   onNew: () => void
 }) {
+  const { t } = useTranslation()
   const activeSession = sessions.find((s) => s.id === activeId) ?? sessions[0]
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 rounded-none border-0 p-2 shadow-none">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">会话</span>
+        <span className="text-xs text-muted-foreground">{t('workspace.session.title')}</span>
         <Button
           type="button"
           size="sm"
@@ -25,7 +27,7 @@ export function SessionList({
           className="h-7 rounded-lg px-2 text-xs"
           onClick={onNew}
         >
-          新建
+          {t('workspace.session.new')}
         </Button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">

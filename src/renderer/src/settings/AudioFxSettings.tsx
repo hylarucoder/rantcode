@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +9,7 @@ import { loadAudioFx, saveAudioFx, type AudioFxConfig } from '@/lib/audioFx'
 import { Volume2, Play, Upload, Music } from 'lucide-react'
 
 export default function AudioFxSettings() {
+  const { t } = useTranslation()
   const form = useForm<AudioFxConfig>({ defaultValues: loadAudioFx() })
 
   useEffect(() => {
@@ -38,8 +40,8 @@ export default function AudioFxSettings() {
             <Volume2 className="h-5 w-5 text-orange-500" />
           </div>
           <div>
-            <CardTitle className="text-base">会话音效</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">配置会话开始和结束的提示音</p>
+            <CardTitle className="text-base">{t('settings.audioFx.title')}</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.audioFx.description')}</p>
           </div>
         </div>
       </CardHeader>
@@ -73,7 +75,7 @@ export default function AudioFxSettings() {
                       <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
                     <FormLabel className="text-sm font-medium cursor-pointer">
-                      启用会话音效
+                      {t('settings.audioFx.enableSessionSounds')}
                     </FormLabel>
                   </div>
                 </FormItem>
@@ -84,7 +86,7 @@ export default function AudioFxSettings() {
           <div className="grid md:grid-cols-2 gap-6">
             {/* Start Sound */}
             <SoundSlot
-              title="开始音效"
+              title={t('settings.audioFx.startSound')}
               icon={<Music className="h-4 w-4" />}
               iconBg="bg-green-500/10"
               iconColor="text-green-500"
@@ -94,11 +96,12 @@ export default function AudioFxSettings() {
               canTest={canTestStart}
               onPick={(file) => handlePick('start', file)}
               onTest={() => previewAudio(startSrc)}
+              t={t}
             />
 
             {/* End Sound */}
             <SoundSlot
-              title="结束音效"
+              title={t('settings.audioFx.endSound')}
               icon={<Music className="h-4 w-4" />}
               iconBg="bg-blue-500/10"
               iconColor="text-blue-500"
@@ -108,13 +111,14 @@ export default function AudioFxSettings() {
               canTest={canTestEnd}
               onPick={(file) => handlePick('end', file)}
               onTest={() => previewAudio(endSrc)}
+              t={t}
             />
           </div>
 
           <div className="mt-6 pt-4 border-t border-border/50">
             <p className="text-xs text-muted-foreground flex items-center gap-2">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-              支持 mp3 / wav 格式。启用开关后立即播放当前选择的音效用于确认。
+              {t('settings.audioFx.hint')}
             </p>
           </div>
         </Form>
@@ -133,7 +137,8 @@ function SoundSlot({
   fileName,
   canTest,
   onPick,
-  onTest
+  onTest,
+  t
 }: {
   title: string
   icon: React.ReactNode
@@ -145,6 +150,7 @@ function SoundSlot({
   canTest: boolean
   onPick: (file: File | null | undefined) => void
   onTest: () => void
+  t: (key: string) => string
 }) {
   return (
     <div className="rounded-lg border border-border/50 p-4 bg-muted/20 space-y-4">
@@ -182,7 +188,7 @@ function SoundSlot({
         <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-colors group">
           <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-            选择音频文件
+            {t('settings.audioFx.chooseAudioFile')}
           </span>
           <Input
             type="file"
@@ -200,7 +206,7 @@ function SoundSlot({
                 {fileName}
               </span>
             ) : (
-              '未选择文件'
+              t('common.label.noFileSelected')
             )}
           </span>
           <Button
@@ -212,7 +218,7 @@ function SoundSlot({
             className="gap-1.5 shrink-0"
           >
             <Play className="h-3 w-3" />
-            试听
+            {t('common.button.preview')}
           </Button>
         </div>
       </div>

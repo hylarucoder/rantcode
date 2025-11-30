@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'
 import App from './App'
 import './index.css'
+import './lib/i18n' // 初始化 i18n
 import { ensureMarkdownPipelinePreloaded } from './lib/markdown'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { loggerService } from './services/loggerService'

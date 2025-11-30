@@ -2,18 +2,20 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
-import { useSfx } from '@/hooks/useSfx'
+import { useTranslation } from 'react-i18next'
+import { useSfx } from '@/shared/hooks/useSfx'
 import type { SfxKey } from '@/sound/soundManager'
 import { Music2, Play, RotateCcw, Upload, Volume2 } from 'lucide-react'
 
-const SFX_ITEMS: { key: SfxKey; label: string; labelEn: string; color: string }[] = [
-  { key: 'click', label: '点击', labelEn: 'click', color: 'bg-blue-500' },
-  { key: 'success', label: '成功', labelEn: 'success', color: 'bg-green-500' },
-  { key: 'error', label: '失败', labelEn: 'error', color: 'bg-red-500' },
-  { key: 'notify', label: '提醒', labelEn: 'notify', color: 'bg-amber-500' }
+const SFX_ITEMS: { key: SfxKey; labelKey: string; color: string }[] = [
+  { key: 'click', labelKey: 'settings.sfx.click', color: 'bg-blue-500' },
+  { key: 'success', labelKey: 'settings.sfx.success', color: 'bg-green-500' },
+  { key: 'error', labelKey: 'settings.sfx.error', color: 'bg-red-500' },
+  { key: 'notify', labelKey: 'settings.sfx.notify', color: 'bg-amber-500' }
 ]
 
 export default function SfxSettings() {
+  const { t } = useTranslation()
   const sfx = useSfx()
   const [enabled, setEnabled] = useState<boolean>(sfx.enabled)
   const [vol, setVol] = useState<number>(sfx.volume)
@@ -35,8 +37,8 @@ export default function SfxSettings() {
             <Music2 className="h-5 w-5 text-pink-500" />
           </div>
           <div>
-            <CardTitle className="text-base">内置 UI 音效</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">配置界面交互的声音反馈</p>
+            <CardTitle className="text-base">{t('settings.sfx.title')}</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.sfx.description')}</p>
           </div>
         </div>
       </CardHeader>
@@ -57,13 +59,13 @@ export default function SfxSettings() {
               />
               <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
             </label>
-            <span className="text-sm font-medium">启用 UI 音效</span>
+            <span className="text-sm font-medium">{t('settings.sfx.enableUiSounds')}</span>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Volume2 className="h-4 w-4" />
-              <span>音量</span>
+              <span>{t('settings.sfx.volume')}</span>
             </div>
             <div className="flex-1 flex items-center gap-3">
               <input
@@ -96,15 +98,15 @@ export default function SfxSettings() {
               <div className="flex items-center gap-3 min-w-[100px]">
                 <span className={`h-2 w-2 rounded-full ${it.color}`}></span>
                 <div>
-                  <span className="text-sm font-medium">{it.label}</span>
-                  <span className="text-xs text-muted-foreground ml-1.5">{it.labelEn}</span>
+                  <span className="text-sm font-medium">{t(it.labelKey)}</span>
+                  <span className="text-xs text-muted-foreground ml-1.5">{it.key}</span>
                 </div>
               </div>
 
               <label className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-colors text-xs text-muted-foreground hover:text-foreground flex-1 min-w-0">
                 <Upload className="h-3 w-3 shrink-0" />
                 <span className="truncate">
-                  {overrides[it.key]?.name ? overrides[it.key]?.name : '选择文件'}
+                  {overrides[it.key]?.name ? overrides[it.key]?.name : t('common.label.chooseFile')}
                 </span>
                 <Input
                   type="file"
@@ -129,7 +131,7 @@ export default function SfxSettings() {
                   variant="ghost"
                   onClick={() => sfx.play(it.key)}
                   className="h-8 w-8 p-0"
-                  title="试听"
+                  title={t('common.button.preview')}
                 >
                   <Play className="h-3.5 w-3.5" />
                 </Button>
@@ -143,7 +145,7 @@ export default function SfxSettings() {
                     setOverrides((o) => ({ ...o, [it.key]: { name: undefined } }))
                   }}
                   className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                  title="恢复默认"
+                  title={t('common.button.reset')}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
@@ -155,8 +157,7 @@ export default function SfxSettings() {
         <div className="mt-6 pt-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            默认使用内置 WAV
-            文件；你也可以为某个键选择自定义音频覆盖。首次用户手势会自动解锁音频上下文。
+            {t('settings.sfx.hint')}
           </p>
         </div>
       </CardContent>

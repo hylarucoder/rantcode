@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,7 @@ export function Composer({
   runner: ExecRunner
   onRunnerChange: (r: ExecRunner) => void
 }) {
+  const { t } = useTranslation()
   // 工作区与 docs 列表
   const { projectId } = useProject()
   const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
@@ -151,7 +153,7 @@ export function Composer({
       <Textarea
         ref={textareaRef}
         value={value}
-        placeholder="Describe what you want to work on..."
+        placeholder={t('workspace.composer.placeholder')}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
         className="resize-none border-0 bg-transparent px-3 pt-3 pb-1 text-sm shadow-none focus-visible:ring-0"
@@ -199,7 +201,7 @@ export function Composer({
             <SelectTrigger
               size="sm"
               className="h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0"
-              title="选择执行器"
+              title={t('workspace.composer.selectRunner')}
             >
               <Cpu className="h-3 w-3" />
               <SelectValue />
@@ -216,7 +218,7 @@ export function Composer({
 
         {/* 中间：快捷键提示 */}
         <span className="hidden text-[10px] text-muted-foreground/60 sm:block">
-          {isMac ? '⌘' : 'Ctrl'}+Enter 发送
+          {isMac ? '⌘' : 'Ctrl'}+Enter {t('workspace.composer.sendHint')}
         </span>
 
         {/* 右侧：发送/中断按钮 */}
@@ -231,12 +233,12 @@ export function Composer({
           {isRunning ? (
             <>
               <Square className="h-3 w-3" />
-              中断
+              {t('workspace.composer.interrupt')}
             </>
           ) : (
             <>
               <Send className="h-3 w-3" />
-              发送
+              {t('workspace.composer.send')}
             </>
           )}
         </Button>

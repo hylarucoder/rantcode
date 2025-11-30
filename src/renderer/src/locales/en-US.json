@@ -1,0 +1,246 @@
+{
+  "common": {
+    "button": {
+      "ok": "OK",
+      "cancel": "Cancel",
+      "save": "Save",
+      "delete": "Delete",
+      "add": "Add",
+      "edit": "Edit",
+      "close": "Close",
+      "refresh": "Refresh",
+      "back": "Back",
+      "open": "Open",
+      "remove": "Remove",
+      "browse": "Browse…",
+      "browsing": "Picking…",
+      "preview": "Preview",
+      "reset": "Reset"
+    },
+    "status": {
+      "loading": "Loading…",
+      "saving": "Saving…",
+      "adding": "Adding…",
+      "detecting": "Detecting…",
+      "testing": "Testing…",
+      "running": "Running…",
+      "success": "Success",
+      "failed": "Failed",
+      "active": "Active",
+      "enabled": "Enabled",
+      "enable": "Enable"
+    },
+    "label": {
+      "optional": "(Optional)",
+      "required": "*",
+      "noOutput": "(No output)",
+      "noFileSelected": "No file selected",
+      "chooseFile": "Choose file"
+    }
+  },
+  "layout": {
+    "projects": "Projects",
+    "noProjects": "No projects",
+    "selectProject": "Select project",
+    "noProjectsYet": "No projects yet",
+    "addOrManageProjects": "Add or manage projects…",
+    "removeCurrentProject": "Remove current project",
+    "openSettings": "Open settings",
+    "toggleTheme": "Toggle theme"
+  },
+  "projects": {
+    "title": "Projects",
+    "empty": "No projects yet",
+    "emptyHint": "Select an existing workspace or add a new local repository to start working.",
+    "loadingProjects": "Loading projects…",
+    "add": {
+      "title": "Add Project",
+      "button": "New Project",
+      "firstProject": "Add your first project",
+      "description": "Create a new project by selecting repository path",
+      "name": "Name",
+      "namePlaceholder": "My repo",
+      "nameHint": "Optional display name.",
+      "path": "Repository Path",
+      "pathPlaceholder": "/Users/me/Projects/my-repo",
+      "pathError": "Enter an absolute path to your repository"
+    },
+    "remove": {
+      "confirm": "Remove {{name}} from rantcode? Files stay on disk.",
+      "success": "Project removed"
+    },
+    "errors": {
+      "addFailed": "Failed to add project",
+      "removeFailed": "Failed to remove project",
+      "selectFolderFailed": "Failed to select folder"
+    }
+  },
+  "workspace": {
+    "session": {
+      "title": "Sessions",
+      "new": "New"
+    },
+    "composer": {
+      "placeholder": "Describe what you want to work on…",
+      "selectRunner": "Select runner",
+      "sendHint": "to send",
+      "send": "Send",
+      "interrupt": "Stop"
+    },
+    "kanban": {
+      "title": "Task Board",
+      "taskCount": "{{count}} tasks",
+      "loading": "Loading tasks…",
+      "empty": "No tasks yet",
+      "emptyHint": "Create .md files in docs/task/ directory",
+      "frontmatterHint": "Files need frontmatter:",
+      "statusHint": "status: backlog | in-progress | review | done",
+      "footerHint": "Tasks from docs/task/*.md · Change status field in frontmatter to move tasks",
+      "dropHere": "Drop here",
+      "dragHere": "Drag tasks here",
+      "openFile": "Open file",
+      "chat": "Chat",
+      "moveTo": "Move to {{column}}",
+      "movedTo": "Task moved to \"{{column}}\"",
+      "updateFailed": "Failed to update task status",
+      "columns": {
+        "backlog": "Backlog",
+        "inProgress": "In Progress",
+        "review": "Review",
+        "done": "Done"
+      }
+    },
+    "git": {
+      "loading": "Loading Git status…",
+      "loadingDiff": "Loading diff…",
+      "selectFile": "Select a file to view diff",
+      "noDiff": "No diff content",
+      "clean": "Working tree clean",
+      "noChanges": "No changes to commit",
+      "staged": "Staged",
+      "unstaged": "Unstaged"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "closeSettings": "Close settings",
+    "categories": {
+      "general": "General",
+      "generalDesc": "Appearance & language settings",
+      "agents": "Agents",
+      "agentsDesc": "AI agent configuration",
+      "sounds": "Sounds",
+      "soundsDesc": "Sound effects & voice"
+    },
+    "nav": {
+      "aiAgents": "AI Agents",
+      "soundEffects": "Sound Effects",
+      "preferences": "Preferences"
+    },
+    "agents": {
+      "codex": "Codex",
+      "codexSubtitle": "OpenAI Codex CLI",
+      "claude": "Claude Code",
+      "claudeSubtitle": "Anthropic Claude CLI",
+      "kimi": "Kimi",
+      "glm": "GLM",
+      "minmax": "Minmax",
+      "executablePath": "Executable Path",
+      "version": "Version",
+      "codexNotFound": "codex not found, check your PATH",
+      "claudeNotFound": "claude/claude-code not found, check your PATH",
+      "versionEmpty": "--version output is empty",
+      "redetect": "Re-detect",
+      "agentConfig": "Agent Configuration"
+    },
+    "vendor": {
+      "displayName": "Display Name",
+      "executablePath": "Executable Path",
+      "detectingPath": "Detecting claude/claude-code…",
+      "apiKey": "API Key",
+      "primaryModel": "Primary Model",
+      "fastModel": "Fast Model",
+      "selectModel": "Select model",
+      "selectFastModel": "Select fast model (optional)",
+      "saveConfig": "Save Config",
+      "testConnection": "Test Connection",
+      "lastTest": "Last test",
+      "testOutput": "Test Output",
+      "command": "Command",
+      "error": "Error",
+      "output": "Output"
+    },
+    "sounds": {
+      "uiSfx": "UI Sound Effects",
+      "sessionSfx": "Session Sound Effects",
+      "tts": "Text-to-Speech",
+      "soundSettings": "Sound Settings"
+    },
+    "sfx": {
+      "title": "Built-in UI Sound Effects",
+      "description": "Configure audio feedback for UI interactions",
+      "enableUiSounds": "Enable UI sounds",
+      "volume": "Volume",
+      "click": "Click",
+      "success": "Success",
+      "error": "Error",
+      "notify": "Notify",
+      "hint": "Uses built-in WAV files by default; you can override any key with custom audio. First user gesture will unlock audio context."
+    },
+    "audioFx": {
+      "title": "Session Sound Effects",
+      "description": "Configure sounds for session start and end",
+      "enableSessionSounds": "Enable session sounds",
+      "startSound": "Start sound",
+      "endSound": "End sound",
+      "chooseAudioFile": "Choose audio file",
+      "hint": "Supports mp3/wav formats. Toggle enables instant preview of selected sound."
+    },
+    "tts": {
+      "title": "Text-to-Speech",
+      "description": "Configure voice reading of AI responses",
+      "voiceEngine": "Voice Engine",
+      "selectEngine": "Select voice engine",
+      "engineOff": "Off",
+      "engineWebSpeech": "Local synthesis (Web Speech)",
+      "engineDoubao": "Doubao (Cloud)",
+      "engineMinimax": "Minimax (Cloud)",
+      "comingSoon": "(Coming soon)",
+      "speed": "Speed",
+      "volume": "Volume",
+      "minDuration": "Min Duration",
+      "milliseconds": "(ms)",
+      "onlyOnFailure": "Only on failure",
+      "hint": "Cloud TTS coming in future versions (Doubao/Minimax). Currently using local Web Speech for playback and preview."
+    },
+    "general": {
+      "title": "General Settings",
+      "basic": "Basic Settings",
+      "basicDesc": "General app configuration",
+      "basicPlaceholder": "More settings coming soon…",
+      "appearance": "Appearance & Language",
+      "appearanceDesc": "Theme and interface language settings",
+      "language": "Language",
+      "languageEn": "Language",
+      "selectLanguage": "Select language",
+      "zhCN": "中文（简体）",
+      "enUS": "English",
+      "theme": "Theme",
+      "themeEn": "Theme",
+      "selectTheme": "Select theme",
+      "lightMode": "Light Mode",
+      "darkMode": "Dark Mode"
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Page Not Found",
+    "message": "The page you're looking for doesn't exist or has been removed.",
+    "backToPrevious": "Go Back",
+    "backToHome": "Go Home"
+  },
+  "errors": {
+    "unknown": "An unknown error occurred",
+    "networkError": "Network connection failed"
+  }
+}

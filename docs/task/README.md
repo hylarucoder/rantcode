@@ -8,6 +8,7 @@
 |------|------|--------|------|
 | [drizzle-orm-research.md](./drizzle-orm-research.md) | review | P1 | Drizzle ORM 调研与引入计划 |
 | [release-checklist.md](./release-checklist.md) | review | P1 | 发布前检查清单 |
+| [implement-i18n.md](./implement-i18n.md) | backlog | P1 | 国际化（i18n）支持 |
 | [implement-task-board.md](./implement-task-board.md) | done | P0 | 任务看板功能 |
 | [session-persistence.md](./session-persistence.md) | done | P2 | Session 持久化到 SQLite |
 | [implement-tts.md](./implement-tts.md) | backlog | P2 | TTS 语音提醒功能 |

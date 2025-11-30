@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   FolderOpen,
@@ -21,11 +22,12 @@ import {
 import { useProjects } from '@/state/projects'
 import { useAppStore } from '@/state/app'
 import { setRootDarkWithNoTransition } from '@/lib/theme'
-import { useSfx } from '@/hooks/useSfx'
+import { useSfx } from '@/shared/hooks/useSfx'
 import {
   useGeneralSettingsQuery,
   useSetGeneralSettingsMutation
 } from '@/features/settings/api/generalHooks'
+import { StatusBar } from './StatusBar'
 import type { z } from 'zod'
 import type { generalSettingsSchema } from '@shared/orpc/schemas'
 
@@ -33,6 +35,7 @@ type GeneralSettings = z.infer<typeof generalSettingsSchema>
 type Theme = GeneralSettings['theme']
 
 export default function AppShell() {
+  const { t } = useTranslation()
   const { projectId } = useParams<{ projectId?: string }>()
   const activeProjectId = useAppStore((s) => s.activeProjectId)
   const setActiveProjectId = useAppStore((s) => s.setActiveProjectId)
@@ -74,9 +77,9 @@ export default function AppShell() {
 
   const activeLabel = useMemo(() => {
     if (activeProject) return activeProject.name || activeProject.repoPath
-    if (!hasProjects) return 'No projects'
-    return 'Select project'
-  }, [activeProject, hasProjects])
+    if (!hasProjects) return t('layout.noProjects')
+    return t('layout.selectProject')
+  }, [activeProject, hasProjects, t])
 
   const handleTitlebarDoubleClick = () => {
     const bridge = (
@@ -100,7 +103,7 @@ export default function AppShell() {
   const handleRemoveCurrentProject = async () => {
     if (!activeProject) return
     const ok = window.confirm(
-      `Remove ${activeProject.name || activeProject.repoPath} from rantcode? Files stay on disk.`
+      t('projects.remove.confirm', { name: activeProject.name || activeProject.repoPath })
     )
     if (!ok) return
     await removeProject(activeProject.id)
@@ -135,7 +138,7 @@ export default function AppShell() {
             <DropdownMenuContent align="start" className="min-w-[260px]">
               <DropdownMenuLabel className="flex items-center gap-2">
                 <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                Projects
+                {t('layout.projects')}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {projects.map((project) => {
@@ -155,14 +158,16 @@ export default function AppShell() {
                       </span>
                     </div>
                     {isActive && (
-                      <span className="ml-2 text-[10px] uppercase text-primary">Active</span>
+                      <span className="ml-2 text-[10px] uppercase text-primary">
+                        {t('common.status.active')}
+                      </span>
                     )}
                   </DropdownMenuItem>
                 )
               })}
               {!projects.length && (
                 <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                  No projects yet
+                  {t('layout.noProjectsYet')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -171,7 +176,7 @@ export default function AppShell() {
                 onClick={handleManageProjects}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add or manage projects…
+                {t('layout.addOrManageProjects')}
               </DropdownMenuItem>
               {activeProject && (
                 <DropdownMenuItem
@@ -183,7 +188,7 @@ export default function AppShell() {
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Remove current project
+                  {t('layout.removeCurrentProject')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -198,7 +203,7 @@ export default function AppShell() {
               onClick={() => navigate('/settings/general')}
             >
               <SettingsIcon className="h-4 w-4" />
-              <span className="sr-only">Open settings</span>
+              <span className="sr-only">{t('layout.openSettings')}</span>
             </Button>
             <Button
               type="button"
@@ -216,7 +221,7 @@ export default function AppShell() {
               }}
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span className="sr-only">Toggle theme</span>
+              <span className="sr-only">{t('layout.toggleTheme')}</span>
             </Button>
           </div>
         </div>
@@ -224,6 +229,8 @@ export default function AppShell() {
       <div className="flex-1 min-h-0">
         <Outlet />
       </div>
+      {/* 底部状态栏 */}
+      <StatusBar />
     </div>
   )
 }

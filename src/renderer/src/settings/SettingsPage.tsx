@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
@@ -38,39 +39,59 @@ type Cat = 'general' | 'agents' | 'sounds'
 type AgentsItem = 'codex' | 'claude' | 'kimi' | 'glm' | 'minmax'
 type SoundsItem = 'sfx' | 'audioFx' | 'tts'
 
-const PRIMARY_CATEGORIES: { key: Cat; label: string; icon: React.ReactNode; desc: string }[] = [
-  {
-    key: 'general',
-    label: 'General',
-    icon: <Settings className="h-4 w-4" />,
-    desc: '外观与语言设置'
-  },
-  { key: 'agents', label: 'Agents', icon: <Bot className="h-4 w-4" />, desc: 'AI 代理配置' },
-  { key: 'sounds', label: 'Sounds', icon: <Volume2 className="h-4 w-4" />, desc: '音效与语音' }
-]
-
-const AGENTS_ITEMS: { key: AgentsItem; label: string; icon: React.ReactNode }[] = [
-  { key: 'codex', label: 'Codex', icon: <Terminal className="h-3.5 w-3.5" /> },
-  { key: 'claude', label: 'Claude Code', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { key: 'kimi', label: 'Kimi', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { key: 'glm', label: 'GLM', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { key: 'minmax', label: 'Minmax', icon: <Sparkles className="h-3.5 w-3.5" /> }
-]
-
-const SOUNDS_ITEMS: { key: SoundsItem; label: string; icon: React.ReactNode }[] = [
-  { key: 'sfx', label: 'UI 音效', icon: <Music2 className="h-3.5 w-3.5" /> },
-  { key: 'audioFx', label: '会话音效', icon: <Volume2 className="h-3.5 w-3.5" /> },
-  { key: 'tts', label: '语音播报', icon: <Mic className="h-3.5 w-3.5" /> }
-]
-
 export default function SettingsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  const PRIMARY_CATEGORIES: { key: Cat; label: string; icon: React.ReactNode; desc: string }[] = [
+    {
+      key: 'general',
+      label: t('settings.categories.general'),
+      icon: <Settings className="h-4 w-4" />,
+      desc: t('settings.categories.generalDesc')
+    },
+    {
+      key: 'agents',
+      label: t('settings.categories.agents'),
+      icon: <Bot className="h-4 w-4" />,
+      desc: t('settings.categories.agentsDesc')
+    },
+    {
+      key: 'sounds',
+      label: t('settings.categories.sounds'),
+      icon: <Volume2 className="h-4 w-4" />,
+      desc: t('settings.categories.soundsDesc')
+    }
+  ]
+
+  const AGENTS_ITEMS: { key: AgentsItem; label: string; icon: React.ReactNode }[] = [
+    { key: 'codex', label: t('settings.agents.codex'), icon: <Terminal className="h-3.5 w-3.5" /> },
+    {
+      key: 'claude',
+      label: t('settings.agents.claude'),
+      icon: <Sparkles className="h-3.5 w-3.5" />
+    },
+    { key: 'kimi', label: t('settings.agents.kimi'), icon: <Sparkles className="h-3.5 w-3.5" /> },
+    { key: 'glm', label: t('settings.agents.glm'), icon: <Sparkles className="h-3.5 w-3.5" /> },
+    { key: 'minmax', label: t('settings.agents.minmax'), icon: <Sparkles className="h-3.5 w-3.5" /> }
+  ]
+
+  const SOUNDS_ITEMS: { key: SoundsItem; label: string; icon: React.ReactNode }[] = [
+    { key: 'sfx', label: t('settings.sounds.uiSfx'), icon: <Music2 className="h-3.5 w-3.5" /> },
+    {
+      key: 'audioFx',
+      label: t('settings.sounds.sessionSfx'),
+      icon: <Volume2 className="h-3.5 w-3.5" />
+    },
+    { key: 'tts', label: t('settings.sounds.tts'), icon: <Mic className="h-3.5 w-3.5" /> }
+  ]
 
   // 从 URL 参数读取初始选中的 agent
   const agentsParam = searchParams.get('agents') as AgentsItem | null
   const validAgentsItems: AgentsItem[] = ['codex', 'claude', 'kimi', 'glm', 'minmax']
-  const initialAgentsItem = agentsParam && validAgentsItems.includes(agentsParam) ? agentsParam : 'kimi'
+  const initialAgentsItem =
+    agentsParam && validAgentsItems.includes(agentsParam) ? agentsParam : 'kimi'
 
   const [cat, setCat] = useState<Cat>(agentsParam ? 'agents' : 'agents')
   const [agentsItem, setAgentsItem] = useState<AgentsItem>(initialAgentsItem)
@@ -82,6 +103,22 @@ export default function SettingsPage() {
     claudeCode?: { executablePath?: string; version?: string }
   }
 
+  const getNavTitle = () => {
+    if (cat === 'agents') return t('settings.nav.aiAgents')
+    if (cat === 'sounds') return t('settings.nav.soundEffects')
+    return t('settings.nav.preferences')
+  }
+
+  const getContentTitle = () => {
+    if (cat === 'agents') {
+      return AGENTS_ITEMS.find((i) => i.key === agentsItem)?.label || t('settings.agents.agentConfig')
+    }
+    if (cat === 'sounds') {
+      return SOUNDS_ITEMS.find((i) => i.key === soundsItem)?.label || t('settings.sounds.soundSettings')
+    }
+    return t('settings.general.title')
+  }
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       {/* Left: primary categories */}
@@ -91,7 +128,7 @@ export default function SettingsPage() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Settings className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-sm font-semibold">Settings</span>
+            <span className="text-sm font-semibold">{t('settings.title')}</span>
           </div>
           <Button
             type="button"
@@ -99,7 +136,7 @@ export default function SettingsPage() {
             variant="ghost"
             className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive"
             onClick={() => navigate('/')}
-            aria-label="Close settings"
+            aria-label={t('settings.closeSettings')}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -144,7 +181,7 @@ export default function SettingsPage() {
       <div className="w-48 shrink-0 border-r border-border/50 bg-background/50">
         <div className="h-14 flex items-center px-4 border-b border-border/50">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {cat === 'agents' ? 'AI Agents' : cat === 'sounds' ? 'Sound Effects' : 'Preferences'}
+            {getNavTitle()}
           </span>
         </div>
 
@@ -203,7 +240,7 @@ export default function SettingsPage() {
                   className="flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm bg-accent text-accent-foreground font-medium"
                 >
                   <Palette className="h-3.5 w-3.5 text-primary" />
-                  <span>外观与语言</span>
+                  <span>{t('settings.general.appearance')}</span>
                 </button>
               </div>
             </div>
@@ -214,24 +251,18 @@ export default function SettingsPage() {
       {/* Right: content */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         <div className="h-14 flex items-center px-6 border-b border-border/50 bg-background/30 backdrop-blur-sm sticky top-0 z-10">
-          <span className="text-sm font-medium">
-            {cat === 'agents'
-              ? AGENTS_ITEMS.find((i) => i.key === agentsItem)?.label || 'Agent Configuration'
-              : cat === 'sounds'
-                ? SOUNDS_ITEMS.find((i) => i.key === soundsItem)?.label || 'Sound Settings'
-                : 'General Settings'}
-          </span>
+          <span className="text-sm font-medium">{getContentTitle()}</span>
         </div>
 
         <div className="p-6">
           {cat === 'agents' && agentsItem === 'codex' && (
             <AgentInfoCard
-              title="Codex"
-              subtitle="OpenAI Codex CLI"
+              title={t('settings.agents.codex')}
+              subtitle={t('settings.agents.codexSubtitle')}
               executablePath={info?.codex?.executablePath}
               version={info?.codex?.version}
-              pathPlaceholder="未发现 codex，可检查 PATH"
-              versionPlaceholder="--version 输出为空"
+              pathPlaceholder={t('settings.agents.codexNotFound')}
+              versionPlaceholder={t('settings.agents.versionEmpty')}
               onRefresh={() => infoQuery.refetch()}
               isRefetching={infoQuery.isFetching}
             />
@@ -239,12 +270,12 @@ export default function SettingsPage() {
 
           {cat === 'agents' && agentsItem === 'claude' && (
             <AgentInfoCard
-              title="Claude Code"
-              subtitle="Anthropic Claude CLI"
+              title={t('settings.agents.claude')}
+              subtitle={t('settings.agents.claudeSubtitle')}
               executablePath={info?.claudeCode?.executablePath}
               version={info?.claudeCode?.version}
-              pathPlaceholder="未发现 claude/claude-code，可检查 PATH"
-              versionPlaceholder="--version 输出为空"
+              pathPlaceholder={t('settings.agents.claudeNotFound')}
+              versionPlaceholder={t('settings.agents.versionEmpty')}
               onRefresh={() => infoQuery.refetch()}
               isRefetching={infoQuery.isFetching}
             />
@@ -337,6 +368,8 @@ function AgentInfoCard({
   onRefresh: () => void
   isRefetching: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
       <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
@@ -354,7 +387,7 @@ function AgentInfoCard({
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              可执行路径
+              {t('settings.agents.executablePath')}
             </label>
             <Input
               value={executablePath || ''}
@@ -365,7 +398,7 @@ function AgentInfoCard({
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              版本
+              {t('settings.agents.version')}
             </label>
             <Input
               value={version || ''}
@@ -387,10 +420,10 @@ function AgentInfoCard({
             {isRefetching ? (
               <>
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                检测中…
+                {t('common.status.detecting')}
               </>
             ) : (
-              '重新检测'
+              t('settings.agents.redetect')
             )}
           </Button>
         </div>
@@ -400,6 +433,8 @@ function AgentInfoCard({
 }
 
 function GeneralSettingsPanel() {
+  const { t } = useTranslation()
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="border-border/50 shadow-sm overflow-hidden">
@@ -409,17 +444,21 @@ function GeneralSettingsPanel() {
               <Settings className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <CardTitle className="text-base">基础设置</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">应用通用配置</p>
+              <CardTitle className="text-base">{t('settings.general.basic')}</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t('settings.general.basicDesc')}
+              </p>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-4">
+        <CardContent className="py-4">
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
               <Settings className="h-6 w-6 text-muted-foreground/50" />
             </div>
-            <p className="text-sm text-muted-foreground">更多通用设置将陆续加入…</p>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.general.basicPlaceholder')}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -431,12 +470,14 @@ function GeneralSettingsPanel() {
               <Palette className="h-5 w-5 text-violet-500" />
             </div>
             <div>
-              <CardTitle className="text-base">外观与语言</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">主题和界面语言设置</p>
+              <CardTitle className="text-base">{t('settings.general.appearance')}</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t('settings.general.appearanceDesc')}
+              </p>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-4">
+        <CardContent className="py-4">
           <GeneralAppearanceAndLanguage />
         </CardContent>
       </Card>
@@ -445,6 +486,7 @@ function GeneralSettingsPanel() {
 }
 
 function GeneralAppearanceAndLanguage() {
+  const { t } = useTranslation()
   const query = useGeneralSettingsQuery()
   const mutate = useSetGeneralSettingsMutation()
 
@@ -461,12 +503,13 @@ function GeneralAppearanceAndLanguage() {
   }, [lang])
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5 py-2">
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Languages className="h-4 w-4 text-muted-foreground" />
           <label className="text-sm font-medium">
-            语言 <span className="text-xs text-muted-foreground">Language</span>
+            {t('settings.general.language')}{' '}
+            <span className="text-xs text-muted-foreground">{t('settings.general.languageEn')}</span>
           </label>
         </div>
         <Select
@@ -477,19 +520,19 @@ function GeneralAppearanceAndLanguage() {
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="选择语言" />
+            <SelectValue placeholder={t('settings.general.selectLanguage')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="zh-CN">
               <span className="flex items-center gap-2">
                 <span>🇨🇳</span>
-                <span>中文（简体）</span>
+                <span>{t('settings.general.zhCN')}</span>
               </span>
             </SelectItem>
             <SelectItem value="en-US">
               <span className="flex items-center gap-2">
                 <span>🇺🇸</span>
-                <span>English</span>
+                <span>{t('settings.general.enUS')}</span>
               </span>
             </SelectItem>
           </SelectContent>
@@ -500,7 +543,8 @@ function GeneralAppearanceAndLanguage() {
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-muted-foreground" />
           <label className="text-sm font-medium">
-            主题 <span className="text-xs text-muted-foreground">Theme</span>
+            {t('settings.general.theme')}{' '}
+            <span className="text-xs text-muted-foreground">{t('settings.general.themeEn')}</span>
           </label>
         </div>
         <Select
@@ -511,19 +555,19 @@ function GeneralAppearanceAndLanguage() {
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="选择主题" />
+            <SelectValue placeholder={t('settings.general.selectTheme')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="light">
               <span className="flex items-center gap-2">
                 <span>☀️</span>
-                <span>Light Mode</span>
+                <span>{t('settings.general.lightMode')}</span>
               </span>
             </SelectItem>
             <SelectItem value="dark">
               <span className="flex items-center gap-2">
                 <span>🌙</span>
-                <span>Dark Mode</span>
+                <span>{t('settings.general.darkMode')}</span>
               </span>
             </SelectItem>
           </SelectContent>

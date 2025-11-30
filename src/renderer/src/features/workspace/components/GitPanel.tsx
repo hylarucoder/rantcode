@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronDown,
@@ -390,12 +391,14 @@ function DiffView({
   diff,
   file,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  t
 }: {
   diff: GitDiff
   file: string
   viewMode: DiffViewMode
   onViewModeChange: (mode: DiffViewMode) => void
+  t: (key: string) => string
 }) {
   const fileData = diff.files.find((f) => f.path === file)
 
@@ -405,7 +408,7 @@ function DiffView({
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
           <FileDiff className="h-6 w-6" />
         </div>
-        <p className="text-sm">没有差异内容</p>
+        <p className="text-sm">{t('workspace.git.noDiff')}</p>
       </div>
     )
   }
@@ -473,6 +476,7 @@ function DiffView({
 }
 
 export function GitPanel({ projectId }: GitPanelProps) {
+  const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [stagedExpanded, setStagedExpanded] = useState(true)
   const [unstagedExpanded, setUnstagedExpanded] = useState(true)
@@ -587,7 +591,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">加载 Git 状态...</p>
+        <p className="text-sm text-muted-foreground">{t('workspace.git.loading')}</p>
       </div>
     )
   }
@@ -643,22 +647,22 @@ export function GitPanel({ projectId }: GitPanelProps) {
                     <CheckCircle2 className="h-7 w-7 text-emerald-500" />
                   </div>
                   <div className="text-center">
-                    <p className="font-medium text-foreground">工作区干净</p>
-                    <p className="mt-1 text-xs text-muted-foreground">没有待提交的更改</p>
+                    <p className="font-medium text-foreground">{t('workspace.git.clean')}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('workspace.git.noChanges')}</p>
                   </div>
                 </div>
               ) : (
                 <>
                   {renderFileList(
                     staged,
-                    '已暂存',
+                    t('workspace.git.staged'),
                     stagedExpanded,
                     () => setStagedExpanded(!stagedExpanded),
                     'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                   )}
                   {renderFileList(
                     unstaged,
-                    '未暂存',
+                    t('workspace.git.unstaged'),
                     unstagedExpanded,
                     () => setUnstagedExpanded(!unstagedExpanded),
                     'bg-amber-500/20 text-amber-600 dark:text-amber-400'
@@ -677,18 +681,19 @@ export function GitPanel({ projectId }: GitPanelProps) {
               file={selectedFile}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              t={t}
             />
           ) : diffLoading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">加载差异...</p>
+              <p className="text-sm text-muted-foreground">{t('workspace.git.loadingDiff')}</p>
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/50">
                 <FileDiff className="h-7 w-7" />
               </div>
-              <p className="text-sm">选择一个文件查看差异</p>
+              <p className="text-sm">{t('workspace.git.selectFile')}</p>
             </div>
           )}
         </div>

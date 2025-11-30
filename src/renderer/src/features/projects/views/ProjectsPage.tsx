@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { FolderOpen, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import { useProjects } from '@/state/projects'
 import type { ProjectInfo } from '@/types'
 
 export default function ProjectsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { projects, loading, addProject, removeProject, pickRepoPath } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
@@ -46,7 +48,7 @@ export default function ProjectsPage() {
     const trimmedRepoPath = repoPath.trim()
     const trimmedName = name.trim()
     if (!trimmedRepoPath) {
-      setRepoPathError('Enter an absolute path to your repository')
+      setRepoPathError(t('projects.add.pathError'))
       return
     }
     setRepoPathError(null)
@@ -64,7 +66,7 @@ export default function ProjectsPage() {
       navigate(`/project/${project.id}`)
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to add project'
+        err instanceof Error ? err.message : typeof err === 'string' ? err : t('projects.errors.addFailed')
       toast.error(msg)
     } finally {
       setSubmitting(false)
@@ -80,7 +82,7 @@ export default function ProjectsPage() {
         setRepoPathError(null)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to select folder'
+      const msg = err instanceof Error ? err.message : t('projects.errors.selectFolderFailed')
       toast.error(msg)
     } finally {
       setPicking(false)
@@ -95,9 +97,7 @@ export default function ProjectsPage() {
     <div className="flex h-full w-full flex-col items-center justify-start px-6 pt-12">
       <div className="w-full max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Select an existing workspace or add a new local repository to start working.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('projects.emptyHint')}</p>
           <Dialog open={modalOpen} onOpenChange={setModalOpen}>
             <Button
               size="default"
@@ -105,30 +105,34 @@ export default function ProjectsPage() {
               onClick={() => setModalOpen(true)}
             >
               <Plus className="h-4 w-4" />
-              New Project
+              {t('projects.add.button')}
             </Button>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Project</DialogTitle>
+                <DialogTitle>{t('projects.add.title')}</DialogTitle>
                 <DialogDescription className="sr-only">
-                  Create a new project by selecting repository path
+                  {t('projects.add.description')}
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-2 space-y-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-foreground">Name</label>
+                  <label className="text-sm font-medium text-foreground">
+                    {t('projects.add.name')}
+                  </label>
                   <Input
-                    placeholder="My repo"
+                    placeholder={t('projects.add.namePlaceholder')}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">Optional display name.</p>
+                  <p className="text-xs text-muted-foreground">{t('projects.add.nameHint')}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-foreground">Repository Path</label>
+                  <label className="text-sm font-medium text-foreground">
+                    {t('projects.add.path')}
+                  </label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="/Users/me/Projects/my-repo"
+                      placeholder={t('projects.add.pathPlaceholder')}
                       value={repoPath}
                       onChange={(e) => setRepoPath(e.target.value)}
                       className="flex-1"
@@ -140,7 +144,7 @@ export default function ProjectsPage() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={handlePick}
                     >
-                      {picking ? 'Picking…' : 'Browse…'}
+                      {picking ? t('common.button.browsing') : t('common.button.browse')}
                     </Button>
                   </div>
                   {repoPathError && <p className="text-xs text-red-500">{repoPathError}</p>}
@@ -153,10 +157,10 @@ export default function ProjectsPage() {
                   onClick={() => setModalOpen(false)}
                   disabled={submitting}
                 >
-                  Cancel
+                  {t('common.button.cancel')}
                 </Button>
                 <Button type="button" onClick={handleAdd} disabled={submitting}>
-                  {submitting ? 'Adding…' : 'Add'}
+                  {submitting ? t('common.status.adding') : t('common.button.add')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -169,7 +173,7 @@ export default function ProjectsPage() {
             aria-busy={isEmptyStateLoading}
           >
             <p className="mb-3 text-sm text-muted-foreground">
-              {isEmptyStateLoading ? 'Loading projects…' : 'No projects yet.'}
+              {isEmptyStateLoading ? t('projects.loadingProjects') : t('projects.empty')}
             </p>
             <Button
               type="button"
@@ -177,7 +181,7 @@ export default function ProjectsPage() {
                 setModalOpen(true)
               }}
             >
-              Add your first project
+              {t('projects.add.firstProject')}
             </Button>
           </Card>
         ) : (
@@ -209,7 +213,7 @@ export default function ProjectsPage() {
                       openProject(project)
                     }}
                   >
-                    Open
+                    {t('common.button.open')}
                   </Button>
                   <Button
                     type="button"
@@ -218,20 +222,20 @@ export default function ProjectsPage() {
                     onClick={async (e) => {
                       e.stopPropagation()
                       const ok = window.confirm(
-                        `Remove ${project.name || project.repoPath} from rantcode? Files stay on disk.`
+                        t('projects.remove.confirm', { name: project.name || project.repoPath })
                       )
                       if (!ok) return
                       try {
                         await removeProject(project.id)
-                        toast.success('Project removed')
+                        toast.success(t('projects.remove.success'))
                       } catch (error) {
                         const msg =
-                          error instanceof Error ? error.message : 'Failed to remove project'
+                          error instanceof Error ? error.message : t('projects.errors.removeFailed')
                         toast.error(msg)
                       }
                     }}
                   >
-                    Remove
+                    {t('common.button.remove')}
                   </Button>
                 </div>
               </div>

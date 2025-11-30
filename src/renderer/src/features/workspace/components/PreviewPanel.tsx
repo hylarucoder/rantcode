@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useThemeMode } from '@/hooks/use-theme-mode'
+import { useThemeMode } from '@/shared/hooks/use-theme-mode'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import type { PreviewTocItem } from '@/features/preview'
 import type { ThemeMode } from '@/types/theme'

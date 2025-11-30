@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   DragOverlay,
@@ -66,11 +67,11 @@ interface Task {
 }
 
 // 列配置
-const columns: { id: TaskStatus; label: string; color: string; icon: typeof Circle }[] = [
-  { id: 'backlog', label: '待办', color: 'bg-slate-500', icon: Circle },
-  { id: 'in-progress', label: '进行中', color: 'bg-blue-500', icon: Clock },
-  { id: 'review', label: '审核', color: 'bg-amber-500', icon: AlertCircle },
-  { id: 'done', label: '完成', color: 'bg-emerald-500', icon: CheckCircle2 }
+const columns: { id: TaskStatus; labelKey: string; color: string; icon: typeof Circle }[] = [
+  { id: 'backlog', labelKey: 'workspace.kanban.columns.backlog', color: 'bg-slate-500', icon: Circle },
+  { id: 'in-progress', labelKey: 'workspace.kanban.columns.inProgress', color: 'bg-blue-500', icon: Clock },
+  { id: 'review', labelKey: 'workspace.kanban.columns.review', color: 'bg-amber-500', icon: AlertCircle },
+  { id: 'done', labelKey: 'workspace.kanban.columns.done', color: 'bg-emerald-500', icon: CheckCircle2 }
 ]
 
 // 优先级配置
@@ -150,6 +151,7 @@ interface SortableTaskCardProps {
   onChatWithFile?: (filePath: string) => void
   onTitleClick: (task: Task) => void
   onStatusChange: (task: Task, newStatus: TaskStatus) => void
+  t: (key: string, options?: Record<string, string>) => string
 }
 
 function SortableTaskCard({
@@ -159,7 +161,8 @@ function SortableTaskCard({
   onOpenFile,
   onChatWithFile,
   onTitleClick,
-  onStatusChange
+  onStatusChange,
+  t
 }: SortableTaskCardProps) {
   const {
     attributes,
@@ -264,12 +267,12 @@ function SortableTaskCard({
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onClick={() => onOpenFile(task.filePath)}>
                   <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                  打开文件
+                  {t('workspace.kanban.openFile')}
                 </DropdownMenuItem>
                 {onChatWithFile && (
                   <DropdownMenuItem onClick={() => onChatWithFile(task.filePath)}>
                     <MessageCircle className="mr-2 h-3.5 w-3.5" />
-                    聊聊
+                    {t('workspace.kanban.chat')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -278,7 +281,7 @@ function SortableTaskCard({
                   .map((c) => (
                     <DropdownMenuItem key={c.id} onClick={() => onStatusChange(task, c.id)}>
                       <span className={cn('mr-2 h-2 w-2 rounded-full', c.color)} />
-                      移至 {c.label}
+                      {t('workspace.kanban.moveTo', { column: t(c.labelKey) })}
                     </DropdownMenuItem>
                   ))}
               </DropdownMenuContent>
@@ -291,9 +294,9 @@ function SortableTaskCard({
 }
 
 // 任务卡片预览（用于 DragOverlay）
-function TaskCardOverlay({ task }: { task: Task }) {
+function TaskCardOverlay({ task, t }: { task: Task; t: (key: string, options?: Record<string, string>) => string }) {
   return (
-    <SortableTaskCard task={task} isOverlay onOpenFile={() => {}} onChatWithFile={undefined} onTitleClick={() => {}} onStatusChange={() => {}} />
+    <SortableTaskCard task={task} isOverlay onOpenFile={() => {}} onChatWithFile={undefined} onTitleClick={() => {}} onStatusChange={() => {}} t={t} />
   )
 }
 
@@ -306,6 +309,7 @@ interface DroppableColumnProps {
   onChatWithFile?: (filePath: string) => void
   onTitleClick: (task: Task) => void
   onStatusChange: (task: Task, newStatus: TaskStatus) => void
+  t: (key: string, options?: Record<string, string>) => string
 }
 
 function DroppableColumn({
@@ -315,7 +319,8 @@ function DroppableColumn({
   onOpenFile,
   onChatWithFile,
   onTitleClick,
-  onStatusChange
+  onStatusChange,
+  t
 }: DroppableColumnProps) {
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
 
@@ -334,7 +339,7 @@ function DroppableColumn({
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className={cn('h-2 w-2 rounded-full', column.color)} />
-        <span className="text-sm font-medium">{column.label}</span>
+        <span className="text-sm font-medium">{t(column.labelKey)}</span>
         <motion.span
           key={tasks.length}
           initial={{ scale: 1.2 }}
@@ -364,6 +369,7 @@ function DroppableColumn({
                 onChatWithFile={onChatWithFile}
                 onTitleClick={onTitleClick}
                 onStatusChange={onStatusChange}
+                t={t}
               />
             ))}
           </AnimatePresence>
@@ -379,7 +385,7 @@ function DroppableColumn({
               )}
             >
               <span className="text-xs text-muted-foreground">
-                {activeId ? '放置到此处' : '拖拽任务到此处'}
+                {activeId ? t('workspace.kanban.dropHere') : t('workspace.kanban.dragHere')}
               </span>
             </motion.div>
           )}
@@ -395,6 +401,7 @@ interface KanbanPanelProps {
 }
 
 export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
+  const { t } = useTranslation()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -551,11 +558,12 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
           projectId
         })
 
-        toast.success(`任务已移至「${columns.find((c) => c.id === newStatus)?.label}」`)
+        const columnLabel = columns.find((c) => c.id === newStatus)?.labelKey
+        toast.success(t('workspace.kanban.movedTo', { column: columnLabel ? t(columnLabel) : newStatus }))
       } catch (err) {
         // 回滚本地状态
         setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)))
-        toast.error('更新任务状态失败')
+        toast.error(t('workspace.kanban.updateFailed'))
         console.error('Failed to update task status:', err)
       }
     },
@@ -662,9 +670,9 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">任务看板</h2>
+          <h2 className="text-sm font-semibold">{t('workspace.kanban.title')}</h2>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {tasks.length} 个任务
+            {t('workspace.kanban.taskCount', { count: String(tasks.length) })}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -676,7 +684,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
             disabled={loading}
           >
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            刷新
+            {t('common.button.refresh')}
           </Button>
         </div>
       </div>
@@ -686,7 +694,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center text-muted-foreground">
             <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin" />
-            <p className="text-sm">加载任务中...</p>
+            <p className="text-sm">{t('workspace.kanban.loading')}</p>
           </div>
         </div>
       )}
@@ -696,14 +704,14 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center text-muted-foreground">
             <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p className="mb-1 text-sm font-medium">暂无任务</p>
+            <p className="mb-1 text-sm font-medium">{t('workspace.kanban.empty')}</p>
             <p className="text-xs">
-              在 <code className="rounded bg-muted px-1">docs/task/</code> 目录创建 .md 文件
+              {t('workspace.kanban.emptyHint')}
             </p>
             <p className="mt-2 text-xs">
-              文件需要包含 frontmatter:
+              {t('workspace.kanban.frontmatterHint')}
               <br />
-              <code className="text-[10px]">status: backlog | in-progress | review | done</code>
+              <code className="text-[10px]">{t('workspace.kanban.statusHint')}</code>
             </p>
           </div>
         </div>
@@ -729,13 +737,14 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
                 onChatWithFile={onChatWithFile}
                 onTitleClick={handleTitleClick}
                 onStatusChange={(task, newStatus) => void updateTaskStatus(task, newStatus)}
+                t={t}
               />
             ))}
           </div>
 
           {/* Drag Overlay - 拖拽时显示的浮动卡片 */}
           <DragOverlay dropAnimation={null}>
-            {activeTask ? <TaskCardOverlay task={activeTask} /> : null}
+            {activeTask ? <TaskCardOverlay task={activeTask} t={t} /> : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -744,8 +753,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       <div className="border-t border-border/50 px-4 py-2">
         <p className="text-xs text-muted-foreground">
           <FileText className="mr-1 inline-block h-3 w-3" />
-          任务来自 <code className="rounded bg-muted px-1">docs/task/*.md</code> · 修改文件
-          frontmatter 中的 <code className="rounded bg-muted px-1">status</code> 字段来移动任务
+          {t('workspace.kanban.footerHint')}
         </p>
       </div>
 

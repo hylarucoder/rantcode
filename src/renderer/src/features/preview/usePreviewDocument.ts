@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useThemeMode } from '@/hooks/use-theme-mode'
+import { useThemeMode } from '@/shared/hooks/use-theme-mode'
 import { renderMarkdownToHtml } from '@/lib/markdown'
 import { stripFrontmatter } from '@/spec/utils'
 import type { SpecDocMeta } from '@/types'

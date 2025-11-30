@@ -8,7 +8,7 @@ import { useProjectChat, useProjectPreview } from '@/features/workspace/state/st
 import { useProjects } from '@/state/projects'
 import type { RunnerEvent, RunnerRunOptions } from '@shared/types/webui'
 import { toast } from 'sonner'
-import { useSfx } from '@/hooks/useSfx'
+import { useSfx } from '@/shared/hooks/useSfx'
 import type { Message, Session } from '@/features/workspace/types'
 import { playAudioFx } from '@/lib/audioFx'
 import { getPresetAgent, buildAgentPrompt } from '@shared/agents'
