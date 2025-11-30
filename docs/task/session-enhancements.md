@@ -1,6 +1,6 @@
 ---
 title: Session 增强功能
-status: in-progress
+status: doing
 priority: P2
 owner: AI
 ---

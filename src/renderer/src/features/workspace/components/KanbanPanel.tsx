@@ -52,7 +52,7 @@ import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
 
 // Task 类型定义（与 docs/design/data-model.md 对齐）
-type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked'
+type TaskStatus = 'backlog' | 'todo' | 'doing' | 'in-review' | 'done' | 'canceled'
 type TaskPriority = 'P0' | 'P1' | 'P2'
 
 interface Task {
@@ -69,9 +69,11 @@ interface Task {
 // 列配置
 const columns: { id: TaskStatus; labelKey: string; color: string; icon: typeof Circle }[] = [
   { id: 'backlog', labelKey: 'workspace.kanban.columns.backlog', color: 'bg-slate-500', icon: Circle },
-  { id: 'in-progress', labelKey: 'workspace.kanban.columns.inProgress', color: 'bg-blue-500', icon: Clock },
-  { id: 'review', labelKey: 'workspace.kanban.columns.review', color: 'bg-amber-500', icon: AlertCircle },
-  { id: 'done', labelKey: 'workspace.kanban.columns.done', color: 'bg-emerald-500', icon: CheckCircle2 }
+  { id: 'todo', labelKey: 'workspace.kanban.columns.todo', color: 'bg-violet-500', icon: Circle },
+  { id: 'doing', labelKey: 'workspace.kanban.columns.doing', color: 'bg-blue-500', icon: Clock },
+  { id: 'in-review', labelKey: 'workspace.kanban.columns.inReview', color: 'bg-amber-500', icon: AlertCircle },
+  { id: 'done', labelKey: 'workspace.kanban.columns.done', color: 'bg-emerald-500', icon: CheckCircle2 },
+  { id: 'canceled', labelKey: 'workspace.kanban.columns.canceled', color: 'bg-red-500/50', icon: Circle }
 ]
 
 // 优先级配置

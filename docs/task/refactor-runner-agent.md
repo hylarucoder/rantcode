@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: doing
 ---
 
 # 重构：Runner + Agent 概念分离

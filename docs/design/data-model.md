@@ -55,7 +55,7 @@ interface Project {
 ```ts
 type TaskId = string
 
-type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done' | 'blocked'
+type TaskStatus = 'backlog' | 'todo' | 'doing' | 'in-review' | 'done' | 'canceled'
 
 interface Task {
   id: TaskId

@@ -94,7 +94,7 @@
       "empty": "No tasks yet",
       "emptyHint": "Create .md files in docs/task/ directory",
       "frontmatterHint": "Files need frontmatter:",
-      "statusHint": "status: backlog | in-progress | review | done",
+      "statusHint": "status: backlog | todo | doing | in-review | done | canceled",
       "footerHint": "Tasks from docs/task/*.md · Change status field in frontmatter to move tasks",
       "dropHere": "Drop here",
       "dragHere": "Drag tasks here",
@@ -105,9 +105,11 @@
       "updateFailed": "Failed to update task status",
       "columns": {
         "backlog": "Backlog",
-        "inProgress": "In Progress",
-        "review": "Review",
-        "done": "Done"
+        "todo": "Todo",
+        "doing": "Doing",
+        "inReview": "In Review",
+        "done": "Done",
+        "canceled": "Canceled"
       }
     },
     "git": {

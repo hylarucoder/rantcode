@@ -94,7 +94,7 @@
       "empty": "暂无任务",
       "emptyHint": "在 docs/task/ 目录创建 .md 文件",
       "frontmatterHint": "文件需要包含 frontmatter:",
-      "statusHint": "status: backlog | in-progress | review | done",
+      "statusHint": "status: backlog | todo | doing | in-review | done | canceled",
       "footerHint": "任务来自 docs/task/*.md · 修改文件 frontmatter 中的 status 字段来移动任务",
       "dropHere": "放置到此处",
       "dragHere": "拖拽任务到此处",
@@ -104,10 +104,12 @@
       "movedTo": "任务已移至「{{column}}」",
       "updateFailed": "更新任务状态失败",
       "columns": {
-        "backlog": "待办",
-        "inProgress": "进行中",
-        "review": "审核",
-        "done": "完成"
+        "backlog": "Backlog",
+        "todo": "Todo",
+        "doing": "Doing",
+        "inReview": "In Review",
+        "done": "Done",
+        "canceled": "Canceled"
       }
     },
     "git": {
