@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Mic, Play, Gauge, Volume2, Clock, AlertCircle } from 'lucide-react'
+import { SettingsCardHeader, SettingsHint, RangeSlider, formatPercent, formatDecimal } from './components'
 
 type Engine = 'off' | 'web-speech' | 'doubao' | 'minimax'
 
@@ -81,17 +83,12 @@ export default function TTSSettings() {
 
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
-      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10">
-            <Mic className="h-5 w-5 text-cyan-500" />
-          </div>
-          <div>
-            <CardTitle className="text-base">{t('settings.tts.title')}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.tts.description')}</p>
-          </div>
-        </div>
-      </CardHeader>
+      <SettingsCardHeader
+        icon={<Mic className="h-5 w-5 text-cyan-500" />}
+        iconClassName="bg-cyan-500/10"
+        title={t('settings.tts.title')}
+        description={t('settings.tts.description')}
+      />
       <CardContent className="pt-4">
         <Form form={form}>
           <div className="space-y-6">
@@ -117,7 +114,9 @@ export default function TTSSettings() {
                               <span>{opt.icon}</span>
                               <span>{t(opt.labelKey)}</span>
                               {!opt.available && (
-                                <span className="text-xs text-muted-foreground">{t('settings.tts.comingSoon')}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {t('settings.tts.comingSoon')}
+                                </span>
                               )}
                             </span>
                           </SelectItem>
@@ -143,20 +142,14 @@ export default function TTSSettings() {
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min={0.5}
-                            max={2}
-                            step={0.1}
-                            value={field.value}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                            className="flex-1 h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
-                          />
-                          <span className="w-10 text-right text-sm font-mono tabular-nums">
-                            {field.value.toFixed(1)}
-                          </span>
-                        </div>
+                        <RangeSlider
+                          value={field.value}
+                          onChange={field.onChange}
+                          min={0.5}
+                          max={2}
+                          step={0.1}
+                          formatValue={formatDecimal}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -175,20 +168,14 @@ export default function TTSSettings() {
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.1}
-                            value={field.value}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                            className="flex-1 h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
-                          />
-                          <span className="w-10 text-right text-sm font-mono tabular-nums">
-                            {Math.round(field.value * 100)}%
-                          </span>
-                        </div>
+                        <RangeSlider
+                          value={field.value}
+                          onChange={field.onChange}
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          formatValue={formatPercent}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -201,7 +188,9 @@ export default function TTSSettings() {
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 {t('settings.tts.minDuration')}
-                <span className="text-xs text-muted-foreground font-normal">{t('settings.tts.milliseconds')}</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {t('settings.tts.milliseconds')}
+                </span>
               </div>
               <FormField
                 control={form.control}
@@ -231,15 +220,7 @@ export default function TTSSettings() {
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center gap-3">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!!field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                      </label>
+                      <Switch checked={!!field.value} onCheckedChange={field.onChange} />
                       <FormLabel className="text-sm font-medium cursor-pointer flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-muted-foreground" />
                         {t('settings.tts.onlyOnFailure')}
@@ -257,12 +238,7 @@ export default function TTSSettings() {
           </div>
         </Form>
 
-        <div className="mt-6 pt-4 border-t border-border/50">
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            {t('settings.tts.hint')}
-          </p>
-        </div>
+        <SettingsHint>{t('settings.tts.hint')}</SettingsHint>
       </CardContent>
     </Card>
   )

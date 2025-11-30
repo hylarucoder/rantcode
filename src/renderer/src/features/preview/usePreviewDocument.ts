@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useThemeMode } from '@/shared/hooks/use-theme-mode'
-import { renderMarkdownToHtml } from '@/lib/markdown'
-import { stripFrontmatter } from '@/spec/utils'
+import { renderMarkdownToHtml, stripFrontmatter } from '@/lib/markdown'
 import type { SpecDocMeta } from '@/types'
 import type { PreviewTocItem } from './types'
 

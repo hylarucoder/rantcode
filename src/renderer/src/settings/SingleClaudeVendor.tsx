@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Card, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
   SelectContent,
@@ -18,48 +19,21 @@ import {
   FormMessage,
   FormDescription
 } from '@/components/ui/form'
-import {
-  Save,
-  TestTube2,
-  Pin,
-  PinOff,
-  Eye,
-  EyeOff,
-  Sparkles,
-  Terminal,
-  Key,
-  Cpu
-} from 'lucide-react'
-import { useClaudeVendorsQuery, useSetClaudeVendorsMutation } from '@/features/settings'
-import { useRunClaudePromptMutation } from '@/features/settings/api/hooks'
-import {
-  useAgentsInfoQuery,
-  useClaudeTokensQuery,
-  useSetClaudeTokensMutation
-} from '@/features/settings/api/agentsHooks'
+import { Save, TestTube2, Pin, PinOff, Sparkles, Terminal, Key, Cpu } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { SettingsCardHeader, SecretInput, TestOutputPanel } from './components'
+import { useVendorConfig, useVendorTest } from './hooks'
+import { ClaudeVendorConfig, VENDOR_COLORS, VENDOR_LABELS, ENV_KEY_NAMES } from './vendorConfig'
 
-type VendorKey = 'anthropic' | 'kimi' | 'glm' | 'minmax' | 'custom'
+const formSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  modelPrimary: z.string().min(1, 'Primary model is required'),
+  modelFast: z.string().optional()
+})
 
-type ClaudeVendorConfig = {
-  id: string
-  displayName?: string
-  vendorKey: VendorKey
-  binPath: string
-  args?: string[]
-  promptMode?: 'stdin' | 'arg'
-  promptTemplate?: string
-  envVars?: Record<string, string>
-  modelPrimary?: string
-  modelFast?: string
-  active?: boolean
-  lastTestAt?: number
-  lastTestOk?: boolean
-}
-
-type Catalog = Record<string, ClaudeVendorConfig>
+type FormValues = z.infer<typeof formSchema>
 
 export default function SingleClaudeVendor({
   id,
@@ -71,147 +45,33 @@ export default function SingleClaudeVendor({
   defaultConfig: ClaudeVendorConfig
 }) {
   const { t } = useTranslation()
-  const vendorsQuery = useClaudeVendorsQuery()
-  const setVendors = useSetClaudeVendorsMutation()
-  const runPromptMutation = useRunClaudePromptMutation()
 
-  const [config, setConfig] = useState<ClaudeVendorConfig>(defaultConfig)
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testOutput, setTestOutput] = useState<string | null>(null)
-  const [testError, setTestError] = useState<string | null>(null)
-  const [testCommand, setTestCommand] = useState<string | null>(null)
-  const [showApiKey, setShowApiKey] = useState(false)
+  const {
+    config,
+    updateField,
+    saving,
+    save,
+    tokenValue,
+    setTokenValue,
+    tokenKey,
+    binForSave,
+    canPersist,
+    vendorOptions
+  } = useVendorConfig({ id, label, defaultConfig })
 
-  useEffect(() => {
-    if (testCommand) {
-      console.log('[Claude run] Command:', testCommand)
+  const { testing, testOutput, testError, testCommand, askWhatModel, canTest } = useVendorTest({
+    config,
+    binForSave,
+    canPersist,
+    tokenValue,
+    tokenKey,
+    onTestComplete: (ok) => {
+      updateField('lastTestAt', Date.now())
+      updateField('lastTestOk', ok)
     }
-  }, [testCommand])
-
-  const infoQuery = useAgentsInfoQuery()
-  const executablePath = (
-    infoQuery.data as { claudeCode?: { executablePath?: string } } | undefined
-  )?.claudeCode?.executablePath as string | undefined
-
-  const tokensQuery = useClaudeTokensQuery()
-  const setTokens = useSetClaudeTokensMutation()
-  const tokens = (tokensQuery.data || {}) as Partial<
-    Record<'official' | 'kimi' | 'glm' | 'minmax', string>
-  >
-  const [tokenValue, setTokenValue] = useState<string>('')
-
-  useEffect(() => {
-    const catalog = (vendorsQuery.data as Catalog) || {}
-    const fromStore = catalog[id]
-    if (fromStore) setConfig(fromStore)
-  }, [vendorsQuery.data, id])
-
-  const updateField = <K extends keyof ClaudeVendorConfig>(
-    key: K,
-    value: ClaudeVendorConfig[K]
-  ) => {
-    setConfig((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const binForSave = useMemo(
-    () => config.binPath || executablePath || '',
-    [config.binPath, executablePath]
-  )
-  const canPersist = useMemo(() => !!binForSave && binForSave.trim().length > 0, [binForSave])
-
-  const tokenKey: 'official' | 'kimi' | 'glm' | 'minmax' =
-    config.vendorKey === 'kimi'
-      ? 'kimi'
-      : config.vendorKey === 'glm'
-        ? 'glm'
-        : config.vendorKey === 'minmax'
-          ? 'minmax'
-          : 'official'
-
-  useEffect(() => {
-    setTokenValue((tokens[tokenKey] as string) || '')
-  }, [tokensQuery.data, tokenKey, tokens])
-
-  const save = async (values?: { token: string; modelPrimary: string; modelFast?: string }) => {
-    const catalog = (vendorsQuery.data as Catalog) || {}
-    try {
-      setSaving(true)
-      const nextTokenVal = (values?.token ?? tokenValue) || ''
-      const nextTokens = { ...tokens, [tokenKey]: nextTokenVal }
-      await setTokens.mutateAsync(nextTokens)
-      if (canPersist) {
-        const nextCfg: ClaudeVendorConfig = {
-          ...config,
-          id,
-          binPath: binForSave,
-          displayName: config.displayName || label,
-          modelPrimary: values?.modelPrimary ?? config.modelPrimary,
-          modelFast: values?.modelFast ?? config.modelFast
-        }
-        const next: Catalog = { ...catalog, [id]: nextCfg }
-        await setVendors.mutateAsync(next)
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const askWhatModel = async () => {
-    if (!canPersist) return
-    if (!tokenValue || tokenValue.trim().length === 0) return
-    try {
-      setTesting(true)
-      setTestOutput(null)
-      setTestError(null)
-      const envKey =
-        tokenKey === 'kimi'
-          ? 'KIMI_API_KEY'
-          : tokenKey === 'glm'
-            ? 'ZHIPU_API_KEY'
-            : tokenKey === 'minmax'
-              ? 'MINMAX_API_KEY'
-              : 'ANTHROPIC_API_KEY'
-      const res = (await runPromptMutation.mutateAsync({
-        config: {
-          ...config,
-          binPath: binForSave,
-          promptMode: 'arg',
-          envVars: { ...(config.envVars || {}), [envKey]: tokenValue }
-        },
-        prompt: '你是什么大模型'
-      })) as { ok: boolean; error?: string; output?: string; command?: string }
-      const stamp = Date.now()
-      setConfig((prev) => ({ ...prev, lastTestAt: stamp, lastTestOk: !!res?.ok }))
-      setTestOutput(res.output || '')
-      setTestError(res.ok ? null : res.error || null)
-      setTestCommand(res.command || null)
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  const MODEL_OPTIONS: Record<VendorKey, string[]> = {
-    anthropic: ['claude-3-5-sonnet-latest', 'claude-3-haiku-latest'],
-    kimi: [
-      'kimi-k2-preview',
-      'kimi-k2-turbo-preview',
-      'kimi-k2-thinking',
-      'kimi-k2-thinking-turbo'
-    ],
-    glm: ['GLM-4.6'],
-    minmax: ['MiniMax-M2'],
-    custom: []
-  }
-  const vendorOptions = MODEL_OPTIONS[config.vendorKey] || []
-
-  const formSchema = z.object({
-    token: z.string().min(1, 'Token is required'),
-    modelPrimary: z.string().min(1, 'Primary model is required'),
-    modelFast: z.string().optional()
   })
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
     defaultValues: {
@@ -229,36 +89,20 @@ export default function SingleClaudeVendor({
     })
   }, [tokenValue, config.modelPrimary, config.modelFast, config.vendorKey])
 
-  const vendorColor = {
-    kimi: 'text-blue-500 bg-blue-500/10',
-    glm: 'text-green-500 bg-green-500/10',
-    minmax: 'text-purple-500 bg-purple-500/10',
-    anthropic: 'text-orange-500 bg-orange-500/10',
-    custom: 'text-gray-500 bg-gray-500/10'
+  const handleSave = async (values: FormValues) => {
+    await save(values)
+    updateField('modelPrimary', values.modelPrimary)
+    updateField('modelFast', values.modelFast || '')
   }
 
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-muted/50 to-transparent">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${vendorColor[config.vendorKey]}`}
-          >
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <CardTitle className="text-base truncate">{label}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {config.vendorKey === 'kimi'
-                ? 'Moonshot AI'
-                : config.vendorKey === 'glm'
-                  ? '智谱 AI'
-                  : config.vendorKey === 'minmax'
-                    ? 'Minimax AI'
-                    : 'Anthropic'}
-            </p>
-          </div>
-        </div>
+      <SettingsCardHeader
+        icon={<Sparkles className="h-5 w-5" />}
+        iconClassName={VENDOR_COLORS[config.vendorKey]}
+        title={label}
+        description={VENDOR_LABELS[config.vendorKey]}
+      >
         <Button
           type="button"
           size="sm"
@@ -278,7 +122,8 @@ export default function SingleClaudeVendor({
             </>
           )}
         </Button>
-      </div>
+      </SettingsCardHeader>
+
       <CardContent className="pt-4">
         <UIForm form={form}>
           {/* Action buttons */}
@@ -287,16 +132,12 @@ export default function SingleClaudeVendor({
               type="submit"
               size="sm"
               className="gap-1.5"
-              onClick={form.handleSubmit(async (values) => {
-                await save(values)
-                updateField('modelPrimary', values.modelPrimary)
-                updateField('modelFast', values.modelFast || '')
-              })}
+              onClick={form.handleSubmit(handleSave)}
               disabled={saving || !form.formState.isValid}
             >
               {saving ? (
                 <>
-                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <Spinner />
                   {t('common.status.saving')}
                 </>
               ) : (
@@ -312,11 +153,11 @@ export default function SingleClaudeVendor({
               variant="outline"
               className="gap-1.5"
               onClick={askWhatModel}
-              disabled={testing || !canPersist || !tokenValue || tokenValue.trim().length === 0}
+              disabled={testing || !canTest}
             >
               {testing ? (
                 <>
-                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <Spinner />
                   {t('common.status.testing')}
                 </>
               ) : (
@@ -359,7 +200,8 @@ export default function SingleClaudeVendor({
           <div className="space-y-2 mb-6">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Key className="h-4 w-4 text-muted-foreground" />
-              {t('settings.vendor.apiKey')} <span className="text-red-500">{t('common.label.required')}</span>
+              {t('settings.vendor.apiKey')}{' '}
+              <span className="text-red-500">{t('common.label.required')}</span>
             </div>
             <FormField
               control={form.control}
@@ -367,38 +209,15 @@ export default function SingleClaudeVendor({
               render={({ field, fieldState }) => (
                 <FormItem>
                   <FormControl>
-                    <div className="relative">
-                      <Input
-                        {...field}
-                        id={`${id}-token-input`}
-                        type={showApiKey ? 'text' : 'password'}
-                        className="pr-10"
-                        placeholder={
-                          tokenKey === 'kimi'
-                            ? 'KIMI_API_KEY'
-                            : tokenKey === 'glm'
-                              ? 'ZHIPU_API_KEY'
-                              : tokenKey === 'minmax'
-                                ? 'MINMAX_API_KEY'
-                                : 'ANTHROPIC_API_KEY'
-                        }
-                        onChange={(e) => {
-                          field.onChange(e)
-                          setTokenValue(e.target.value)
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => setShowApiKey((v) => !v)}
-                        aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
-                      >
-                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    <SecretInput
+                      id={`${id}-token-input`}
+                      value={field.value}
+                      onChange={(val) => {
+                        field.onChange(val)
+                        setTokenValue(val)
+                      }}
+                      placeholder={ENV_KEY_NAMES[tokenKey]}
+                    />
                   </FormControl>
                   {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                   <FormDescription className="sr-only">Vendor API Key</FormDescription>
@@ -412,7 +231,8 @@ export default function SingleClaudeVendor({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Cpu className="h-4 w-4 text-muted-foreground" />
-                {t('settings.vendor.primaryModel')} <span className="text-red-500">{t('common.label.required')}</span>
+                {t('settings.vendor.primaryModel')}{' '}
+                <span className="text-red-500">{t('common.label.required')}</span>
               </div>
               <FormField
                 control={form.control}
@@ -444,7 +264,9 @@ export default function SingleClaudeVendor({
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Cpu className="h-4 w-4 text-muted-foreground" />
                 {t('settings.vendor.fastModel')}
-                <span className="text-xs text-muted-foreground font-normal">{t('common.label.optional')}</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {t('common.label.optional')}
+                </span>
               </div>
               <FormField
                 control={form.control}
@@ -479,7 +301,7 @@ export default function SingleClaudeVendor({
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span
                   className={`inline-block h-2 w-2 rounded-full ${config.lastTestOk ? 'bg-green-500' : 'bg-red-500'}`}
-                ></span>
+                />
                 {t('settings.vendor.lastTest')}: {new Date(config.lastTestAt).toLocaleString()} ·{' '}
                 {config.lastTestOk ? t('common.status.success') : t('common.status.failed')}
               </div>
@@ -487,39 +309,12 @@ export default function SingleClaudeVendor({
           )}
 
           {/* Test output */}
-          {(testing || testOutput || testError || testCommand) && (
-            <div className="mt-4 pt-4 border-t border-border/50">
-              <div className="text-sm font-medium mb-3">{t('settings.vendor.testOutput')}</div>
-              {testing ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  {t('common.status.running')}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {testCommand && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">{t('settings.vendor.command')}</div>
-                      <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-24 whitespace-pre-wrap font-mono">
-                        {testCommand}
-                      </pre>
-                    </div>
-                  )}
-                  {testError && (
-                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-500">
-                      {t('settings.vendor.error')}: {testError}
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">{t('settings.vendor.output')}</div>
-                    <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-48 whitespace-pre-wrap font-mono">
-                      {testOutput && testOutput.trim().length > 0 ? testOutput : t('common.label.noOutput')}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <TestOutputPanel
+            testing={testing}
+            testCommand={testCommand}
+            testOutput={testOutput}
+            testError={testError}
+          />
         </UIForm>
       </CardContent>
     </Card>

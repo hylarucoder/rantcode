@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
   X,
   Settings,
   Bot,
   Volume2,
   Palette,
-  Languages,
   Terminal,
   Sparkles,
   Music2,
@@ -17,23 +15,11 @@ import {
   ChevronRight
 } from 'lucide-react'
 import SingleClaudeVendor from '@/settings/SingleClaudeVendor'
-import { Input } from '@/components/ui/input'
 import { useAgentsInfoQuery } from '@/features/settings/api/agentsHooks'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { setRootDarkWithNoTransition } from '@/lib/theme'
-import {
-  useGeneralSettingsQuery,
-  useSetGeneralSettingsMutation
-} from '@/features/settings/api/generalHooks'
 import AudioFxSettings from '@/settings/AudioFxSettings'
 import SfxSettings from '@/settings/SfxSettings'
 import TTSSettings from '@/settings/TTSSettings'
+import { AgentInfoCard, GeneralSettingsPanel } from './components'
 
 type Cat = 'general' | 'agents' | 'sounds'
 type AgentsItem = 'codex' | 'claude' | 'kimi' | 'glm' | 'minmax'
@@ -74,7 +60,11 @@ export default function SettingsPage() {
     },
     { key: 'kimi', label: t('settings.agents.kimi'), icon: <Sparkles className="h-3.5 w-3.5" /> },
     { key: 'glm', label: t('settings.agents.glm'), icon: <Sparkles className="h-3.5 w-3.5" /> },
-    { key: 'minmax', label: t('settings.agents.minmax'), icon: <Sparkles className="h-3.5 w-3.5" /> }
+    {
+      key: 'minmax',
+      label: t('settings.agents.minmax'),
+      icon: <Sparkles className="h-3.5 w-3.5" />
+    }
   ]
 
   const SOUNDS_ITEMS: { key: SoundsItem; label: string; icon: React.ReactNode }[] = [
@@ -111,10 +101,14 @@ export default function SettingsPage() {
 
   const getContentTitle = () => {
     if (cat === 'agents') {
-      return AGENTS_ITEMS.find((i) => i.key === agentsItem)?.label || t('settings.agents.agentConfig')
+      return (
+        AGENTS_ITEMS.find((i) => i.key === agentsItem)?.label || t('settings.agents.agentConfig')
+      )
     }
     if (cat === 'sounds') {
-      return SOUNDS_ITEMS.find((i) => i.key === soundsItem)?.label || t('settings.sounds.soundSettings')
+      return (
+        SOUNDS_ITEMS.find((i) => i.key === soundsItem)?.label || t('settings.sounds.soundSettings')
+      )
     }
     return t('settings.general.title')
   }
@@ -344,234 +338,6 @@ export default function SettingsPage() {
           {cat === 'sounds' && soundsItem === 'audioFx' && <AudioFxSettings />}
           {cat === 'sounds' && soundsItem === 'tts' && <TTSSettings />}
         </div>
-      </div>
-    </div>
-  )
-}
-
-function AgentInfoCard({
-  title,
-  subtitle,
-  executablePath,
-  version,
-  pathPlaceholder,
-  versionPlaceholder,
-  onRefresh,
-  isRefetching
-}: {
-  title: string
-  subtitle: string
-  executablePath?: string
-  version?: string
-  pathPlaceholder: string
-  versionPlaceholder: string
-  onRefresh: () => void
-  isRefetching: boolean
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <Card className="border-border/50 shadow-sm overflow-hidden">
-      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <Terminal className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {t('settings.agents.executablePath')}
-            </label>
-            <Input
-              value={executablePath || ''}
-              disabled
-              placeholder={pathPlaceholder}
-              className="bg-muted/30"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {t('settings.agents.version')}
-            </label>
-            <Input
-              value={version || ''}
-              disabled
-              placeholder={versionPlaceholder}
-              className="bg-muted/30"
-            />
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-border/50">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={onRefresh}
-            disabled={isRefetching}
-            className="gap-2"
-          >
-            {isRefetching ? (
-              <>
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                {t('common.status.detecting')}
-              </>
-            ) : (
-              t('settings.agents.redetect')
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function GeneralSettingsPanel() {
-  const { t } = useTranslation()
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="border-border/50 shadow-sm overflow-hidden">
-        <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
-              <Settings className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <CardTitle className="text-base">{t('settings.general.basic')}</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t('settings.general.basicDesc')}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="py-4">
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-              <Settings className="h-6 w-6 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {t('settings.general.basicPlaceholder')}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/50 shadow-sm overflow-hidden">
-        <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
-              <Palette className="h-5 w-5 text-violet-500" />
-            </div>
-            <div>
-              <CardTitle className="text-base">{t('settings.general.appearance')}</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t('settings.general.appearanceDesc')}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="py-4">
-          <GeneralAppearanceAndLanguage />
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-function GeneralAppearanceAndLanguage() {
-  const { t } = useTranslation()
-  const query = useGeneralSettingsQuery()
-  const mutate = useSetGeneralSettingsMutation()
-
-  const lang = (query.data as { language?: string } | undefined)?.language || 'zh-CN'
-  const theme = (query.data as { theme?: 'light' | 'dark' } | undefined)?.theme || 'dark'
-
-  useEffect(() => {
-    setRootDarkWithNoTransition(theme === 'dark')
-    window.localStorage.setItem('theme', theme)
-  }, [theme])
-
-  useEffect(() => {
-    window.localStorage.setItem('language', lang)
-  }, [lang])
-
-  return (
-    <div className="grid gap-5 py-2">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Languages className="h-4 w-4 text-muted-foreground" />
-          <label className="text-sm font-medium">
-            {t('settings.general.language')}{' '}
-            <span className="text-xs text-muted-foreground">{t('settings.general.languageEn')}</span>
-          </label>
-        </div>
-        <Select
-          value={lang}
-          onValueChange={(v) => {
-            const next = { language: v as 'zh-CN' | 'en-US', theme }
-            mutate.mutate(next)
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('settings.general.selectLanguage')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="zh-CN">
-              <span className="flex items-center gap-2">
-                <span>🇨🇳</span>
-                <span>{t('settings.general.zhCN')}</span>
-              </span>
-            </SelectItem>
-            <SelectItem value="en-US">
-              <span className="flex items-center gap-2">
-                <span>🇺🇸</span>
-                <span>{t('settings.general.enUS')}</span>
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Palette className="h-4 w-4 text-muted-foreground" />
-          <label className="text-sm font-medium">
-            {t('settings.general.theme')}{' '}
-            <span className="text-xs text-muted-foreground">{t('settings.general.themeEn')}</span>
-          </label>
-        </div>
-        <Select
-          value={theme}
-          onValueChange={(v) => {
-            const next = { language: lang as 'zh-CN' | 'en-US', theme: v as 'light' | 'dark' }
-            mutate.mutate(next)
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('settings.general.selectTheme')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="light">
-              <span className="flex items-center gap-2">
-                <span>☀️</span>
-                <span>{t('settings.general.lightMode')}</span>
-              </span>
-            </SelectItem>
-            <SelectItem value="dark">
-              <span className="flex items-center gap-2">
-                <span>🌙</span>
-                <span>{t('settings.general.darkMode')}</span>
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </div>
     </div>
   )

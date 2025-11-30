@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Form, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import { loadAudioFx, saveAudioFx, type AudioFxConfig } from '@/lib/audioFx'
 import { Volume2, Play, Upload, Music } from 'lucide-react'
+import { SettingsCardHeader, SettingsHint } from './components'
+import { readAsDataURL, previewAudio } from './lib'
 
 export default function AudioFxSettings() {
   const { t } = useTranslation()
@@ -34,17 +37,12 @@ export default function AudioFxSettings() {
 
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
-      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10">
-            <Volume2 className="h-5 w-5 text-orange-500" />
-          </div>
-          <div>
-            <CardTitle className="text-base">{t('settings.audioFx.title')}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.audioFx.description')}</p>
-          </div>
-        </div>
-      </CardHeader>
+      <SettingsCardHeader
+        icon={<Volume2 className="h-5 w-5 text-orange-500" />}
+        iconClassName="bg-orange-500/10"
+        title={t('settings.audioFx.title')}
+        description={t('settings.audioFx.description')}
+      />
       <CardContent className="pt-4">
         <Form form={form}>
           {/* Master toggle */}
@@ -55,25 +53,20 @@ export default function AudioFxSettings() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!field.value}
-                        onChange={(e) => {
-                          field.onChange(e.target.checked)
-                          if (e.target.checked) {
-                            const startEnabled = form.getValues('start.enabled')
-                            const endEnabled = form.getValues('end.enabled')
-                            const s = form.getValues('start.src') as string | undefined
-                            const eSrc = form.getValues('end.src') as string | undefined
-                            if (startEnabled && s) previewAudio(s)
-                            else if (endEnabled && eSrc) previewAudio(eSrc)
-                          }
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                    </label>
+                    <Switch
+                      checked={!!field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked)
+                        if (checked) {
+                          const startEnabled = form.getValues('start.enabled')
+                          const endEnabled = form.getValues('end.enabled')
+                          const s = form.getValues('start.src') as string | undefined
+                          const eSrc = form.getValues('end.src') as string | undefined
+                          if (startEnabled && s) previewAudio(s)
+                          else if (endEnabled && eSrc) previewAudio(eSrc)
+                        }
+                      }}
+                    />
                     <FormLabel className="text-sm font-medium cursor-pointer">
                       {t('settings.audioFx.enableSessionSounds')}
                     </FormLabel>
@@ -115,12 +108,7 @@ export default function AudioFxSettings() {
             />
           </div>
 
-          <div className="mt-6 pt-4 border-t border-border/50">
-            <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-              {t('settings.audioFx.hint')}
-            </p>
-          </div>
+          <SettingsHint>{t('settings.audioFx.hint')}</SettingsHint>
         </Form>
       </CardContent>
     </Card>
@@ -165,21 +153,17 @@ function SoundSlot({
           control={form.control}
           name={`${fieldPrefix}.enabled`}
           render={({ field }) => (
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!field.value}
-                onChange={(e) => {
-                  field.onChange(e.target.checked)
-                  if (e.target.checked) {
-                    const src = form.getValues(`${fieldPrefix}.src`) as string | undefined
-                    if (src) previewAudio(src)
-                  }
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-            </label>
+            <Switch
+              checked={!!field.value}
+              onCheckedChange={(checked) => {
+                field.onChange(checked)
+                if (checked) {
+                  const src = form.getValues(`${fieldPrefix}.src`) as string | undefined
+                  if (src) previewAudio(src)
+                }
+              }}
+              className="h-5 w-9 [&>span]:h-4 [&>span]:w-4 data-[state=checked]:[&>span]:translate-x-4"
+            />
           )}
         />
       </div>
@@ -224,22 +208,4 @@ function SoundSlot({
       </div>
     </div>
   )
-}
-
-function readAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-function previewAudio(src?: string) {
-  if (!src) return
-  try {
-    const a = new Audio(src)
-    a.volume = 1
-    void a.play()
-  } catch {}
 }

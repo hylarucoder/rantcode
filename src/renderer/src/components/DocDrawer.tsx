@@ -5,10 +5,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { fetchFile } from '@/features/spec/api/fs'
-import { renderMarkdownToHtml } from '@/lib/markdown'
+import { renderMarkdownToHtml, stripFrontmatter } from '@/lib/markdown'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
 import { useThemeMode } from '@/shared/hooks/use-theme-mode'
-import { stripFrontmatter } from '@/spec/utils'
 import type { ThemeMode } from '@/types/theme'
 
 interface TocItem {

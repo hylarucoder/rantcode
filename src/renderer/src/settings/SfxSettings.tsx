@@ -1,11 +1,14 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSfx } from '@/shared/hooks/useSfx'
 import type { SfxKey } from '@/sound/soundManager'
 import { Music2, Play, RotateCcw, Upload, Volume2 } from 'lucide-react'
+import { SettingsCardHeader, SettingsHint, RangeSlider, formatPercent } from './components'
+import { readAsDataURL } from './lib'
 
 const SFX_ITEMS: { key: SfxKey; labelKey: string; color: string }[] = [
   { key: 'click', labelKey: 'settings.sfx.click', color: 'bg-blue-500' },
@@ -31,34 +34,23 @@ export default function SfxSettings() {
 
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
-      <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500/10">
-            <Music2 className="h-5 w-5 text-pink-500" />
-          </div>
-          <div>
-            <CardTitle className="text-base">{t('settings.sfx.title')}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{t('settings.sfx.description')}</p>
-          </div>
-        </div>
-      </CardHeader>
+      <SettingsCardHeader
+        icon={<Music2 className="h-5 w-5 text-pink-500" />}
+        iconClassName="bg-pink-500/10"
+        title={t('settings.sfx.title')}
+        description={t('settings.sfx.description')}
+      />
       <CardContent className="pt-4">
         {/* Master controls */}
         <div className="mb-6 pb-4 border-b border-border/50 space-y-4">
           <div className="flex items-center gap-3">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={enabled}
-                onChange={(e) => {
-                  const v = e.currentTarget.checked
-                  setEnabled(v)
-                  sfx.setEnabled(v)
-                }}
-              />
-              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-            </label>
+            <Switch
+              checked={enabled}
+              onCheckedChange={(v) => {
+                setEnabled(v)
+                sfx.setEnabled(v)
+              }}
+            />
             <span className="text-sm font-medium">{t('settings.sfx.enableUiSounds')}</span>
           </div>
 
@@ -67,24 +59,18 @@ export default function SfxSettings() {
               <Volume2 className="h-4 w-4" />
               <span>{t('settings.sfx.volume')}</span>
             </div>
-            <div className="flex-1 flex items-center gap-3">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={vol}
-                onChange={(e) => {
-                  const v = Number(e.currentTarget.value)
-                  setVol(v)
-                  sfx.setVolume(v)
-                }}
-                className="flex-1 h-2 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
-              />
-              <span className="w-12 text-right text-sm font-mono tabular-nums text-muted-foreground">
-                {Math.round(vol * 100)}%
-              </span>
-            </div>
+            <RangeSlider
+              value={vol}
+              onChange={(v) => {
+                setVol(v)
+                sfx.setVolume(v)
+              }}
+              min={0}
+              max={1}
+              step={0.01}
+              formatValue={formatPercent}
+              className="flex-1"
+            />
           </div>
         </div>
 
@@ -154,12 +140,7 @@ export default function SfxSettings() {
           ))}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-border/50">
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50"></span>
-            {t('settings.sfx.hint')}
-          </p>
-        </div>
+        <SettingsHint>{t('settings.sfx.hint')}</SettingsHint>
       </CardContent>
     </Card>
   )
@@ -186,13 +167,4 @@ function sfxSetOverride(key: SfxKey, slot: { src: string; name?: string } | null
     parsed.overrides = o
     localStorage.setItem('rantcode.sfx.v1', JSON.stringify(parsed))
   } catch {}
-}
-
-function readAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
 }
