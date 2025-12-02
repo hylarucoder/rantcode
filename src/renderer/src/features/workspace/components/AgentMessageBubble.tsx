@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Copy, Check } from 'lucide-react'
+import { Claude } from '@lobehub/icons'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/shared/hooks/use-theme-mode'
@@ -155,6 +156,11 @@ export function AgentMessageBubble({
   const displayHtml = trimmedOutput ? renderedHtml : null
   const [copied, setCopied] = useState(false)
 
+  const runnerLabel =
+    RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'
+  const isClaudeRunner =
+    typeof msg.runner === 'string' ? msg.runner.startsWith('claude-code') : false
+
   const handleCopy = async () => {
     const textToCopy = msg.output || msg.content || ''
     if (!textToCopy) return
@@ -173,8 +179,9 @@ export function AgentMessageBubble({
       <div className="flex flex-col items-start gap-0.5 max-w-[80%]">
         <div className="flex items-center gap-1.5">
           <div className="rounded-xl border border-border/70 bg-card px-3 py-1.5 text-sm text-card-foreground">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {RUNNER_UI_LIST.find((a) => a.value === msg.runner)?.label || msg.runner || 'Runner'}
+            <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {isClaudeRunner && <Claude className="h-3 w-3 text-primary" />}
+              <span>{runnerLabel}</span>
           {msg.contextId && (
             <span className="ml-1 font-mono text-[10px] opacity-70">
               ({msg.contextId.slice(0, 8)})

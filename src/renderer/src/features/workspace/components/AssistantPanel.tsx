@@ -1,4 +1,5 @@
 import { Bot, Check, FileText, Code, TestTube, Compass, Cpu } from 'lucide-react'
+import { Claude } from '@lobehub/icons'
 import { cn } from '@/lib/utils'
 import type { RunnerRunOptions } from '@shared/types/webui'
 import { PRESET_AGENTS, type AgentConfig } from '@shared/agents'
@@ -77,7 +78,9 @@ export function AssistantPanel({
     <div className="flex h-full flex-col">
       {/* 标题 */}
       <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
-        <Bot className="h-4 w-4 text-muted-foreground" />
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/60">
+          <Claude className="h-4 w-4 text-primary" />
+        </div>
         <span className="text-sm font-medium">助手</span>
       </div>
 

@@ -839,7 +839,18 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
    priority: ${newTaskPriority}${newTaskOwner.trim() ? `\n   owner: ${newTaskOwner.trim()}` : ''}
    ---
    \`\`\`
-4. **文档结构**：包含任务描述、目标、待办事项等章节
+4. **文档结构**：包含任务描述、目标、待办事项、验收标准等章节
+
+## 状态说明
+
+初始状态设置为: **${newTaskStatus}**
+
+- **backlog**: 需求待明确或优先级较低的任务
+- **todo**: 需求明确，准备开始开发
+- **doing**: 正在开发中，部分功能已实现
+- **in-review**: 功能开发完成，需要测试或代码审查
+- **done**: 所有验收标准都已满足，功能完全实现
+- **canceled**: 任务已取消或不再需要
 
 ## 任务描述
 
@@ -873,7 +884,36 @@ ${prompt}
   const handleCheckTaskStatus = useCallback(
     (filePath: string) => {
       setSelectedProjectId(projectId)
-      setInitialPrompt(`@${filePath} 比对当前文档和当前代码，检查任务完成情况并更新 status`)
+      setInitialPrompt(`@${filePath} 请仔细分析这个任务文档和当前代码库的实现情况，然后更新任务状态。
+
+## 分析步骤
+
+1. **阅读任务文档**：理解任务的目标、需求和验收标准
+2. **检查代码实现**：查找相关的代码文件、功能实现、测试等
+3. **对比分析**：判断哪些功能已完成、哪些进行中、哪些未开始
+4. **更新状态**：根据实际情况更新 frontmatter 中的 status 字段
+
+## 状态判断标准
+
+- **done**: 所有验收标准都已满足，功能完全实现
+- **in-review**: 功能开发完成，需要测试或代码审查
+- **doing**: 正在开发中，部分功能已实现
+- **todo**: 需求明确，准备开始开发
+- **backlog**: 需求待明确或优先级较低
+- **canceled**: 任务已取消或不再需要
+
+## 输出要求
+
+1. **只更新文档**：只修改 agent-docs/ 目录下的任务文档，**禁止修改任何代码文件**
+2. **更新 frontmatter**：将 status 字段更新为最准确的值
+3. **添加分析说明**：在文档中添加"## 实现情况分析"章节，详细说明：
+   - 已完成的功能
+   - 进行中的功能
+   - 未开始的功能
+   - 状态更新的理由
+4. **保持原有内容**：不要删除任务文档的其他内容
+
+请开始分析并更新任务状态。`)
       openGlobalChat()
     },
     [projectId, setSelectedProjectId, setInitialPrompt, openGlobalChat]
