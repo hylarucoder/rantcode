@@ -92,10 +92,10 @@
       "taskCount": "{{count}} tasks",
       "loading": "Loading tasks…",
       "empty": "No tasks yet",
-      "emptyHint": "Create .md files in docs/task/ directory",
+      "emptyHint": "Create .md files in agent-docs/task/ directory",
       "frontmatterHint": "Files need frontmatter:",
       "statusHint": "status: backlog | todo | doing | in-review | done | canceled",
-      "footerHint": "Tasks from docs/task/*.md · Change status field in frontmatter to move tasks",
+      "footerHint": "Tasks from agent-docs/task/*.md · Change status field in frontmatter to move tasks",
       "dropHere": "Drop here",
       "dragHere": "Drag tasks here",
       "openFile": "Open file",
@@ -120,7 +120,8 @@
       "clean": "Working tree clean",
       "noChanges": "No changes to commit",
       "staged": "Staged",
-      "unstaged": "Unstaged"
+      "unstaged": "Unstaged",
+      "commit": "Commit"
     }
   },
   "settings": {

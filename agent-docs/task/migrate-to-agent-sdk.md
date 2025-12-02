@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # 迁移至 Claude Agent SDK 分析
 
 ## 概述

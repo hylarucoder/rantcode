@@ -34,7 +34,7 @@ export default function DocCommandPalette({
 }) {
   const { projectId } = useProject()
   const [open, setOpen] = useState(false)
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
+  const docsTree = useFsTreeQuery({ base: 'agent-docs', depth: 8, projectId, enabled: !!projectId })
   const repoTree = useFsTreeQuery({
     base: 'repo',
     depth: 8,
@@ -60,12 +60,12 @@ export default function DocCommandPalette({
 
   const loading = !!docsTree.isLoading || (!!docsTree.isError && !!repoTree.isLoading)
   const groups = useMemo(() => {
-    if (docsFiles.length > 0) return [{ label: 'docs', files: docsFiles, base: 'docs' as const }]
+    if (docsFiles.length > 0) return [{ label: 'agent-docs', files: docsFiles, base: 'agent-docs' as const }]
     if (repoFiles.length > 0) return [{ label: 'repo', files: repoFiles, base: 'repo' as const }]
     return []
   }, [docsFiles, repoFiles])
 
-  const handleSelect = async (path: string, base: 'docs' | 'repo') => {
+  const handleSelect = async (path: string, base: 'agent-docs' | 'repo') => {
     if (!projectId) return
     try {
       const file = await fetchFile({ base, path, projectId })

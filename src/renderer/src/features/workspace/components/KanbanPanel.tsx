@@ -4,13 +4,15 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent
+  type DragOverEvent,
+  type CollisionDetection
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -51,7 +53,7 @@ import { orpc } from '@/lib/orpcQuery'
 import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
 
-// Task 类型定义（与 docs/design/data-model.md 对齐）
+// Task 类型定义（与 agent-docs/design/data-model.md 对齐）
 type TaskStatus = 'backlog' | 'todo' | 'doing' | 'in-review' | 'done' | 'canceled'
 type TaskPriority = 'P0' | 'P1' | 'P2'
 
@@ -327,15 +329,19 @@ function DroppableColumn({
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
 
   // 使列本身成为可放置目标（用于空列或拖到列底部）
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `column-${column.id}`,
     data: { type: 'column', status: column.id }
   })
 
   return (
     <motion.div
+      ref={setDroppableRef}
       layout
-      className="flex w-72 min-w-[288px] flex-col rounded-lg bg-muted/30"
+      className={cn(
+        'flex w-72 min-w-[288px] flex-col rounded-lg bg-muted/30 transition-colors',
+        isOver && activeId && 'ring-2 ring-primary/50 ring-inset'
+      )}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       {/* Column Header */}
@@ -355,7 +361,6 @@ function DroppableColumn({
       {/* Tasks */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div
-          ref={setNodeRef}
           className={cn(
             'flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 min-h-[100px] rounded-b-lg transition-colors',
             isOver && activeId && 'bg-primary/5'
@@ -382,7 +387,7 @@ function DroppableColumn({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className={cn(
-                'flex h-20 items-center justify-center rounded-lg border-2 border-dashed transition-colors',
+                'flex flex-1 min-h-[80px] items-center justify-center rounded-lg border-2 border-dashed transition-colors',
                 isOver && activeId ? 'border-primary/50 bg-primary/5' : 'border-border/50'
               )}
             >
@@ -431,9 +436,22 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     })
   )
 
-  // 获取 docs/task 目录树
+  // 自定义碰撞检测：
+  // 1. 优先使用 pointerWithin，根据指针位置判断「当前在谁上面」（可以正确命中空列）
+  // 2. 如果指针不在任何 droppable 上，再退回到 closestCorners 保证键盘拖拽等场景可用
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args)
+
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions
+    }
+
+    return closestCorners(args)
+  }, [])
+
+  // 获取 agent-docs/task 目录树
   const taskTreeQuery = useFsTreeQuery({
-    base: 'docs',
+    base: 'agent-docs',
     depth: 2,
     projectId,
     enabled: !!projectId
@@ -479,7 +497,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     for (const file of taskFiles) {
       try {
         const { content } = await fetchFile({
-          base: 'docs',
+          base: 'agent-docs',
           path: file.path,
           projectId
         })
@@ -535,7 +553,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       try {
         // 读取文件内容
         const { content } = await fetchFile({
-          base: 'docs',
+          base: 'agent-docs',
           path: task.filePath,
           projectId
         })
@@ -554,7 +572,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
             }) => Promise<{ ok: boolean }>
           }
         ).call({
-          base: 'docs',
+          base: 'agent-docs',
           path: task.filePath,
           content: newContent,
           projectId
@@ -723,7 +741,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       {tasks.length > 0 && (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={collisionDetection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}

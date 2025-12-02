@@ -62,7 +62,8 @@ export function WorkspaceLayout({
   onTocClick,
   previewTocOpen,
   onTogglePreviewToc,
-  onRemoveProject
+  onRemoveProject,
+  onSendWithPrompt
 }: {
   project: ProjectInfo
   sessions: Session[]
@@ -94,6 +95,8 @@ export function WorkspaceLayout({
   previewTocOpen: boolean
   onTogglePreviewToc: (open: boolean) => void
   onRemoveProject?: () => void
+  /** 直接发送指定消息（用于从其他视图触发发送） */
+  onSendWithPrompt?: (prompt: string) => void
 }) {
   const [activeView, setActiveView] = useState<ActivityView>('sessions')
   const [timeMode, setTimeMode] = useState<TimeDisplayMode>('relative')
@@ -103,11 +106,21 @@ export function WorkspaceLayout({
     (filePath: string) => {
       // 切换到 sessions 视图
       setActiveView('sessions')
-      // 设置输入框内容为 @docs/文件路径
-      onInputChange(`@docs/${filePath} `)
+      // 设置输入框内容为 @agent-docs/文件路径
+      onInputChange(`@agent-docs/${filePath} `)
     },
     [onInputChange]
   )
+
+  // 处理从 Git 视图发起提交
+  const handleCommit = useCallback(() => {
+    // 切换到 sessions 视图
+    setActiveView('sessions')
+    // 发送 commit 消息
+    if (onSendWithPrompt) {
+      onSendWithPrompt('commit')
+    }
+  }, [onSendWithPrompt])
 
   // 创建 renderBubble 函数
   const renderBubble = useMemo(() => {
@@ -154,7 +167,7 @@ export function WorkspaceLayout({
   const handlePreviewNavigate = useCallback(
     async (path: string) => {
       try {
-        const file = await fetchFile({ base: 'docs', path, projectId: project.id })
+        const file = await fetchFile({ base: 'agent-docs', path, projectId: project.id })
         const doc: SpecDocMeta = {
           path: file.path,
           content: file.content,
@@ -208,7 +221,7 @@ export function WorkspaceLayout({
       <div className="flex h-full min-h-0">
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 overflow-hidden">
-          <GitPanel projectId={project.id} />
+          <GitPanel projectId={project.id} onCommit={handleCommit} />
         </div>
       </div>
     )

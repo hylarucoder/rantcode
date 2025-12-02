@@ -92,10 +92,10 @@
       "taskCount": "{{count}} 个任务",
       "loading": "加载任务中…",
       "empty": "暂无任务",
-      "emptyHint": "在 docs/task/ 目录创建 .md 文件",
+      "emptyHint": "在 agent-docs/task/ 目录创建 .md 文件",
       "frontmatterHint": "文件需要包含 frontmatter:",
       "statusHint": "status: backlog | todo | doing | in-review | done | canceled",
-      "footerHint": "任务来自 docs/task/*.md · 修改文件 frontmatter 中的 status 字段来移动任务",
+      "footerHint": "任务来自 agent-docs/task/*.md · 修改文件 frontmatter 中的 status 字段来移动任务",
       "dropHere": "放置到此处",
       "dragHere": "拖拽任务到此处",
       "openFile": "打开文件",
@@ -120,7 +120,8 @@
       "clean": "工作区干净",
       "noChanges": "没有待提交的更改",
       "staged": "已暂存",
-      "unstaged": "未暂存"
+      "unstaged": "未暂存",
+      "commit": "提交"
     }
   },
   "settings": {

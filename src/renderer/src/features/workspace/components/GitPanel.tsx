@@ -10,6 +10,7 @@ import {
   FileDiff,
   FileQuestion,
   GitBranch,
+  GitCommit,
   CheckCircle2,
   Loader2,
   ArrowUp,
@@ -31,6 +32,7 @@ type DiffViewMode = 'unified' | 'split'
 
 interface GitPanelProps {
   projectId: string
+  onCommit?: () => void
 }
 
 function getStatusIcon(status: GitFileStatus['status'], className?: string) {
@@ -475,7 +477,7 @@ function DiffView({
   )
 }
 
-export function GitPanel({ projectId }: GitPanelProps) {
+export function GitPanel({ projectId, onCommit }: GitPanelProps) {
   const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [stagedExpanded, setStagedExpanded] = useState(true)
@@ -624,15 +626,29 @@ export function GitPanel({ projectId }: GitPanelProps) {
             ) : null}
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg hover:bg-accent"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg hover:bg-accent"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+          </Button>
+          {onCommit && (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-8 gap-1.5 rounded-lg"
+              onClick={onCommit}
+              disabled={!status?.files.length}
+            >
+              <GitCommit className="h-4 w-4" />
+              {t('workspace.git.commit')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Content */}

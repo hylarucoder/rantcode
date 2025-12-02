@@ -113,12 +113,12 @@ export interface SystemServicePrototype extends ServicePrototype {
 
 export interface FsServicePrototype extends ServicePrototype {
   tree(opts: {
-    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    base?: 'repo' | 'agent-docs' | ''
     depth?: number
     projectId?: string
   }): Promise<FsTreeNode>
   read(opts: {
-    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    base?: 'repo' | 'agent-docs' | ''
     path: string
     projectId?: string
   }): Promise<FsFile>

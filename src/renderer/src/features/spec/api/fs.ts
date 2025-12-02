@@ -1,6 +1,6 @@
 import { orpc } from '@/lib/orpcQuery'
 
-export type FsBase = 'repo' | 'docs' | 'vibe-spec' | ''
+export type FsBase = 'repo' | 'agent-docs' | ''
 
 export async function fetchFsTree(opts: { base?: FsBase; depth?: number; projectId?: string }) {
   return (await (

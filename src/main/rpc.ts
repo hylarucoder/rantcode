@@ -176,7 +176,7 @@ async function resolveDefaultRepoRoot(): Promise<string> {
 }
 
 export async function resolveBaseDir(
-  baseKey: 'repo' | 'docs' | 'vibe-spec' | '' | undefined,
+  baseKey: 'repo' | 'agent-docs' | '' | undefined,
   projectId?: string
 ): Promise<string> {
   const root = path.resolve(await resolveProjectRoot(projectId))
@@ -185,10 +185,8 @@ export async function resolveBaseDir(
     case 'repo':
     case '':
       return root
-    case 'docs':
-      return path.join(root, 'docs')
-    case 'vibe-spec':
-      return path.join(root, 'docs', 'spec')
+    case 'agent-docs':
+      return path.join(root, 'agent-docs')
     default:
       throw new Error('invalid base')
   }
@@ -284,7 +282,7 @@ async function buildTree(rootDir: string, dir: string, depth: number): Promise<F
 
 export class FsService {
   async tree(opts?: {
-    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    base?: 'repo' | 'agent-docs' | ''
     depth?: number
     projectId?: string
   }): Promise<FsTreeNode> {
@@ -302,7 +300,7 @@ export class FsService {
   }
 
   async read(opts: {
-    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    base?: 'repo' | 'agent-docs' | ''
     path: string
     projectId?: string
   }): Promise<FsFile> {
@@ -323,7 +321,7 @@ export class FsService {
   }
 
   async write(opts: {
-    base?: 'repo' | 'docs' | 'vibe-spec' | ''
+    base?: 'repo' | 'agent-docs' | ''
     path: string
     content: string
     projectId?: string

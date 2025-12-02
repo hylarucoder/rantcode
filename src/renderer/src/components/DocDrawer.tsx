@@ -27,8 +27,8 @@ export interface DocDrawerProps {
   title?: string
   /** 项目 ID */
   projectId: string
-  /** 文件基础目录，默认 'docs' */
-  base?: 'docs' | 'repo'
+  /** 文件基础目录，默认 'agent-docs' */
+  base?: 'agent-docs' | 'repo'
   /** 抽屉宽度，默认 720px */
   width?: number | string
   /** 从哪边滑入，默认 'left' */
@@ -93,7 +93,7 @@ export function DocDrawer({
   filePath,
   title,
   projectId,
-  base = 'docs',
+  base = 'agent-docs',
   width = 720,
   side = 'left',
   inset

@@ -1,5 +1,5 @@
 ---
-status: doing
+status: done
 ---
 
 # 重构：Runner + Agent 概念分离

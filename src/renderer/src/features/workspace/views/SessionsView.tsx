@@ -221,6 +221,64 @@ export default function SessionsView({ project }: SessionsViewProps) {
     void cancel(runningTraceId)
   }
 
+  // 直接发送指定消息（用于从其他视图触发发送，如 Git 视图的提交按钮）
+  const handleSendWithPrompt = async (prompt: string) => {
+    if (runningTraceId || !project) return
+    const value = prompt.trim()
+    if (!value) return
+    const targetSessionId = activeSession?.id ?? sessions[0]?.id
+    if (!targetSessionId) return
+
+    // 检查当前 runner 是否需要 API key，如果需要且未配置则提示
+    const tokenKey = getTokenKeyForRunner(runner)
+    if (tokenKey && !tokens[tokenKey]) {
+      const settingsRoute = getSettingsRouteForRunner(runner)
+      toast.error(`请先配置 API Key`, {
+        description: `当前选择的 ${runner} 需要配置 API Key 才能使用`,
+        action: {
+          label: '去设置',
+          onClick: () => navigate(settingsRoute)
+        }
+      })
+      return
+    }
+
+    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: value }
+    const traceId =
+      typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `codex-${Date.now()}`
+    const assistantMsg: Message = {
+      id: `assistant-${traceId}`,
+      role: 'assistant',
+      content: '',
+      traceId,
+      status: 'running',
+      logs: [],
+      output: '',
+      startedAt: Date.now(),
+      runner
+    }
+
+    await chat.appendMessages(targetSessionId, [userMsg, assistantMsg])
+    playAudioFx('start')
+
+    if (!run) return
+
+    const agent = getPresetAgent(agentId)
+    const finalPrompt = agent ? buildAgentPrompt(agent, value) : value
+
+    const runnerContextId = activeSession?.runnerContexts?.[runner]
+    setRunningTraceId(traceId)
+    run({
+      runner,
+      projectId: project.id,
+      prompt: finalPrompt,
+      traceId,
+      contextId: runnerContextId
+    }).catch(() => {
+      setRunningTraceId(null)
+    })
+  }
+
   const handleRemoveProject = async () => {
     if (!project) return
     const ok = window.confirm(
@@ -322,6 +380,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
       previewTocOpen={previewTocOpen}
       onTogglePreviewToc={setPreviewTocOpen}
       onRemoveProject={handleRemoveProject}
+      onSendWithPrompt={handleSendWithPrompt}
     />
   )
 }

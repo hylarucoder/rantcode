@@ -37,9 +37,9 @@ export function Composer({
   onRunnerChange: (r: ExecRunner) => void
 }) {
   const { t } = useTranslation()
-  // 工作区与 docs 列表
+  // 工作区与 agent-docs 列表
   const { projectId } = useProject()
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
+  const docsTree = useFsTreeQuery({ base: 'agent-docs', depth: 8, projectId, enabled: !!projectId })
   const filePaths = useMemo(() => {
     type TreeNode = { dir: boolean; path: string; children?: TreeNode[] }
     const out: string[] = []
@@ -49,9 +49,9 @@ export function Composer({
       if (n.dir) {
         ;(n.children || []).forEach(walk)
       } else if (n.path) {
-        // 规范化成 docs 相对路径（fs.tree 已返回相对仓库根的路径）
-        // 这里直接使用 path 即可，它已是相对路径，且我们只查询 base='docs'
-        out.push(n.path.startsWith('docs/') ? n.path.slice('docs/'.length) : n.path)
+        // 规范化成 agent-docs 相对路径（fs.tree 已返回相对仓库根的路径）
+        // 这里直接使用 path 即可，它已是相对路径，且我们只查询 base='agent-docs'
+        out.push(n.path.startsWith('agent-docs/') ? n.path.slice('agent-docs/'.length) : n.path)
       }
     }
     walk(node)
@@ -94,7 +94,7 @@ export function Composer({
     if (!active) return
     const before = value.slice(0, active.start)
     const after = value.slice(caret)
-    const insert = `@docs/${selected} `
+    const insert = `@agent-docs/${selected} `
     const next = `${before}${insert}${after}`
     onChange(next)
     // 将光标移动到插入后
@@ -143,7 +143,7 @@ export function Composer({
                 idx === activeIndex ? 'bg-accent text-accent-foreground' : ''
               )}
             >
-              @docs/{p}
+              @agent-docs/{p}
             </button>
           ))}
         </div>

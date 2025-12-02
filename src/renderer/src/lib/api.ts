@@ -1,7 +1,7 @@
 import type { SpecDocMeta } from '../types'
 import { orpc } from '@/lib/orpcQuery'
 
-type FsBase = 'repo' | 'docs' | 'vibe-spec' | ''
+type FsBase = 'repo' | 'agent-docs' | ''
 
 const DUMMY_API_BASE = 'https://rantcode.local'
 

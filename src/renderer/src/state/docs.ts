@@ -194,7 +194,7 @@ export function useDocContent(projectId: string | undefined, path: string | unde
   return useDocsStore(selector)
 }
 
-// 当 docs 目录发生变更（新增/修改/删除/ready）时，自动触发 fs.tree 的失效，从而刷新文件列表。
+// 当 agent-docs 目录发生变更（新增/修改/删除/ready）时，自动触发 fs.tree 的失效，从而刷新文件列表。
 // 默认与 SpecExplorer 的深度保持一致（8）。
 export function useDocsTreeAutoRefetch(projectId?: string, depth: number = 8): void {
   const qc = useQueryClient()
@@ -213,7 +213,7 @@ export function useDocsTreeAutoRefetch(projectId?: string, depth: number = 8): v
     ).api?.docs
     if (!docsApi?.subscribe) return undefined
 
-    const input = { base: 'docs' as const, depth, projectId }
+    const input = { base: 'agent-docs' as const, depth, projectId }
     const treeQuery = orpc.fs.tree.queryOptions({ input })
 
     let scheduled = false

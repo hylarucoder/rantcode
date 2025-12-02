@@ -4,8 +4,7 @@ import { RUNNER_VALUES } from '../runners'
 
 export const baseKeySchema = z.union([
   z.literal('repo'),
-  z.literal('docs'),
-  z.literal('vibe-spec'),
+  z.literal('agent-docs'),
   z.literal('')
 ])
 

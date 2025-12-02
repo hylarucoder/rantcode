@@ -28,10 +28,10 @@ function toProjectKey(projectId?: string): ProjectKey {
 }
 
 async function createWatcher(key: ProjectKey, projectId?: string): Promise<WatchEntry> {
-  const baseDir = await resolveBaseDir('docs', projectId)
+  const baseDir = await resolveBaseDir('agent-docs', projectId)
   const stat = await fs.stat(baseDir).catch(() => null)
   if (!stat || !stat.isDirectory()) {
-    throw new Error(`docs directory not found at ${baseDir}`)
+    throw new Error(`agent-docs directory not found at ${baseDir}`)
   }
 
   const watcher = chokidar.watch(baseDir, {

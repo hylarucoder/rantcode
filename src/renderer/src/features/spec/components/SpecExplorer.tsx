@@ -52,7 +52,7 @@ export default function SpecExplorer({
     onTocClick: handlePreviewTocClick
   } = usePreviewDocument()
   const initialDocOpenedRef = useRef(false)
-  const treeBaseRef = useRef<'docs'>('docs')
+  const treeBaseRef = useRef<'agent-docs'>('agent-docs')
   const { projectId } = useProject()
   useDocsWatcher(projectId)
   const setInitialDocContent = useDocsStore((state) => state.setInitialContent)
@@ -83,8 +83,8 @@ export default function SpecExplorer({
     return walk(node)
   }, [])
 
-  // 仅使用 docs 目录，不再回退到 repo
-  const docsTree = useFsTreeQuery({ base: 'docs', depth: 8, projectId, enabled: !!projectId })
+  // 仅使用 agent-docs 目录，不再回退到 repo
+  const docsTree = useFsTreeQuery({ base: 'agent-docs', depth: 8, projectId, enabled: !!projectId })
   // 在当前组件内基于 watcher 事件触发文件树 refetch，避免 queryKey 不匹配问题
   useEffect(() => {
     if (!projectId) return undefined
@@ -115,7 +115,7 @@ export default function SpecExplorer({
   }, [projectId, docsTree.refetch])
 
   const openPath = useCallback(
-    async (p: string, base?: 'docs' | 'repo') => {
+    async (p: string, base?: 'agent-docs' | 'repo') => {
       if (!projectId) return
       setSelectedPath(p)
       const effectiveBase = base ?? treeBaseRef.current
@@ -191,20 +191,20 @@ export default function SpecExplorer({
     if (!projectId) return
     if (docsTree.isSuccess && docsTree.data) {
       const node = docsTree.data as FsTreeNode
-      treeBaseRef.current = 'docs'
+      treeBaseRef.current = 'agent-docs'
       setRoot(node)
       if (!initialDocOpenedRef.current) {
         const firstPath = findFirstFilePath(node)
         if (firstPath) {
           initialDocOpenedRef.current = true
-          void openPath(firstPath, 'docs')
+          void openPath(firstPath, 'agent-docs')
         }
       }
       return
     }
     // 发生错误时，仅提示一次，不再回退
     if (docsTree.isError) {
-      const msg = docsTree.error instanceof Error ? docsTree.error.message : 'Failed to load docs'
+      const msg = docsTree.error instanceof Error ? docsTree.error.message : 'Failed to load agent-docs'
       toast.error(msg)
     }
   }, [
@@ -246,7 +246,7 @@ export default function SpecExplorer({
     )
   }, [doc?.path, liveDocEntry?.content, updatePreviewDoc])
 
-  const decoratedRoot = useMemo(() => (root ? { ...root, name: 'docs' as string } : null), [root])
+  const decoratedRoot = useMemo(() => (root ? { ...root, name: 'agent-docs' as string } : null), [root])
 
   // 复制文件路径
   const handleCopyPath = useCallback(async (filePath: string) => {
@@ -264,7 +264,7 @@ export default function SpecExplorer({
       if (onChatWithFile) {
         onChatWithFile(filePath)
       } else {
-        toast.info(`@docs/${filePath}`, { description: '可以在聊天输入框中引用此文件' })
+        toast.info(`@agent-docs/${filePath}`, { description: '可以在聊天输入框中引用此文件' })
       }
     },
     [onChatWithFile]
@@ -287,7 +287,7 @@ export default function SpecExplorer({
           <Copy className="h-4 w-4" />
           复制路径
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleCopyPath(`@docs/${filePath}`)}>
+        <ContextMenuItem onClick={() => handleCopyPath(`@agent-docs/${filePath}`)}>
           <ExternalLink className="h-4 w-4" />
           复制引用
         </ContextMenuItem>
