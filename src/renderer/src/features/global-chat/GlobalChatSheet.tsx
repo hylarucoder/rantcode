@@ -367,8 +367,7 @@ function GlobalChatContent({
           playSfx('notify')
         } else {
           toast.error(
-            t('globalChat.execFailed', '执行失败') +
-              ` (exit ${event.code ?? '?'})${timeDisplay}`
+            t('globalChat.execFailed', '执行失败') + ` (exit ${event.code ?? '?'})${timeDisplay}`
           )
         }
         playAudioFx('end')
