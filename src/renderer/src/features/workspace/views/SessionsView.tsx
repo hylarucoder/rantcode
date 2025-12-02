@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router'
 import type { ProjectInfo } from '@/types'
 import { WorkspaceLayout } from '@/features/workspace/views/WorkspaceLayout'
 import { usePreviewDocument } from '@/features/preview'
-import { useProjectPreview } from '@/features/workspace/state/store'
+import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
 import { useProjects } from '@/state/projects'
 
 interface SessionsViewProps {

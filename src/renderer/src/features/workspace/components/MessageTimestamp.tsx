@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { memo } from 'react'
 import { humanizeRelativeTime, formatAbsoluteTime } from '@shared/utils/humanize'
 import { cn } from '@/lib/utils'
+import { useSharedNow } from '@/shared/hooks/useSharedNow'
 
 export type TimeDisplayMode = 'relative' | 'absolute'
 
@@ -15,22 +16,16 @@ interface MessageTimestampProps {
  * 消息时间戳组件
  * - 支持相对时间和绝对时间切换
  * - 点击可切换显示模式
- * - 相对时间每分钟自动更新
+ * - 相对时间使用共享定时器每分钟自动更新（避免每个组件独立创建定时器）
  */
-export function MessageTimestamp({
+export const MessageTimestamp = memo(function MessageTimestamp({
   timestamp,
   mode = 'relative',
   onModeChange,
   className
 }: MessageTimestampProps) {
-  const [now, setNow] = useState(() => Date.now())
-
-  // 相对时间模式下每分钟更新一次
-  useEffect(() => {
-    if (mode !== 'relative' || !timestamp) return
-    const interval = setInterval(() => setNow(Date.now()), 60_000)
-    return () => clearInterval(interval)
-  }, [mode, timestamp])
+  // 使用共享的当前时间，所有 MessageTimestamp 组件共享同一个定时器
+  const now = useSharedNow()
 
   if (!timestamp) return null
 
@@ -54,4 +49,4 @@ export function MessageTimestamp({
       {timeText}
     </button>
   )
-}
+})

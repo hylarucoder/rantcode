@@ -62,7 +62,7 @@ interface AgentMessageBubbleProps {
   onTimeModeChange?: (mode: TimeDisplayMode) => void
 }
 
-export function AgentMessageBubble({
+export const AgentMessageBubble = memo(function AgentMessageBubble({
   msg,
   projectId,
   sessionId,
@@ -302,4 +302,4 @@ export function AgentMessageBubble({
       </div>
     </div>
   )
-}
+})

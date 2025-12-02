@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { useProjectChatStore, useProjectPreviewStore } from './store'
+import { useProjectChatStore } from './chatStore'
+import { useProjectPreviewStore } from './previewStore'
 import type { Session } from '@/features/workspace/types'
 import type { RunnerEvent } from '@shared/types/webui'
 

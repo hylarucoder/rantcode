@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { orpc } from '@/lib/orpcQuery'
 import { useGlobalChatStore } from '@/state/globalChat'
-import { useProjectPreview } from '@/features/workspace/state/store'
+import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
 import { useGitAutoRefresh } from '@/features/workspace/hooks/useGitAutoRefresh'
 
 import { GitFileList, DiffView } from './git'

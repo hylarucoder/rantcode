@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useProjectChatStore } from '@/features/workspace/state/store'
+import { useProjectChatStore } from '@/features/workspace/state/chatStore'
 import type { Message } from '@/features/workspace/types'
 
 export interface RunningTask {

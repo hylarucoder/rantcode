@@ -20,7 +20,7 @@ import { useGlobalChatStore } from '@/state/globalChat'
 import { useProjects } from '@/state/projects'
 import { humanizeDuration } from '@shared/utils/humanize'
 import { ProjectProvider } from '@/state/workspace'
-import { useProjectChat } from '@/features/workspace/state/store'
+import { useProjectChat } from '@/features/workspace/state/hooks/useProjectChat'
 import { useAgentRunner } from '@/features/workspace/hooks/useAgentRunner'
 import { useSfx } from '@/shared/hooks/useSfx'
 import { playAudioFx } from '@/lib/audioFx'
@@ -475,7 +475,14 @@ function GlobalChatContent({
     }
   }, [subscribe, activeSessionId, chat, playSfx, t])
 
+  // 使用 ref 存储稳定的值，避免 renderBubble 依赖项过多导致频繁重建
+  const projectIdRef = useRef(project.id)
+  projectIdRef.current = project.id
+  const sessionIdRef = useRef(activeSessionId ?? '')
+  sessionIdRef.current = activeSessionId ?? ''
+
   // 渲染消息气泡
+  // 依赖项只有 timeMode，因为气泡组件已用 memo 包装
   const renderBubble = useCallback(
     (msg: Message) => {
       const timestamp = getMessageTimestamp(msg)
@@ -485,8 +492,8 @@ function GlobalChatContent({
         return (
           <AgentMessageBubble
             msg={msg}
-            projectId={project.id}
-            sessionId={activeSessionId ?? ''}
+            projectId={projectIdRef.current}
+            sessionId={sessionIdRef.current}
             timestamp={timestamp}
             timeMode={timeMode}
             onTimeModeChange={setTimeMode}
@@ -496,7 +503,6 @@ function GlobalChatContent({
       if (isUser) {
         return (
           <UserMessageBubble
-            key={msg.id}
             text={msg.content}
             timestamp={timestamp}
             timeMode={timeMode}
@@ -506,7 +512,6 @@ function GlobalChatContent({
       }
       return (
         <AssistantMessageBubble
-          key={msg.id}
           text={msg.content}
           timestamp={timestamp}
           timeMode={timeMode}
@@ -514,7 +519,7 @@ function GlobalChatContent({
         />
       )
     },
-    [project.id, activeSessionId, timeMode]
+    [timeMode]
   )
 
   return (

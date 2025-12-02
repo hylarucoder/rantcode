@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,7 @@ interface AssistantMessageBubbleProps {
   onTimeModeChange?: (mode: TimeDisplayMode) => void
 }
 
-export function AssistantMessageBubble({
+export const AssistantMessageBubble = memo(function AssistantMessageBubble({
   text,
   timestamp,
   timeMode = 'relative',
@@ -64,4 +64,4 @@ export function AssistantMessageBubble({
       </div>
     </div>
   )
-}
+})

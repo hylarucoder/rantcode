@@ -12,7 +12,7 @@ import { fetchFile } from '@/features/spec/api/fs'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
 import type { PreviewTocItem } from '@/features/preview'
 import { useGlobalChatStore } from '@/state/globalChat'
-import { useProjectPreview } from '@/features/workspace/state/store'
+import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
 
 /**
  * WorkspaceLayout - 项目工作区布局
