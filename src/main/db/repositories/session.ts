@@ -3,6 +3,40 @@ import { getDatabase } from '../client'
 import { sessions, messages, type SessionRow, type MessageRow } from '../schema'
 import type { Runner } from '../../../shared/runners'
 
+/**
+ * 清理遗留的 running 状态消息
+ *
+ * 应用启动时调用，将所有 status='running' 的消息标记为 error
+ * 因为应用重启后，之前运行的任务不可能还在运行
+ */
+export async function cleanupStaleRunningMessages(): Promise<number> {
+  const db = getDatabase()
+
+  // 查找所有 running 状态的消息
+  const staleMessages = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(eq(messages.status, 'running'))
+
+  if (staleMessages.length === 0) {
+    return 0
+  }
+
+  // 将它们标记为 error
+  for (const msg of staleMessages) {
+    await db
+      .update(messages)
+      .set({
+        status: 'error',
+        errorMessage: '任务被中断（应用重启）'
+      })
+      .where(eq(messages.id, msg.id))
+  }
+
+  console.log(`[DB] Cleaned up ${staleMessages.length} stale running messages`)
+  return staleMessages.length
+}
+
 // 与前端兼容的类型定义
 export interface LogEntry {
   id: string

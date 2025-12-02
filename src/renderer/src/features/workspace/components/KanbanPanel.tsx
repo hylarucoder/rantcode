@@ -34,7 +34,8 @@ import {
   FileText,
   RefreshCw,
   ExternalLink,
-  MessageCircle
+  MessageCircle,
+  Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -46,12 +47,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { DocDrawer } from '@/components/DocDrawer'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
 import { fetchFile } from '@/features/spec/api/fs'
 import { orpc } from '@/lib/orpcQuery'
 import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
+import { useGlobalChatStore } from '@/state/globalChat'
 
 // Task 类型定义（与 agent-docs/design/data-model.md 对齐）
 type TaskStatus = 'backlog' | 'todo' | 'doing' | 'in-review' | 'done' | 'canceled'
@@ -70,12 +90,32 @@ interface Task {
 
 // 列配置
 const columns: { id: TaskStatus; labelKey: string; color: string; icon: typeof Circle }[] = [
-  { id: 'backlog', labelKey: 'workspace.kanban.columns.backlog', color: 'bg-slate-500', icon: Circle },
+  {
+    id: 'backlog',
+    labelKey: 'workspace.kanban.columns.backlog',
+    color: 'bg-slate-500',
+    icon: Circle
+  },
   { id: 'todo', labelKey: 'workspace.kanban.columns.todo', color: 'bg-violet-500', icon: Circle },
   { id: 'doing', labelKey: 'workspace.kanban.columns.doing', color: 'bg-blue-500', icon: Clock },
-  { id: 'in-review', labelKey: 'workspace.kanban.columns.inReview', color: 'bg-amber-500', icon: AlertCircle },
-  { id: 'done', labelKey: 'workspace.kanban.columns.done', color: 'bg-emerald-500', icon: CheckCircle2 },
-  { id: 'canceled', labelKey: 'workspace.kanban.columns.canceled', color: 'bg-red-500/50', icon: Circle }
+  {
+    id: 'in-review',
+    labelKey: 'workspace.kanban.columns.inReview',
+    color: 'bg-amber-500',
+    icon: AlertCircle
+  },
+  {
+    id: 'done',
+    labelKey: 'workspace.kanban.columns.done',
+    color: 'bg-emerald-500',
+    icon: CheckCircle2
+  },
+  {
+    id: 'canceled',
+    labelKey: 'workspace.kanban.columns.canceled',
+    color: 'bg-red-500/50',
+    icon: Circle
+  }
 ]
 
 // 优先级配置
@@ -187,7 +227,11 @@ function SortableTaskCard({
   // 拖拽时隐藏原卡片（由 DragOverlay 显示）
   if (isSortableDragging) {
     return (
-      <div ref={setNodeRef} style={style} className="h-[72px] rounded-lg border-2 border-dashed border-primary/30 bg-primary/5" />
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="h-[72px] rounded-lg border-2 border-dashed border-primary/30 bg-primary/5"
+      />
     )
   }
 
@@ -236,7 +280,8 @@ function SortableTaskCard({
               }}
               className={cn(
                 'text-sm leading-snug text-left w-full',
-                !isOverlay && 'hover:text-primary hover:underline underline-offset-2 cursor-pointer transition-colors'
+                !isOverlay &&
+                  'hover:text-primary hover:underline underline-offset-2 cursor-pointer transition-colors'
               )}
             >
               {task.title}
@@ -298,9 +343,23 @@ function SortableTaskCard({
 }
 
 // 任务卡片预览（用于 DragOverlay）
-function TaskCardOverlay({ task, t }: { task: Task; t: (key: string, options?: Record<string, string>) => string }) {
+function TaskCardOverlay({
+  task,
+  t
+}: {
+  task: Task
+  t: (key: string, options?: Record<string, string>) => string
+}) {
   return (
-    <SortableTaskCard task={task} isOverlay onOpenFile={() => {}} onChatWithFile={undefined} onTitleClick={() => {}} onStatusChange={() => {}} t={t} />
+    <SortableTaskCard
+      task={task}
+      isOverlay
+      onOpenFile={() => {}}
+      onChatWithFile={undefined}
+      onTitleClick={() => {}}
+      onStatusChange={() => {}}
+      t={t}
+    />
   )
 }
 
@@ -413,10 +472,17 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [dragStartStatus, setDragStartStatus] = useState<TaskStatus | null>(null)
-  
+
   // 文档抽屉状态
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+
+  // 新建任务 Dialog 状态
+  const [newTaskOpen, setNewTaskOpen] = useState(false)
+  const [newTaskPrompt, setNewTaskPrompt] = useState('')
+  const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>('backlog')
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('P2')
+  const [newTaskOwner, setNewTaskOwner] = useState('')
 
   // 点击标题打开文档
   const handleTitleClick = useCallback((task: Task) => {
@@ -579,7 +645,9 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         })
 
         const columnLabel = columns.find((c) => c.id === newStatus)?.labelKey
-        toast.success(t('workspace.kanban.movedTo', { column: columnLabel ? t(columnLabel) : newStatus }))
+        toast.success(
+          t('workspace.kanban.movedTo', { column: columnLabel ? t(columnLabel) : newStatus })
+        )
       } catch (err) {
         // 回滚本地状态
         setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)))
@@ -685,6 +753,71 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     console.log('Open in editor:', filePath)
   }, [])
 
+  // 重置新建任务表单
+  const resetNewTaskForm = useCallback(() => {
+    setNewTaskPrompt('')
+    setNewTaskStatus('backlog')
+    setNewTaskPriority('P2')
+    setNewTaskOwner('')
+  }, [])
+
+  // 获取全局聊天 store
+  const { setInitialPrompt, setSelectedProjectId, open: openGlobalChat } = useGlobalChatStore()
+
+  // 创建新任务 - 拼装提示词并发送到聊天窗口
+  const handleCreateTask = useCallback(() => {
+    if (!newTaskPrompt.trim()) {
+      toast.error(t('workspace.kanban.newTask.promptRequired'))
+      return
+    }
+
+    const prompt = newTaskPrompt.trim()
+
+    // 构建发送给 AI 的完整提示词
+    const fullPrompt = `请帮我在 agent-docs/task/ 目录下创建一个任务文档。
+
+## 要求
+
+1. **只操作文档**：只在 agent-docs/ 目录下创建或修改 Markdown 文件，**禁止修改任何代码文件**
+2. **文件命名**：根据任务内容概括一个简短的英文或中文标题作为文件名（使用连字符连接，如 \`implement-login.md\` 或 \`实现登录功能.md\`）
+3. **Frontmatter 格式**：
+   \`\`\`yaml
+   ---
+   title: <根据任务内容概括的标题>
+   status: ${newTaskStatus}
+   priority: ${newTaskPriority}${newTaskOwner.trim() ? `\n   owner: ${newTaskOwner.trim()}` : ''}
+   ---
+   \`\`\`
+4. **文档结构**：包含任务描述、目标、待办事项等章节
+
+## 任务描述
+
+${prompt}
+
+---
+请根据以上任务描述创建任务文档，概括合适的标题和文件名。记住：**只操作 agent-docs/ 下的文档，不要修改代码**。`
+
+    // 关闭 Dialog
+    setNewTaskOpen(false)
+    resetNewTaskForm()
+
+    // 设置项目 ID 并打开聊天窗口
+    setSelectedProjectId(projectId)
+    setInitialPrompt(fullPrompt)
+    openGlobalChat()
+  }, [
+    projectId,
+    newTaskPrompt,
+    newTaskStatus,
+    newTaskPriority,
+    newTaskOwner,
+    t,
+    resetNewTaskForm,
+    setSelectedProjectId,
+    setInitialPrompt,
+    openGlobalChat
+  ])
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background/50">
       {/* Header */}
@@ -696,6 +829,124 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <Dialog
+            open={newTaskOpen}
+            onOpenChange={(open) => {
+              setNewTaskOpen(open)
+              if (!open) resetNewTaskForm()
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="default" size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                {t('workspace.kanban.newTask.button')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent size="sm">
+              <DialogHeader>
+                <DialogTitle>{t('workspace.kanban.newTask.title')}</DialogTitle>
+                <DialogDescription>{t('workspace.kanban.newTask.description')}</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                {/* 任务提示词 */}
+                <div className="grid gap-2">
+                  <label htmlFor="task-prompt" className="text-sm font-medium">
+                    {t('workspace.kanban.newTask.prompt')}
+                  </label>
+                  <Textarea
+                    id="task-prompt"
+                    placeholder={t('workspace.kanban.newTask.promptPlaceholder')}
+                    value={newTaskPrompt}
+                    onChange={(e) => setNewTaskPrompt(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('workspace.kanban.newTask.promptHint')}
+                  </p>
+                </div>
+
+                {/* 初始状态 */}
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">
+                    {t('workspace.kanban.newTask.status')}
+                  </label>
+                  <Select
+                    value={newTaskStatus}
+                    onValueChange={(v) => setNewTaskStatus(v as TaskStatus)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.map((col) => (
+                        <SelectItem key={col.id} value={col.id}>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('h-2 w-2 rounded-full', col.color)} />
+                            {t(col.labelKey)}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 优先级 */}
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">
+                    {t('workspace.kanban.newTask.priority')}
+                  </label>
+                  <Select
+                    value={newTaskPriority}
+                    onValueChange={(v) => setNewTaskPriority(v as TaskPriority)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(['P0', 'P1', 'P2'] as const).map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-xs font-semibold',
+                              priorityConfig[p].color
+                            )}
+                          >
+                            {priorityConfig[p].label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 负责人 */}
+                <div className="grid gap-2">
+                  <label htmlFor="task-owner" className="text-sm font-medium">
+                    {t('workspace.kanban.newTask.owner')}
+                    <span className="ml-1 text-muted-foreground text-xs">
+                      {t('common.label.optional')}
+                    </span>
+                  </label>
+                  <Input
+                    id="task-owner"
+                    placeholder={t('workspace.kanban.newTask.ownerPlaceholder')}
+                    value={newTaskOwner}
+                    onChange={(e) => setNewTaskOwner(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setNewTaskOpen(false)}>
+                  {t('common.button.cancel')}
+                </Button>
+                <Button onClick={handleCreateTask} disabled={!newTaskPrompt.trim()}>
+                  {t('workspace.kanban.newTask.sendToChat')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button
             variant="ghost"
             size="sm"
@@ -725,9 +976,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
           <div className="text-center text-muted-foreground">
             <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
             <p className="mb-1 text-sm font-medium">{t('workspace.kanban.empty')}</p>
-            <p className="text-xs">
-              {t('workspace.kanban.emptyHint')}
-            </p>
+            <p className="text-xs">{t('workspace.kanban.emptyHint')}</p>
             <p className="mt-2 text-xs">
               {t('workspace.kanban.frontmatterHint')}
               <br />

@@ -1,11 +1,8 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { Card } from '@/components/ui/card'
-import { MessageList } from '@/features/workspace/components/MessageList'
-import { Composer } from '@/features/workspace/components/Composer'
 import { RightPanel } from '@/features/workspace/components/RightPanel'
-import { ActivityBar, type ActivityView } from '@/features/workspace/components/ActivityBar'
-import { SessionsAssistantsPanel } from '@/features/workspace/components/SessionsAssistantsPanel'
+import { ActivityBar } from '@/features/workspace/components/ActivityBar'
 import { ProjectSettingsPanel } from '@/features/workspace/components/ProjectSettingsPanel'
 import { GitPanel } from '@/features/workspace/components/GitPanel'
 import { KanbanPanel } from '@/features/workspace/components/KanbanPanel'
@@ -13,46 +10,18 @@ import { SpecExplorer } from '@/features/spec'
 import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import { fetchFile } from '@/features/spec/api/fs'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
-import type { RunnerRunOptions } from '@shared/types/webui'
-import { AgentMessageBubble } from '@/features/workspace/components/AgentMessageBubble'
-import { UserMessageBubble } from '@/features/workspace/components/UserMessageBubble'
-import { AssistantMessageBubble } from '@/features/workspace/components/AssistantMessageBubble'
-import type { TimeDisplayMode } from '@/features/workspace/components/MessageTimestamp'
-import type { Message, Session } from '@/features/workspace/types'
 import type { PreviewTocItem } from '@/features/preview'
+import { useGlobalChatStore } from '@/state/globalChat'
+import { useProjectPreview } from '@/features/workspace/state/store'
 
 /**
- * 从消息中提取时间戳
- * 优先使用 createdAt，其次 startedAt，最后尝试从 id 中解析
+ * WorkspaceLayout - 项目工作区布局
+ *
+ * 简化后的布局，聊天功能已移至全局对话面板。
+ * 主要提供：文档浏览、看板、Git、项目设置视图。
  */
-function getMessageTimestamp(msg: Message): number | undefined {
-  if (msg.createdAt) return msg.createdAt
-  if (msg.startedAt) return msg.startedAt
-  // 尝试从 id 中解析时间戳（格式如 user-1732896000000）
-  const match = msg.id.match(/-(\d{13})$/)
-  if (match) return parseInt(match[1], 10)
-  return undefined
-}
-
 export function WorkspaceLayout({
   project,
-  sessions,
-  activeSessionId,
-  onSelectSession,
-  onNewSession,
-  onRenameSession,
-  onArchiveSession,
-  onDeleteSession,
-  messages,
-  input,
-  onInputChange,
-  onSend,
-  isRunning,
-  onInterrupt,
-  runner,
-  onRunnerChange,
-  agentId,
-  onAgentIdChange,
   onDocChange,
   previewDocPath,
   previewHtml,
@@ -62,29 +31,9 @@ export function WorkspaceLayout({
   onTocClick,
   previewTocOpen,
   onTogglePreviewToc,
-  onRemoveProject,
-  onSendWithPrompt
+  onRemoveProject
 }: {
   project: ProjectInfo
-  sessions: Session[]
-  activeSessionId: string
-  onSelectSession: (id: string) => void
-  onNewSession: () => void
-  onRenameSession?: (sessionId: string, newTitle: string) => void
-  onArchiveSession?: (sessionId: string, archived: boolean) => void
-  onDeleteSession?: (sessionId: string) => void
-  messages: Message[]
-  input: string
-  onInputChange: (v: string) => void
-  onSend: () => void
-  isRunning: boolean
-  onInterrupt: () => void
-  /** 底层 Runner（执行器） */
-  runner: NonNullable<RunnerRunOptions['runner']>
-  onRunnerChange: (r: NonNullable<RunnerRunOptions['runner']>) => void
-  /** Agent ID（角色） */
-  agentId: string
-  onAgentIdChange: (id: string) => void
   onDocChange: (doc: SpecDocMeta | null) => void
   previewDocPath: string | null
   previewHtml: string | null
@@ -95,73 +44,25 @@ export function WorkspaceLayout({
   previewTocOpen: boolean
   onTogglePreviewToc: (open: boolean) => void
   onRemoveProject?: () => void
-  /** 直接发送指定消息（用于从其他视图触发发送） */
-  onSendWithPrompt?: (prompt: string) => void
 }) {
-  const [activeView, setActiveView] = useState<ActivityView>('sessions')
-  const [timeMode, setTimeMode] = useState<TimeDisplayMode>('relative')
+  // 使用持久化的活动视图状态，而不是本地 useState
+  const { activeView, setActiveView } = useProjectPreview(project.id)
 
-  // 处理从看板跳转到聊天
+  // 全局对话面板
+  const openGlobalChat = useGlobalChatStore((s) => s.open)
+  const setGlobalChatProject = useGlobalChatStore((s) => s.setSelectedProjectId)
+  const setReferenceFilePath = useGlobalChatStore((s) => s.setReferenceFilePath)
+
+  // 处理从看板或文档跳转到聊天
   const handleChatWithFile = useCallback(
     (filePath: string) => {
-      // 切换到 sessions 视图
-      setActiveView('sessions')
-      // 设置输入框内容为 @agent-docs/文件路径
-      onInputChange(`@agent-docs/${filePath} `)
+      // 打开全局对话面板，并设置当前项目和引用文件路径
+      setGlobalChatProject(project.id)
+      setReferenceFilePath(filePath)
+      openGlobalChat()
     },
-    [onInputChange]
+    [project.id, setGlobalChatProject, setReferenceFilePath, openGlobalChat]
   )
-
-  // 处理从 Git 视图发起提交
-  const handleCommit = useCallback(() => {
-    // 切换到 sessions 视图
-    setActiveView('sessions')
-    // 发送 commit 消息
-    if (onSendWithPrompt) {
-      onSendWithPrompt('commit')
-    }
-  }, [onSendWithPrompt])
-
-  // 创建 renderBubble 函数
-  const renderBubble = useMemo(() => {
-    return function renderBubbleInner(msg: Message) {
-      const timestamp = getMessageTimestamp(msg)
-      const isUser = msg.role === 'user'
-      const isAgent = msg.role === 'assistant' && !!msg.traceId
-      if (isAgent) {
-        return (
-          <AgentMessageBubble
-            msg={msg}
-            projectId={project.id}
-            sessionId={activeSessionId}
-            timestamp={timestamp}
-            timeMode={timeMode}
-            onTimeModeChange={setTimeMode}
-          />
-        )
-      }
-      if (isUser) {
-        return (
-          <UserMessageBubble
-            key={msg.id}
-            text={msg.content}
-            timestamp={timestamp}
-            timeMode={timeMode}
-            onTimeModeChange={setTimeMode}
-          />
-        )
-      }
-      return (
-        <AssistantMessageBubble
-          key={msg.id}
-          text={msg.content}
-          timestamp={timestamp}
-          timeMode={timeMode}
-          onTimeModeChange={setTimeMode}
-        />
-      )
-    }
-  }, [project.id, activeSessionId, timeMode])
 
   // 处理预览区链接导航
   const handlePreviewNavigate = useCallback(
@@ -181,47 +82,13 @@ export function WorkspaceLayout({
     [project.id, onDocChange]
   )
 
-  // 根据当前视图渲染左侧面板内容
-  const renderLeftPanelContent = () => {
-    switch (activeView) {
-      case 'sessions':
-        return (
-          <Card className="flex h-full min-h-0 flex-1 flex-col rounded-none border-0 p-0 shadow-none">
-            <SessionsAssistantsPanel
-              sessions={sessions}
-              activeSessionId={activeSessionId}
-              onSelectSession={onSelectSession}
-              onNewSession={onNewSession}
-              onRenameSession={onRenameSession}
-              onArchiveSession={onArchiveSession}
-              onDeleteSession={onDeleteSession}
-              agentId={agentId}
-              onAgentIdChange={onAgentIdChange}
-            />
-          </Card>
-        )
-      case 'docs':
-        return (
-          <div className="flex min-h-0 flex-1 items-stretch [&>*]:w-full">
-            <SpecExplorer
-              showPreview={false}
-              onDocChange={onDocChange}
-              onChatWithFile={handleChatWithFile}
-            />
-          </div>
-        )
-      default:
-        return null
-    }
-  }
-
   // Git 视图是全屏的
   if (activeView === 'git') {
     return (
       <div className="flex h-full min-h-0">
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <div className="flex-1 overflow-hidden">
-          <GitPanel projectId={project.id} onCommit={handleCommit} />
+          <GitPanel projectId={project.id} />
         </div>
       </div>
     )
@@ -251,6 +118,7 @@ export function WorkspaceLayout({
     )
   }
 
+  // 文档视图：左侧文件树 + 右侧预览
   return (
     <div className="flex h-full min-h-0">
       {/* Activity Bar - 左侧图标栏 */}
@@ -261,43 +129,20 @@ export function WorkspaceLayout({
         {/* Global docs command palette (Cmd/Ctrl + K) */}
         <DocCommandPalette onDocChange={onDocChange} />
 
-        {/* Left: Dynamic content based on active view */}
-        <Panel defaultSize={24} minSize={16} className="flex min-h-0 min-w-[220px]">
-          {renderLeftPanelContent()}
-        </Panel>
-        <PanelResizeHandle className="w-px bg-border/70 hover:bg-primary/50 data-[resize-handle-active]:bg-primary" />
-
-        {/* Center: Chat / Exec output */}
-        <Panel defaultSize={38} minSize={24} className="flex min-h-0">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <Card className="flex min-h-0 flex-1 flex-col gap-3 rounded-none border-0 px-3 pb-0 pt-3 shadow-none">
-              <p className="mb-1 text-xs text-muted-foreground">
-                Ask questions about{' '}
-                <span className="inline-block rounded bg-card px-1.5 py-0.5 font-mono text-xs">
-                  {project.name || project.repoPath}
-                </span>
-                .
-              </p>
-              <MessageList<Message>
-                messages={messages}
-                renderMessage={renderBubble}
-              />
-              <Composer
-                value={input}
-                onChange={onInputChange}
-                onSend={onSend}
-                isRunning={isRunning}
-                onInterrupt={onInterrupt}
-                runner={runner}
-                onRunnerChange={onRunnerChange}
-              />
-            </Card>
+        {/* Left: Document Explorer */}
+        <Panel defaultSize={30} minSize={20} className="flex min-h-0 min-w-[220px]">
+          <div className="flex min-h-0 flex-1 items-stretch [&>*]:w-full">
+            <SpecExplorer
+              showPreview={false}
+              onDocChange={onDocChange}
+              onChatWithFile={handleChatWithFile}
+            />
           </div>
         </Panel>
         <PanelResizeHandle className="w-px bg-border/70 hover:bg-primary/50 data-[resize-handle-active]:bg-primary" />
 
-        {/* Right: File preview / Conversation log */}
-        <Panel defaultSize={38} minSize={24} className="flex min-h-0">
+        {/* Right: File preview */}
+        <Panel defaultSize={70} minSize={40} className="flex min-h-0">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <Card className="relative flex min-h-0 flex-1 flex-col gap-3 rounded-none border-0 px-3 pb-0 pt-3 shadow-none">
               <RightPanel

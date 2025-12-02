@@ -3,6 +3,9 @@ import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Message, Session, RightPanelTab, RunnerContextMap } from '@/features/workspace/types'
+
+// 从 ActivityBar 导入 ActivityView 类型
+type ActivityView = 'kanban' | 'docs' | 'git' | 'settings'
 import type { RunnerEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
 
@@ -62,6 +65,7 @@ type PreviewProjectState = {
   selectedDocPath: string | null
   rightTab: RightPanelTab
   previewTocOpen: boolean
+  activeView: ActivityView
 }
 
 interface ChatStoreState {
@@ -96,6 +100,7 @@ interface PreviewStoreState {
   setSelectedDocPath: (projectId: string, path: string | null) => void
   setRightTab: (projectId: string, tab: RightPanelTab) => void
   setPreviewTocOpen: (projectId: string, open: boolean) => void
+  setActiveView: (projectId: string, view: ActivityView) => void
   reset: (projectId: string) => void
 }
 
@@ -110,7 +115,8 @@ const defaultChatProjectState = (): ChatProjectState => ({
 const defaultPreviewProjectState = (): PreviewProjectState => ({
   selectedDocPath: null,
   rightTab: 'preview',
-  previewTocOpen: false
+  previewTocOpen: false,
+  activeView: 'docs'
 })
 
 // 构建 traceId -> message 索引
@@ -638,6 +644,12 @@ export const useProjectPreviewStore = create<PreviewStoreState>()(
             if (!ws) return
             ws.previewTocOpen = open
           }),
+        setActiveView: (projectId, view) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.activeView = view
+          }),
         reset: (projectId) =>
           set((state) => {
             delete state.projects[projectId]
@@ -844,9 +856,11 @@ export function useProjectPreview(projectId: string) {
   const previewTocOpen = useProjectPreviewStore(
     (s) => s.projects[projectId]?.previewTocOpen ?? false
   )
+  const activeView = useProjectPreviewStore((s) => s.projects[projectId]?.activeView ?? 'docs')
   const setSelectedDocPath = useProjectPreviewStore((s) => s.setSelectedDocPath)
   const setRightTab = useProjectPreviewStore((s) => s.setRightTab)
   const setPreviewTocOpen = useProjectPreviewStore((s) => s.setPreviewTocOpen)
+  const setActiveView = useProjectPreviewStore((s) => s.setActiveView)
   const ensure = useProjectPreviewStore((s) => s.ensure)
   useEffect(() => {
     ensure(projectId)
@@ -855,8 +869,10 @@ export function useProjectPreview(projectId: string) {
     selectedDocPath,
     rightTab,
     previewTocOpen,
+    activeView,
     setSelectedDocPath: (path: string | null) => setSelectedDocPath(projectId, path),
     setRightTab: (tab: RightPanelTab) => setRightTab(projectId, tab),
-    setPreviewTocOpen: (open: boolean) => setPreviewTocOpen(projectId, open)
+    setPreviewTocOpen: (open: boolean) => setPreviewTocOpen(projectId, open),
+    setActiveView: (view: ActivityView) => setActiveView(projectId, view)
   }
 }

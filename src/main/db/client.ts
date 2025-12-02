@@ -6,6 +6,7 @@ import { drizzle, LibSQLDatabase } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import * as schema from './schema'
 import { getDbPath as getDbPathFromPaths, getConfigRoot } from '../paths'
+import { cleanupStaleRunningMessages } from './repositories/session'
 
 let db: LibSQLDatabase<typeof schema> | null = null
 let client: Client | null = null
@@ -43,6 +44,10 @@ export async function initDatabase(): Promise<LibSQLDatabase<typeof schema>> {
 
   // 运行迁移（如果需要）
   await runMigrations()
+
+  // 清理遗留的 running 状态消息
+  // 应用启动时，之前运行的任务不可能还在运行
+  await cleanupStaleRunningMessages()
 
   console.log('[DB] Database initialized successfully')
   return db

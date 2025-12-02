@@ -46,7 +46,23 @@
     "addOrManageProjects": "Add or manage projects…",
     "removeCurrentProject": "Remove current project",
     "openSettings": "Open settings",
+    "openChat": "Chat (⌘/)",
     "toggleTheme": "Toggle theme"
+  },
+  "globalChat": {
+    "title": "Chat",
+    "noProject": "No project available",
+    "addProjectHint": "Please add a project first",
+    "goToProjects": "Go to projects",
+    "selectSession": "Select session",
+    "newSession": "New session",
+    "welcome": "Ask anything about this project.",
+    "noApiKey": "Please configure API Key first",
+    "noApiKeyDesc": "The selected Runner requires an API Key",
+    "goToSettings": "Go to settings",
+    "execDone": "Execution complete",
+    "execFailed": "Execution failed",
+    "execError": "Execution error"
   },
   "projects": {
     "title": "Projects",
@@ -110,6 +126,20 @@
         "inReview": "In Review",
         "done": "Done",
         "canceled": "Canceled"
+      },
+      "newTask": {
+        "button": "New Task",
+        "title": "New Task",
+        "description": "Describe your task, AI will create the task file and start execution",
+        "prompt": "Task Description",
+        "promptPlaceholder": "Describe the task you want to accomplish…\nFor example: Implement user login with email and phone support",
+        "promptHint": "The first line will be used as the task title",
+        "promptRequired": "Please enter a task description",
+        "status": "Initial Status",
+        "priority": "Priority",
+        "owner": "Owner",
+        "ownerPlaceholder": "Owner (optional)",
+        "sendToChat": "Send to Chat"
       }
     },
     "git": {
@@ -121,7 +151,14 @@
       "noChanges": "No changes to commit",
       "staged": "Staged",
       "unstaged": "Unstaged",
-      "commit": "Commit"
+      "commit": "Commit",
+      "commitDialog": {
+        "title": "Git Commit",
+        "description": "Enter your commit message, AI will execute the commit",
+        "placeholder": "Enter commit message...",
+        "hint": "Will execute git add . && git commit via AI",
+        "submit": "Commit"
+      }
     }
   },
   "settings": {

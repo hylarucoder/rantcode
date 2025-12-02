@@ -1,17 +1,17 @@
-import { MessageSquare, FileText, Settings, GitBranch, KanbanSquare } from 'lucide-react'
+import { FileText, Settings, GitBranch, KanbanSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type ActivityView = 'sessions' | 'kanban' | 'docs' | 'git' | 'settings'
+// sessions 已移至全局对话面板，不再作为项目内视图
+export type ActivityView = 'kanban' | 'docs' | 'git' | 'settings'
 
 interface ActivityBarProps {
   activeView: ActivityView
   onViewChange: (view: ActivityView) => void
 }
 
-const activities: { id: ActivityView; icon: typeof MessageSquare; label: string }[] = [
-  { id: 'sessions', icon: MessageSquare, label: '会话 / 助手' },
-  { id: 'kanban', icon: KanbanSquare, label: '看板' },
+const activities: { id: ActivityView; icon: typeof FileText; label: string }[] = [
   { id: 'docs', icon: FileText, label: '文档' },
+  { id: 'kanban', icon: KanbanSquare, label: '看板' },
   { id: 'git', icon: GitBranch, label: 'Git' },
   { id: 'settings', icon: Settings, label: '设置' }
 ]

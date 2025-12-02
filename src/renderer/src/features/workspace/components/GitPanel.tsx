@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { orpc } from '@/lib/orpcQuery'
+import { useGlobalChatStore } from '@/state/globalChat'
 
 import type { z } from 'zod'
 import type { gitFileStatusSchema, gitDiffSchema } from '@shared/orpc/schemas'
@@ -32,7 +33,6 @@ type DiffViewMode = 'unified' | 'split'
 
 interface GitPanelProps {
   projectId: string
-  onCommit?: () => void
 }
 
 function getStatusIcon(status: GitFileStatus['status'], className?: string) {
@@ -477,13 +477,16 @@ function DiffView({
   )
 }
 
-export function GitPanel({ projectId, onCommit }: GitPanelProps) {
+export function GitPanel({ projectId }: GitPanelProps) {
   const { t } = useTranslation()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [stagedExpanded, setStagedExpanded] = useState(true)
   const [unstagedExpanded, setUnstagedExpanded] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [viewMode, setViewMode] = useState<DiffViewMode>('unified')
+
+  // 全局聊天 store
+  const { setInitialPrompt, setSelectedProjectId, open: openGlobalChat } = useGlobalChatStore()
 
   const {
     data: status,
@@ -524,6 +527,13 @@ export function GitPanel({ projectId, onCommit }: GitPanelProps) {
     await refetchStatus()
     setTimeout(() => setIsRefreshing(false), 500)
   }
+
+  // 打开聊天面板进行 commit
+  const handleCommit = useCallback(() => {
+    setSelectedProjectId(projectId)
+    setInitialPrompt('commit ')
+    openGlobalChat()
+  }, [projectId, setSelectedProjectId, setInitialPrompt, openGlobalChat])
 
   const renderFileList = (
     files: GitFileStatus[],
@@ -636,18 +646,16 @@ export function GitPanel({ projectId, onCommit }: GitPanelProps) {
           >
             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
           </Button>
-          {onCommit && (
-            <Button
-              variant="default"
-              size="sm"
-              className="h-8 gap-1.5 rounded-lg"
-              onClick={onCommit}
-              disabled={!status?.files.length}
-            >
-              <GitCommit className="h-4 w-4" />
-              {t('workspace.git.commit')}
-            </Button>
-          )}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg"
+            onClick={handleCommit}
+            disabled={!status?.files.length}
+          >
+            <GitCommit className="h-4 w-4" />
+            {t('workspace.git.commit')}
+          </Button>
         </div>
       </div>
 

@@ -46,7 +46,23 @@
     "addOrManageProjects": "添加或管理项目…",
     "removeCurrentProject": "移除当前项目",
     "openSettings": "打开设置",
+    "openChat": "对话 (⌘/)",
     "toggleTheme": "切换主题"
+  },
+  "globalChat": {
+    "title": "对话",
+    "noProject": "没有可用的项目",
+    "addProjectHint": "请先添加一个项目",
+    "goToProjects": "前往项目列表",
+    "selectSession": "选择会话",
+    "newSession": "新建会话",
+    "welcome": "你可以询问关于这个项目的任何问题。",
+    "noApiKey": "请先配置 API Key",
+    "noApiKeyDesc": "当前选择的 Runner 需要配置 API Key",
+    "goToSettings": "去设置",
+    "execDone": "执行完成",
+    "execFailed": "执行失败",
+    "execError": "执行出错"
   },
   "projects": {
     "title": "项目",
@@ -110,6 +126,20 @@
         "inReview": "In Review",
         "done": "Done",
         "canceled": "Canceled"
+      },
+      "newTask": {
+        "button": "新建任务",
+        "title": "新建任务",
+        "description": "描述你的任务，AI 将帮你创建任务文件并开始执行",
+        "prompt": "任务描述",
+        "promptPlaceholder": "描述你想要完成的任务…\n例如：实现用户登录功能，支持邮箱和手机号登录",
+        "promptHint": "第一行将作为任务标题",
+        "promptRequired": "请输入任务描述",
+        "status": "初始状态",
+        "priority": "优先级",
+        "owner": "负责人",
+        "ownerPlaceholder": "负责人（可选）",
+        "sendToChat": "发送到对话"
       }
     },
     "git": {
@@ -121,7 +151,14 @@
       "noChanges": "没有待提交的更改",
       "staged": "已暂存",
       "unstaged": "未暂存",
-      "commit": "提交"
+      "commit": "提交",
+      "commitDialog": {
+        "title": "Git Commit",
+        "description": "请输入 commit message，AI 将帮你执行提交",
+        "placeholder": "输入 commit message...",
+        "hint": "提交后将通过 AI 执行 git add . && git commit",
+        "submit": "提交"
+      }
     }
   },
   "settings": {

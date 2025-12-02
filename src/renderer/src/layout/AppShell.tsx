@@ -8,7 +8,8 @@ import {
   Plus,
   Sun,
   Trash2,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  MessageSquare
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +29,7 @@ import {
   useSetGeneralSettingsMutation
 } from '@/features/settings/api/generalHooks'
 import { StatusBar } from './StatusBar'
+import { GlobalChatPanel, useGlobalChatStore } from '@/features/global-chat'
 import type { z } from 'zod'
 import type { generalSettingsSchema } from '@shared/orpc/schemas'
 
@@ -49,6 +51,27 @@ export default function AppShell() {
   )
   const navigate = useNavigate()
   const { play: playSfx } = useSfx()
+
+  // 全局对话面板
+  const toggleGlobalChat = useGlobalChatStore((s) => s.toggle)
+  const setGlobalChatProject = useGlobalChatStore((s) => s.setSelectedProjectId)
+
+  // 全局快捷键：Cmd+/ (Mac) 或 Ctrl+/ (其他) 切换对话面板
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+/ 或 Ctrl+/
+      if (e.key === '/' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        // 如果当前在项目页面，自动同步项目到全局对话
+        if (projectId) {
+          setGlobalChatProject(projectId)
+        }
+        toggleGlobalChat()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [toggleGlobalChat, setGlobalChatProject, projectId])
 
   // 同步 URL 参数到 app store
   useEffect(() => {
@@ -194,6 +217,24 @@ export default function AppShell() {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="ml-auto flex items-center gap-1.5">
+            {/* 全局对话按钮 */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full text-muted-foreground hover:bg-accent/40"
+              onPointerDown={() => playSfx('click')}
+              onClick={() => {
+                if (projectId) {
+                  setGlobalChatProject(projectId)
+                }
+                toggleGlobalChat()
+              }}
+              title={t('layout.openChat', '对话 (⌘/)')}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="sr-only">{t('layout.openChat', '对话')}</span>
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -226,8 +267,13 @@ export default function AppShell() {
           </div>
         </div>
       </div>
-      <div className="flex-1 min-h-0">
-        <Outlet />
+      {/* 主内容区域和聊天面板（挤压式布局） */}
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <Outlet />
+        </div>
+        {/* 全局对话面板 - 从右侧挤压 */}
+        <GlobalChatPanel />
       </div>
       {/* 底部状态栏 */}
       <StatusBar />
