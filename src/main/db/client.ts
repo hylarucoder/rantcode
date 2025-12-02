@@ -7,9 +7,12 @@ import { migrate } from 'drizzle-orm/libsql/migrator'
 import * as schema from './schema'
 import { getDbPath as getDbPathFromPaths, getConfigRoot } from '../paths'
 import { cleanupStaleRunningMessages } from './repositories/session'
+import { loggerService } from '../services/loggerService'
 
 let db: LibSQLDatabase<typeof schema> | null = null
 let client: Client | null = null
+
+const log = loggerService.child('db.client')
 
 /**
  * 获取数据库文件路径
@@ -31,7 +34,7 @@ export async function initDatabase(): Promise<LibSQLDatabase<typeof schema>> {
   fs.mkdirSync(configRoot, { recursive: true })
 
   const dbPath = getDbPath()
-  console.log('[DB] Initializing database at:', dbPath)
+  log.info('database-initializing', { dbPath })
 
   client = createClient({
     url: `file:${dbPath}`
@@ -49,7 +52,7 @@ export async function initDatabase(): Promise<LibSQLDatabase<typeof schema>> {
   // 应用启动时，之前运行的任务不可能还在运行
   await cleanupStaleRunningMessages()
 
-  console.log('[DB] Database initialized successfully')
+  log.info('database-initialized')
   return db
 }
 
@@ -81,7 +84,7 @@ export function closeDatabase(): void {
     client.close()
     client = null
     db = null
-    console.log('[DB] Database closed')
+    log.info('database-closed')
   }
 }
 
@@ -108,19 +111,22 @@ async function runMigrations(): Promise<void> {
   if (!db) return
 
   const migrationsFolder = getMigrationsFolder()
-  console.log('[DB] Running migrations from:', migrationsFolder)
+  log.info('migrations-running', { migrationsFolder })
 
   // 检查迁移文件夹是否存在
   if (!fs.existsSync(migrationsFolder)) {
-    console.log('[DB] No migrations folder found, skipping migrations')
+    log.info('migrations-skipped', { reason: 'folder-not-found', migrationsFolder })
     return
   }
 
   try {
     await migrate(db, { migrationsFolder })
-    console.log('[DB] Migrations completed successfully')
+    log.info('migrations-completed')
   } catch (err) {
-    console.error('[DB] Migration failed:', err)
+    log.error('migrations-failed', {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined
+    })
     throw err
   }
 }

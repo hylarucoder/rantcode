@@ -182,7 +182,9 @@ export function DocDrawer({
   // TOC 点击跳转
   const handleTocClick = useCallback((index: number) => {
     if (!contentRef.current) return
-    const headings = contentRef.current.querySelectorAll('h1, h2, h3') as NodeListOf<HTMLHeadingElement>
+    const headings = contentRef.current.querySelectorAll(
+      'h1, h2, h3'
+    ) as NodeListOf<HTMLHeadingElement>
     const target = headings[index]
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -372,7 +374,11 @@ export function DocDrawer({
                           onClick={() => handleTocClick(item.index)}
                           className={cn(
                             'w-full rounded px-1.5 py-1 text-left hover:bg-accent/50 transition-colors',
-                            item.level === 1 ? 'font-semibold' : item.level === 3 ? 'opacity-70' : '',
+                            item.level === 1
+                              ? 'font-semibold'
+                              : item.level === 3
+                                ? 'opacity-70'
+                                : '',
                             item.level === 2 ? 'pl-4' : item.level === 3 ? 'pl-6' : ''
                           )}
                         >

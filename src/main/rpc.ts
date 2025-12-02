@@ -13,31 +13,16 @@ import type {
   FsFile,
   ProjectInfo,
   CreateProjectInput,
-  UpdateProjectInput
-} from '../shared/types/webui'
-import type { z } from 'zod'
-import type {
-  sessionSchema,
-  messageSchema,
-  createSessionInputSchema,
-  updateSessionInputSchema,
-  deleteSessionInputSchema,
-  appendMessagesInputSchema,
-  updateMessageInputSchema,
-  listSessionsInputSchema,
-  getSessionInputSchema
+  UpdateProjectInput,
+  GitFileStatus,
+  GitStatus,
+  GitDiff,
+  GitDiffHunk,
+  GitDiffFile
 } from '../shared/orpc/schemas'
 
-// Session types
-export type Session = z.infer<typeof sessionSchema>
-export type Message = z.infer<typeof messageSchema>
-export type CreateSessionInput = z.infer<typeof createSessionInputSchema>
-export type UpdateSessionInput = z.infer<typeof updateSessionInputSchema>
-export type DeleteSessionInput = z.infer<typeof deleteSessionInputSchema>
-export type AppendMessagesInput = z.infer<typeof appendMessagesInputSchema>
-export type UpdateMessageInput = z.infer<typeof updateMessageInputSchema>
-export type ListSessionsInput = z.infer<typeof listSessionsInputSchema>
-export type GetSessionInput = z.infer<typeof getSessionInputSchema>
+// Re-export types for backward compatibility
+export type { Session, Message } from '../shared/orpc/schemas'
 
 export class SystemService {
   async health(): Promise<HealthResponse> {
@@ -435,40 +420,6 @@ export class ProjectService {
     }
     return { path: normalizeRepoPath(result.filePaths[0]) }
   }
-}
-
-// Git status/diff types
-export interface GitFileStatus {
-  path: string
-  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'unmerged'
-  staged: boolean
-}
-
-export interface GitStatus {
-  branch?: string
-  ahead?: number
-  behind?: number
-  files: GitFileStatus[]
-}
-
-export interface GitDiffHunk {
-  oldStart: number
-  oldLines: number
-  newStart: number
-  newLines: number
-  content: string
-}
-
-export interface GitDiffFile {
-  path: string
-  oldPath?: string
-  additions: number
-  deletions: number
-  hunks: GitDiffHunk[]
-}
-
-export interface GitDiff {
-  files: GitDiffFile[]
 }
 
 export class GitService {

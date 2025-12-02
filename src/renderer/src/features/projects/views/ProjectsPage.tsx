@@ -66,7 +66,11 @@ export default function ProjectsPage() {
       navigate(`/project/${project.id}`)
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : typeof err === 'string' ? err : t('projects.errors.addFailed')
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : t('projects.errors.addFailed')
       toast.error(msg)
     } finally {
       setSubmitting(false)

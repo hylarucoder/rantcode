@@ -1,3 +1,10 @@
+/**
+ * 看板面板
+ *
+ * 显示任务看板，支持拖拽排序和状态更新。
+ * 逻辑已拆分到子组件和 utils 中。
+ */
+
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -14,58 +21,10 @@ import {
   type DragOverEvent,
   type CollisionDetection
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove
-} from '@dnd-kit/sortable'
-import { useDroppable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
-import { motion, AnimatePresence } from 'motion/react'
-import {
-  MoreHorizontal,
-  GripVertical,
-  CheckCircle2,
-  Circle,
-  Clock,
-  AlertCircle,
-  FileText,
-  RefreshCw,
-  ExternalLink,
-  MessageCircle,
-  Plus,
-  ClipboardCheck
-} from 'lucide-react'
+import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable'
+import { FileText, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { DocDrawer } from '@/components/DocDrawer'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
 import { fetchFile } from '@/features/spec/api/fs'
@@ -74,406 +33,18 @@ import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
 import type { DocsWatcherEvent } from '@shared/types/webui'
 import { useGlobalChatStore } from '@/state/globalChat'
+import { getLogger } from '@/lib/logger'
 
-// Task 类型定义（与 agent-docs/design/data-model.md 对齐）
-type TaskStatus = 'backlog' | 'todo' | 'doing' | 'in-review' | 'done' | 'canceled'
-type TaskPriority = 'P0' | 'P1' | 'P2'
-
-interface Task {
-  id: string
-  title: string
-  status: TaskStatus
-  priority?: TaskPriority
-  owner?: string
-  filePath: string // 对应的文件路径
-  createdAt?: string
-  updatedAt?: string
-}
-
-// 列配置
-const columns: { id: TaskStatus; labelKey: string; color: string; icon: typeof Circle }[] = [
-  {
-    id: 'backlog',
-    labelKey: 'workspace.kanban.columns.backlog',
-    color: 'bg-slate-500',
-    icon: Circle
-  },
-  { id: 'todo', labelKey: 'workspace.kanban.columns.todo', color: 'bg-violet-500', icon: Circle },
-  { id: 'doing', labelKey: 'workspace.kanban.columns.doing', color: 'bg-blue-500', icon: Clock },
-  {
-    id: 'in-review',
-    labelKey: 'workspace.kanban.columns.inReview',
-    color: 'bg-amber-500',
-    icon: AlertCircle
-  },
-  {
-    id: 'done',
-    labelKey: 'workspace.kanban.columns.done',
-    color: 'bg-emerald-500',
-    icon: CheckCircle2
-  },
-  {
-    id: 'canceled',
-    labelKey: 'workspace.kanban.columns.canceled',
-    color: 'bg-red-500/50',
-    icon: Circle
-  }
-]
-
-// 优先级配置
-const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
-  P0: { label: 'P0', color: 'bg-red-500/20 text-red-600 dark:text-red-400' },
-  P1: { label: 'P1', color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
-  P2: { label: 'P2', color: 'bg-slate-500/20 text-slate-600 dark:text-slate-400' }
-}
-
-// 解析 frontmatter
-function parseFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---/)
-  if (!match) return {}
-
-  const frontmatter: Record<string, string> = {}
-  const lines = match[1].split('\n')
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':')
-    if (colonIndex > 0) {
-      const key = line.slice(0, colonIndex).trim()
-      const value = line
-        .slice(colonIndex + 1)
-        .trim()
-        .replace(/^['"]|['"]$/g, '')
-      frontmatter[key] = value
-    }
-  }
-  return frontmatter
-}
-
-// 更新 frontmatter 中的字段
-function updateFrontmatter(content: string, key: string, value: string): string {
-  const match = content.match(/^(---\s*\n)([\s\S]*?)(\n---)/)
-  if (!match) {
-    // 没有 frontmatter，创建一个
-    return `---\n${key}: ${value}\n---\n\n${content}`
-  }
-
-  const [, start, fmContent, end] = match
-  const lines = fmContent.split('\n')
-  let found = false
-
-  const newLines = lines.map((line) => {
-    const colonIndex = line.indexOf(':')
-    if (colonIndex > 0) {
-      const lineKey = line.slice(0, colonIndex).trim()
-      if (lineKey === key) {
-        found = true
-        return `${key}: ${value}`
-      }
-    }
-    return line
-  })
-
-  if (!found) {
-    newLines.push(`${key}: ${value}`)
-  }
-
-  const restContent = content.slice(match[0].length)
-  return `${start}${newLines.join('\n')}${end}${restContent}`
-}
-
-// 从文件名生成标题
-function titleFromFilename(filename: string): string {
-  return filename
-    .replace(/\.md$/, '')
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-// 可排序的任务卡片组件
-interface SortableTaskCardProps {
-  task: Task
-  isDragging?: boolean
-  isOverlay?: boolean
-  onOpenFile: (filePath: string) => void
-  onChatWithFile?: (filePath: string) => void
-  onCheckStatus?: (filePath: string) => void
-  onTitleClick: (task: Task) => void
-  onStatusChange: (task: Task, newStatus: TaskStatus) => void
-  t: (key: string, options?: Record<string, string>) => string
-}
-
-function SortableTaskCard({
-  task,
-  isDragging,
-  isOverlay,
-  onOpenFile,
-  onChatWithFile,
-  onCheckStatus,
-  onTitleClick,
-  onStatusChange,
-  t
-}: SortableTaskCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging: isSortableDragging
-  } = useSortable({
-    id: task.id
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  }
-
-  // 拖拽时隐藏原卡片（由 DragOverlay 显示）
-  if (isSortableDragging) {
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="h-[72px] rounded-lg border-2 border-dashed border-primary/30 bg-primary/5"
-      />
-    )
-  }
-
-  return (
-    <motion.div
-      ref={setNodeRef}
-      style={style}
-      layout
-      layoutId={isOverlay ? undefined : task.id}
-      initial={isOverlay ? { scale: 1.05, rotate: 3 } : false}
-      animate={isOverlay ? { scale: 1.05, rotate: 3 } : { scale: 1, rotate: 0 }}
-      whileHover={isOverlay ? undefined : { scale: 1.02 }}
-      transition={{
-        layout: { type: 'spring', stiffness: 350, damping: 30 },
-        scale: { type: 'spring', stiffness: 400, damping: 25 }
-      }}
-    >
-      <Card
-        className={cn(
-          'group rounded-lg border-border/50 bg-card p-3 shadow-sm',
-          'hover:border-border hover:shadow-md',
-          isDragging && 'ring-2 ring-primary/50 shadow-lg',
-          isOverlay && 'shadow-2xl cursor-grabbing border-primary/50'
-        )}
-      >
-        <div className="flex items-start gap-2">
-          <div
-            {...attributes}
-            {...listeners}
-            className={cn(
-              'mt-0.5 shrink-0 cursor-grab touch-none',
-              'text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100',
-              isOverlay && 'opacity-100 cursor-grabbing'
-            )}
-          >
-            <GripVertical className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (!isOverlay) {
-                  onTitleClick(task)
-                }
-              }}
-              className={cn(
-                'text-sm leading-snug text-left w-full',
-                !isOverlay &&
-                  'hover:text-primary hover:underline underline-offset-2 cursor-pointer transition-colors'
-              )}
-            >
-              {task.title}
-            </button>
-            <div className="mt-2 flex items-center gap-2">
-              {task.priority && priorityConfig[task.priority] && (
-                <span
-                  className={cn(
-                    'rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                    priorityConfig[task.priority].color
-                  )}
-                >
-                  {priorityConfig[task.priority].label}
-                </span>
-              )}
-              {task.owner && (
-                <span className="truncate text-[10px] text-muted-foreground">{task.owner}</span>
-              )}
-            </div>
-          </div>
-          {!isOverlay && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => onOpenFile(task.filePath)}>
-                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                  {t('workspace.kanban.openFile')}
-                </DropdownMenuItem>
-                {onChatWithFile && (
-                  <DropdownMenuItem onClick={() => onChatWithFile(task.filePath)}>
-                    <MessageCircle className="mr-2 h-3.5 w-3.5" />
-                    {t('workspace.kanban.chat')}
-                  </DropdownMenuItem>
-                )}
-                {onCheckStatus && (
-                  <DropdownMenuItem onClick={() => onCheckStatus(task.filePath)}>
-                    <ClipboardCheck className="mr-2 h-3.5 w-3.5" />
-                    {t('workspace.kanban.checkStatus')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {columns
-                  .filter((c) => c.id !== task.status)
-                  .map((c) => (
-                    <DropdownMenuItem key={c.id} onClick={() => onStatusChange(task, c.id)}>
-                      <span className={cn('mr-2 h-2 w-2 rounded-full', c.color)} />
-                      {t('workspace.kanban.moveTo', { column: t(c.labelKey) })}
-                    </DropdownMenuItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </Card>
-    </motion.div>
-  )
-}
-
-// 任务卡片预览（用于 DragOverlay）
-function TaskCardOverlay({
-  task,
-  t
-}: {
-  task: Task
-  t: (key: string, options?: Record<string, string>) => string
-}) {
-  return (
-    <SortableTaskCard
-      task={task}
-      isOverlay
-      onOpenFile={() => {}}
-      onChatWithFile={undefined}
-      onCheckStatus={undefined}
-      onTitleClick={() => {}}
-      onStatusChange={() => {}}
-      t={t}
-    />
-  )
-}
-
-// 可放置的列组件
-interface DroppableColumnProps {
-  column: (typeof columns)[number]
-  tasks: Task[]
-  activeId: string | null
-  onOpenFile: (filePath: string) => void
-  onChatWithFile?: (filePath: string) => void
-  onCheckStatus?: (filePath: string) => void
-  onTitleClick: (task: Task) => void
-  onStatusChange: (task: Task, newStatus: TaskStatus) => void
-  t: (key: string, options?: Record<string, string>) => string
-}
-
-function DroppableColumn({
-  column,
-  tasks,
-  activeId,
-  onOpenFile,
-  onChatWithFile,
-  onCheckStatus,
-  onTitleClick,
-  onStatusChange,
-  t
-}: DroppableColumnProps) {
-  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
-
-  // 使列本身成为可放置目标（用于空列或拖到列底部）
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-    id: `column-${column.id}`,
-    data: { type: 'column', status: column.id }
-  })
-
-  return (
-    <motion.div
-      ref={setDroppableRef}
-      layout
-      className={cn(
-        'flex w-72 min-w-[288px] flex-col rounded-lg bg-muted/30 transition-colors',
-        isOver && activeId && 'ring-2 ring-primary/50 ring-inset'
-      )}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-    >
-      {/* Column Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <span className={cn('h-2 w-2 rounded-full', column.color)} />
-        <span className="text-sm font-medium">{t(column.labelKey)}</span>
-        <motion.span
-          key={tasks.length}
-          initial={{ scale: 1.2 }}
-          animate={{ scale: 1 }}
-          className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-        >
-          {tasks.length}
-        </motion.span>
-      </div>
-
-      {/* Tasks */}
-      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div
-          className={cn(
-            'flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 min-h-[100px] rounded-b-lg transition-colors',
-            isOver && activeId && 'bg-primary/5'
-          )}
-        >
-          <AnimatePresence mode="popLayout">
-            {tasks.map((task) => (
-              <SortableTaskCard
-                key={task.id}
-                task={task}
-                isDragging={activeId === task.id}
-                onOpenFile={onOpenFile}
-                onChatWithFile={onChatWithFile}
-                onCheckStatus={onCheckStatus}
-                onTitleClick={onTitleClick}
-                onStatusChange={onStatusChange}
-                t={t}
-              />
-            ))}
-          </AnimatePresence>
-
-          {/* Empty column placeholder */}
-          {tasks.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className={cn(
-                'flex flex-1 min-h-[80px] items-center justify-center rounded-lg border-2 border-dashed transition-colors',
-                isOver && activeId ? 'border-primary/50 bg-primary/5' : 'border-border/50'
-              )}
-            >
-              <span className="text-xs text-muted-foreground">
-                {activeId ? t('workspace.kanban.dropHere') : t('workspace.kanban.dragHere')}
-              </span>
-            </motion.div>
-          )}
-        </div>
-      </SortableContext>
-    </motion.div>
-  )
-}
+import {
+  type Task,
+  type TaskStatus,
+  type TaskPriority,
+  columns,
+  TaskCardOverlay,
+  KanbanColumn,
+  NewTaskDialog
+} from './kanban'
+import { parseFrontmatter, updateFrontmatter, titleFromFilename } from '../utils/frontmatterParser'
 
 interface KanbanPanelProps {
   projectId: string
@@ -482,6 +53,7 @@ interface KanbanPanelProps {
 
 export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   const { t } = useTranslation()
+  const log = getLogger('workspace.kanban')
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -491,12 +63,8 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
-  // 新建任务 Dialog 状态
-  const [newTaskOpen, setNewTaskOpen] = useState(false)
-  const [newTaskPrompt, setNewTaskPrompt] = useState('')
-  const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>('backlog')
-  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('P2')
-  const [newTaskOwner, setNewTaskOwner] = useState('')
+  // 全局聊天 store
+  const { setInitialPrompt, setSelectedProjectId, open: openGlobalChat } = useGlobalChatStore()
 
   // 点击标题打开文档
   const handleTitleClick = useCallback((task: Task) => {
@@ -507,25 +75,19 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   // 配置拖拽传感器
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8 // 需要移动 8px 才开始拖拽，防止误触
-      }
+      activationConstraint: { distance: 8 }
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates
     })
   )
 
-  // 自定义碰撞检测：
-  // 1. 优先使用 pointerWithin，根据指针位置判断「当前在谁上面」（可以正确命中空列）
-  // 2. 如果指针不在任何 droppable 上，再退回到 closestCorners 保证键盘拖拽等场景可用
+  // 自定义碰撞检测
   const collisionDetection: CollisionDetection = useCallback((args) => {
     const pointerCollisions = pointerWithin(args)
-
     if (pointerCollisions.length > 0) {
       return pointerCollisions
     }
-
     return closestCorners(args)
   }, [])
 
@@ -542,13 +104,11 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     const root = taskTreeQuery.data as FsTreeNode | null
     if (!root?.children) return []
 
-    // 找到 task 目录
     const taskDir = root.children.find(
       (child) => child?.dir && (child.name === 'task' || child.path?.endsWith('/task'))
     )
     if (!taskDir?.children) return []
 
-    // 过滤出 .md 文件（排除 README）
     return taskDir.children
       .filter(
         (child) =>
@@ -593,20 +153,23 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         }
         loadedTasks.push(task)
       } catch (err) {
-        console.warn(`Failed to load task file: ${file.path}`, err)
+        log.error('task-file-load-failed', err instanceof Error ? err : undefined, {
+          projectId,
+          filePath: file.path
+        })
       }
     }
 
     setTasks(loadedTasks)
     setLoading(false)
-  }, [projectId, taskFiles])
+  }, [projectId, taskFiles, log])
 
   // 文件变化时重新加载
   useEffect(() => {
     void loadTasks()
   }, [loadTasks])
 
-  // 监听 task 目录文件变化，当文件内容变化时重新加载任务
+  // 监听 task 目录文件变化
   useEffect(() => {
     if (!projectId) return undefined
 
@@ -628,11 +191,9 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     }
 
     const unsubscribe = docsApi.subscribe({ projectId }, (event) => {
-      // 只关注 task 目录下的文件变化
       if (event.kind === 'file' && event.path?.startsWith('task/')) {
         if (!scheduled) {
           scheduled = true
-          // 使用 queueMicrotask 进行防抖，避免短时间内多次触发
           queueMicrotask(flush)
         }
       }
@@ -659,26 +220,23 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     return activeId ? tasks.find((t) => t.id === activeId) : null
   }, [activeId, tasks])
 
-  // 更新任务状态（同时更新本地状态和文件）
+  // 更新任务状态
   const updateTaskStatus = useCallback(
     async (task: Task, newStatus: TaskStatus) => {
       if (task.status === newStatus) return
 
-      // 先更新本地状态（乐观更新）
+      // 乐观更新
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)))
 
       try {
-        // 读取文件内容
         const { content } = await fetchFile({
           base: 'agent-docs',
           path: task.filePath,
           projectId
         })
 
-        // 更新 frontmatter
         const newContent = updateFrontmatter(content, 'status', newStatus)
 
-        // 写回文件
         await (
           orpc.fs.write as {
             call: (opts: {
@@ -700,16 +258,21 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
           t('workspace.kanban.movedTo', { column: columnLabel ? t(columnLabel) : newStatus })
         )
       } catch (err) {
-        // 回滚本地状态
+        // 回滚
         setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)))
         toast.error(t('workspace.kanban.updateFailed'))
-        console.error('Failed to update task status:', err)
+        log.error('task-status-update-failed', err instanceof Error ? err : undefined, {
+          projectId,
+          filePath: task.filePath,
+          fromStatus: task.status,
+          toStatus: newStatus
+        })
       }
     },
-    [projectId]
+    [projectId, t, log]
   )
 
-  // 拖拽开始
+  // 拖拽处理
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const id = event.active.id as string
@@ -720,7 +283,6 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     [tasks]
   )
 
-  // 拖拽经过 - 处理跨列移动和同列排序
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event
@@ -729,18 +291,14 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       const activeId = active.id as string
       const overId = over.id as string
 
-      // 如果拖到自己身上，忽略
       if (activeId === overId) return
 
-      // 查找拖拽的任务
       const activeTask = tasks.find((t) => t.id === activeId)
       if (!activeTask) return
 
-      // 判断目标：是任务还是列
       const isOverColumn = overId.startsWith('column-')
       const overTask = isOverColumn ? null : tasks.find((t) => t.id === overId)
 
-      // 确定目标列
       let targetStatus: TaskStatus
       if (isOverColumn) {
         targetStatus = overId.replace('column-', '') as TaskStatus
@@ -750,25 +308,21 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         return
       }
 
-      // 跨列移动
       if (activeTask.status !== targetStatus) {
         setTasks((prev) => {
           const newTasks = prev.filter((t) => t.id !== activeId)
           const updatedTask = { ...activeTask, status: targetStatus }
 
           if (overTask) {
-            // 插入到目标任务的位置
             const overIndex = newTasks.findIndex((t) => t.id === overId)
             newTasks.splice(overIndex, 0, updatedTask)
           } else {
-            // 放到列末尾
             newTasks.push(updatedTask)
           }
 
           return newTasks
         })
       } else if (overTask) {
-        // 同列排序
         setTasks((prev) => {
           const oldIndex = prev.findIndex((t) => t.id === activeId)
           const newIndex = prev.findIndex((t) => t.id === overId)
@@ -779,7 +333,6 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
     [tasks]
   )
 
-  // 拖拽结束
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active } = event
@@ -788,7 +341,6 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
       const activeId = active.id as string
       const activeTask = tasks.find((t) => t.id === activeId)
 
-      // 如果状态改变了，持久化到文件
       if (activeTask && dragStartStatus && activeTask.status !== dragStartStatus) {
         void updateTaskStatus({ ...activeTask, status: dragStartStatus }, activeTask.status)
       }
@@ -799,121 +351,63 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   )
 
   // 在编辑器中打开文件
-  const openInEditor = useCallback((filePath: string) => {
-    // 通过 window.api 打开文件（如果有实现）
-    console.log('Open in editor:', filePath)
-  }, [])
+  const openInEditor = useCallback(
+    (filePath: string) => {
+      log.debug('open-in-editor', { projectId, filePath })
+    },
+    [projectId, log]
+  )
 
-  // 重置新建任务表单
-  const resetNewTaskForm = useCallback(() => {
-    setNewTaskPrompt('')
-    setNewTaskStatus('backlog')
-    setNewTaskPriority('P2')
-    setNewTaskOwner('')
-  }, [])
-
-  // 获取全局聊天 store
-  const { setInitialPrompt, setSelectedProjectId, open: openGlobalChat } = useGlobalChatStore()
-
-  // 创建新任务 - 拼装提示词并发送到聊天窗口
-  const handleCreateTask = useCallback(() => {
-    if (!newTaskPrompt.trim()) {
-      toast.error(t('workspace.kanban.newTask.promptRequired'))
-      return
-    }
-
-    const prompt = newTaskPrompt.trim()
-
-    // 构建发送给 AI 的完整提示词
-    const fullPrompt = `请帮我在 agent-docs/task/ 目录下创建一个任务文档。
+  // 创建新任务
+  const handleCreateTask = useCallback(
+    (params: { prompt: string; status: TaskStatus; priority: TaskPriority; owner: string }) => {
+      const fullPrompt = `请帮我在 agent-docs/task/ 目录下创建一个任务文档。
 
 ## 要求
 
 1. **只操作文档**：只在 agent-docs/ 目录下创建或修改 Markdown 文件，**禁止修改任何代码文件**
-2. **文件命名**：根据任务内容概括一个简短的英文或中文标题作为文件名（使用连字符连接，如 \`implement-login.md\` 或 \`实现登录功能.md\`）
+2. **文件命名**：根据任务内容概括一个简短的英文或中文标题作为文件名（使用连字符连接）
 3. **Frontmatter 格式**：
    \`\`\`yaml
    ---
    title: <根据任务内容概括的标题>
-   status: ${newTaskStatus}
-   priority: ${newTaskPriority}${newTaskOwner.trim() ? `\n   owner: ${newTaskOwner.trim()}` : ''}
+   status: ${params.status}
+   priority: ${params.priority}${params.owner ? `\n   owner: ${params.owner}` : ''}
    ---
    \`\`\`
 4. **文档结构**：包含任务描述、目标、待办事项、验收标准等章节
 
-## 状态说明
-
-初始状态设置为: **${newTaskStatus}**
-
-- **backlog**: 需求待明确或优先级较低的任务
-- **todo**: 需求明确，准备开始开发
-- **doing**: 正在开发中，部分功能已实现
-- **in-review**: 功能开发完成，需要测试或代码审查
-- **done**: 所有验收标准都已满足，功能完全实现
-- **canceled**: 任务已取消或不再需要
-
 ## 任务描述
 
-${prompt}
+${params.prompt}
 
 ---
-请根据以上任务描述创建任务文档，概括合适的标题和文件名。记住：**只操作 agent-docs/ 下的文档，不要修改代码**。`
+请根据以上任务描述创建任务文档。记住：**只操作 agent-docs/ 下的文档，不要修改代码**。`
 
-    // 关闭 Dialog
-    setNewTaskOpen(false)
-    resetNewTaskForm()
-
-    // 设置项目 ID 并打开聊天窗口
-    setSelectedProjectId(projectId)
-    setInitialPrompt(fullPrompt)
-    openGlobalChat()
-  }, [
-    projectId,
-    newTaskPrompt,
-    newTaskStatus,
-    newTaskPriority,
-    newTaskOwner,
-    t,
-    resetNewTaskForm,
-    setSelectedProjectId,
-    setInitialPrompt,
-    openGlobalChat
-  ])
+      setSelectedProjectId(projectId)
+      setInitialPrompt(fullPrompt)
+      openGlobalChat()
+    },
+    [projectId, setSelectedProjectId, setInitialPrompt, openGlobalChat]
+  )
 
   // 检查任务完成状态
   const handleCheckTaskStatus = useCallback(
     (filePath: string) => {
       setSelectedProjectId(projectId)
-      setInitialPrompt(`@${filePath} 请仔细分析这个任务文档和当前代码库的实现情况，然后更新任务状态。
+      setInitialPrompt(`@${filePath} 请分析这个任务文档和当前代码库的实现情况，然后更新任务状态。
 
 ## 分析步骤
 
-1. **阅读任务文档**：理解任务的目标、需求和验收标准
-2. **检查代码实现**：查找相关的代码文件、功能实现、测试等
-3. **对比分析**：判断哪些功能已完成、哪些进行中、哪些未开始
-4. **更新状态**：根据实际情况更新 frontmatter 中的 status 字段
-
-## 状态判断标准
-
-- **done**: 所有验收标准都已满足，功能完全实现
-- **in-review**: 功能开发完成，需要测试或代码审查
-- **doing**: 正在开发中，部分功能已实现
-- **todo**: 需求明确，准备开始开发
-- **backlog**: 需求待明确或优先级较低
-- **canceled**: 任务已取消或不再需要
+1. 阅读任务文档，理解目标和验收标准
+2. 检查相关代码实现
+3. 判断完成情况并更新 status 字段
 
 ## 输出要求
 
-1. **只更新文档**：只修改 agent-docs/ 目录下的任务文档，**禁止修改任何代码文件**
-2. **更新 frontmatter**：将 status 字段更新为最准确的值
-3. **添加分析说明**：在文档中添加"## 实现情况分析"章节，详细说明：
-   - 已完成的功能
-   - 进行中的功能
-   - 未开始的功能
-   - 状态更新的理由
-4. **保持原有内容**：不要删除任务文档的其他内容
-
-请开始分析并更新任务状态。`)
+1. **只更新文档**：只修改 agent-docs/ 下的任务文档
+2. **更新 frontmatter**：将 status 更新为最准确的值
+3. **添加分析说明**：在文档中添加实现情况分析章节`)
       openGlobalChat()
     },
     [projectId, setSelectedProjectId, setInitialPrompt, openGlobalChat]
@@ -930,124 +424,7 @@ ${prompt}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog
-            open={newTaskOpen}
-            onOpenChange={(open) => {
-              setNewTaskOpen(open)
-              if (!open) resetNewTaskForm()
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button variant="default" size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                {t('workspace.kanban.newTask.button')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent size="sm">
-              <DialogHeader>
-                <DialogTitle>{t('workspace.kanban.newTask.title')}</DialogTitle>
-                <DialogDescription>{t('workspace.kanban.newTask.description')}</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                {/* 任务提示词 */}
-                <div className="grid gap-2">
-                  <label htmlFor="task-prompt" className="text-sm font-medium">
-                    {t('workspace.kanban.newTask.prompt')}
-                  </label>
-                  <Textarea
-                    id="task-prompt"
-                    placeholder={t('workspace.kanban.newTask.promptPlaceholder')}
-                    value={newTaskPrompt}
-                    onChange={(e) => setNewTaskPrompt(e.target.value)}
-                    rows={4}
-                    className="resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t('workspace.kanban.newTask.promptHint')}
-                  </p>
-                </div>
-
-                {/* 初始状态 */}
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">
-                    {t('workspace.kanban.newTask.status')}
-                  </label>
-                  <Select
-                    value={newTaskStatus}
-                    onValueChange={(v) => setNewTaskStatus(v as TaskStatus)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {columns.map((col) => (
-                        <SelectItem key={col.id} value={col.id}>
-                          <div className="flex items-center gap-2">
-                            <span className={cn('h-2 w-2 rounded-full', col.color)} />
-                            {t(col.labelKey)}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 优先级 */}
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">
-                    {t('workspace.kanban.newTask.priority')}
-                  </label>
-                  <Select
-                    value={newTaskPriority}
-                    onValueChange={(v) => setNewTaskPriority(v as TaskPriority)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(['P0', 'P1', 'P2'] as const).map((p) => (
-                        <SelectItem key={p} value={p}>
-                          <span
-                            className={cn(
-                              'rounded px-1.5 py-0.5 text-xs font-semibold',
-                              priorityConfig[p].color
-                            )}
-                          >
-                            {priorityConfig[p].label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 负责人 */}
-                <div className="grid gap-2">
-                  <label htmlFor="task-owner" className="text-sm font-medium">
-                    {t('workspace.kanban.newTask.owner')}
-                    <span className="ml-1 text-muted-foreground text-xs">
-                      {t('common.label.optional')}
-                    </span>
-                  </label>
-                  <Input
-                    id="task-owner"
-                    placeholder={t('workspace.kanban.newTask.ownerPlaceholder')}
-                    value={newTaskOwner}
-                    onChange={(e) => setNewTaskOwner(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setNewTaskOpen(false)}>
-                  {t('common.button.cancel')}
-                </Button>
-                <Button onClick={handleCreateTask} disabled={!newTaskPrompt.trim()}>
-                  {t('workspace.kanban.newTask.sendToChat')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
+          <NewTaskDialog projectId={projectId} onCreateTask={handleCreateTask} t={t} />
           <Button
             variant="ghost"
             size="sm"
@@ -1078,11 +455,6 @@ ${prompt}
             <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
             <p className="mb-1 text-sm font-medium">{t('workspace.kanban.empty')}</p>
             <p className="text-xs">{t('workspace.kanban.emptyHint')}</p>
-            <p className="mt-2 text-xs">
-              {t('workspace.kanban.frontmatterHint')}
-              <br />
-              <code className="text-[10px]">{t('workspace.kanban.statusHint')}</code>
-            </p>
           </div>
         </div>
       )}
@@ -1098,7 +470,7 @@ ${prompt}
         >
           <div className="flex flex-1 gap-3 overflow-x-auto p-4">
             {columns.map((column) => (
-              <DroppableColumn
+              <KanbanColumn
                 key={column.id}
                 column={column}
                 tasks={tasksByStatus[column.id] || []}
@@ -1113,7 +485,6 @@ ${prompt}
             ))}
           </div>
 
-          {/* Drag Overlay - 拖拽时显示的浮动卡片 */}
           <DragOverlay dropAnimation={null}>
             {activeTask ? <TaskCardOverlay task={activeTask} t={t} /> : null}
           </DragOverlay>

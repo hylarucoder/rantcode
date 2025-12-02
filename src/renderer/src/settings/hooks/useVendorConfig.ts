@@ -103,4 +103,3 @@ export function useVendorConfig({ id, label, defaultConfig }: UseVendorConfigOpt
     vendorOptions
   }
 }
-

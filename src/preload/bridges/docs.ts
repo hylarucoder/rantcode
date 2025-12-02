@@ -1,17 +1,17 @@
 import type { ContractRouterClient } from '@orpc/contract'
 import type { RantcodeContract } from '../../shared/orpc/contract'
-import type { DocsWatcherEvent } from '../../shared/types/webui'
+import type { SubscribeNotifyFn, NotifyPayloadMap } from '../../shared/notify'
 
 export type DocsBridge = {
   subscribe(
     opts: { projectId?: string } | undefined,
-    handler: (event: DocsWatcherEvent) => void
+    handler: (event: NotifyPayloadMap['docs']) => void
   ): () => void
 }
 
 export function createDocsBridge(
   client: ContractRouterClient<RantcodeContract>,
-  subscribeNotify: <T>(topic: string, handler: (payload: T) => void) => () => void
+  subscribeNotify: SubscribeNotifyFn
 ): DocsBridge {
   return {
     subscribe(opts, handler) {
@@ -19,7 +19,7 @@ export function createDocsBridge(
       const projectId =
         normalizedWorkspace && normalizedWorkspace.length > 0 ? normalizedWorkspace : undefined
 
-      const unNotify = subscribeNotify<DocsWatcherEvent>('docs', (payload) => {
+      const unNotify = subscribeNotify('docs', (payload) => {
         if (typeof projectId === 'string' && (payload.projectId ?? undefined) !== projectId) return
         handler(payload)
       })

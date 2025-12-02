@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { usePreviewDocument } from './usePreviewDocument'
-import type { SpecDocMeta } from '@shared/types/webui'
+import type { SpecDocMeta } from '@/types'
 
 vi.mock('@/hooks/use-theme-mode', () => ({
   useThemeMode: () => 'light'

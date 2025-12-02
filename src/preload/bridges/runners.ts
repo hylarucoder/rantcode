@@ -1,17 +1,18 @@
 import type { ContractRouterClient } from '@orpc/contract'
 import type { RantcodeContract } from '../../shared/orpc/contract'
-import type { RunnerEvent, RunnerRunOptions } from '../../shared/types/webui'
+import type { RunnerRunOptions } from '../../shared/types/webui'
 import type { Runner } from '../../shared/runners'
+import type { SubscribeNotifyFn, NotifyPayloadMap } from '../../shared/notify'
 
 export type RunnersBridge = {
   run(opts: RunnerRunOptions): Promise<{ traceId: string }>
-  subscribe(handler: (event: RunnerEvent) => void): () => void
+  subscribe(handler: (event: NotifyPayloadMap['codex']) => void): () => void
   cancel(traceId: string): Promise<{ ok: boolean }>
 }
 
 export function createRunnersBridge(
   client: ContractRouterClient<RantcodeContract>,
-  subscribeNotify: <T>(topic: string, handler: (payload: T) => void) => () => void
+  subscribeNotify: SubscribeNotifyFn
 ): RunnersBridge {
   return {
     run(opts) {
@@ -23,7 +24,7 @@ export function createRunnersBridge(
       return client.runners.cancel({ traceId })
     },
     subscribe(handler) {
-      return subscribeNotify<RunnerEvent>('codex', handler)
+      return subscribeNotify('codex', handler)
     }
   }
 }

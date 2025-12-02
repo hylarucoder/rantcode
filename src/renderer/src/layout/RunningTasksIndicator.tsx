@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2, Square, ExternalLink } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useRunningTasks, type RunningTask } from '@/shared/hooks/useRunningTasks'
@@ -144,17 +140,10 @@ export function RunningTasksIndicator() {
           )}
         >
           <Loader2 className="h-3 w-3 animate-spin" />
-          <span className="tabular-nums">
-            {tasks.length} 个任务运行中
-          </span>
+          <span className="tabular-nums">{tasks.length} 个任务运行中</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        side="top"
-        className="w-80 p-2"
-        sideOffset={8}
-      >
+      <PopoverContent align="end" side="top" className="w-80 p-2" sideOffset={8}>
         <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
           运行中的任务
         </div>
@@ -172,4 +161,3 @@ export function RunningTasksIndicator() {
     </Popover>
   )
 }
-

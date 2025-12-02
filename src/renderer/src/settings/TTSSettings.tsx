@@ -14,7 +14,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Mic, Play, Gauge, Volume2, Clock, AlertCircle } from 'lucide-react'
-import { SettingsCardHeader, SettingsHint, RangeSlider, formatPercent, formatDecimal } from './components'
+import {
+  SettingsCardHeader,
+  SettingsHint,
+  RangeSlider,
+  formatPercent,
+  formatDecimal
+} from './components'
 
 type Engine = 'off' | 'web-speech' | 'doubao' | 'minimax'
 
@@ -57,6 +63,7 @@ const ENGINE_OPTIONS: { value: Engine; labelKey: string; icon: string; available
 ]
 
 export default function TTSSettings() {
+  'use no memo' // react-hook-form's watch() is incompatible with React Compiler memoization
   const { t } = useTranslation()
   const form = useForm<TTSConfig>({ defaultValues: loadLocal() })
 

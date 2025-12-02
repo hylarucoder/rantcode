@@ -68,4 +68,3 @@ export function formatAbsoluteTime(timestamp: number, showDate: boolean = false)
 
   return `${hours}:${minutes}`
 }
-

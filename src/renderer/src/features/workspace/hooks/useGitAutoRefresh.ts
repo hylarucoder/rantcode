@@ -125,4 +125,3 @@ export function useGitAutoRefresh(projectId: string, enabled = true) {
     }
   }, [])
 }
-

@@ -60,7 +60,8 @@ export default function DocCommandPalette({
 
   const loading = !!docsTree.isLoading || (!!docsTree.isError && !!repoTree.isLoading)
   const groups = useMemo(() => {
-    if (docsFiles.length > 0) return [{ label: 'agent-docs', files: docsFiles, base: 'agent-docs' as const }]
+    if (docsFiles.length > 0)
+      return [{ label: 'agent-docs', files: docsFiles, base: 'agent-docs' as const }]
     if (repoFiles.length > 0) return [{ label: 'repo', files: repoFiles, base: 'repo' as const }]
     return []
   }, [docsFiles, repoFiles])

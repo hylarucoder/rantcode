@@ -314,11 +314,11 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
   for (let i = 0; i < tasks.length; i += MERMAID_BATCH_SIZE) {
     const batch = tasks.slice(i, i + MERMAID_BATCH_SIZE)
     // 同一批次内部并行渲染
-    // eslint-disable-next-line no-await-in-loop
+
     await Promise.all(batch.map((fn) => fn()))
     if (i + MERMAID_BATCH_SIZE < tasks.length) {
       // 让出一帧，避免长时间占用主线程
-      // eslint-disable-next-line no-await-in-loop
+
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     }
   }

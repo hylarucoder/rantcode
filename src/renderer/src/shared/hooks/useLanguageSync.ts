@@ -16,4 +16,3 @@ export function useLanguageSync() {
     }
   }, [settings?.language, i18n])
 }
-

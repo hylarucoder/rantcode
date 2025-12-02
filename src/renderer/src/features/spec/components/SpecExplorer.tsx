@@ -204,7 +204,8 @@ export default function SpecExplorer({
     }
     // 发生错误时，仅提示一次，不再回退
     if (docsTree.isError) {
-      const msg = docsTree.error instanceof Error ? docsTree.error.message : 'Failed to load agent-docs'
+      const msg =
+        docsTree.error instanceof Error ? docsTree.error.message : 'Failed to load agent-docs'
       toast.error(msg)
     }
   }, [
@@ -246,7 +247,10 @@ export default function SpecExplorer({
     )
   }, [doc?.path, liveDocEntry?.content, updatePreviewDoc])
 
-  const decoratedRoot = useMemo(() => (root ? { ...root, name: 'agent-docs' as string } : null), [root])
+  const decoratedRoot = useMemo(
+    () => (root ? { ...root, name: 'agent-docs' as string } : null),
+    [root]
+  )
 
   // 复制文件路径
   const handleCopyPath = useCallback(async (filePath: string) => {

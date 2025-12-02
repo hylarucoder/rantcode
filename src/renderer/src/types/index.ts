@@ -1,3 +1,24 @@
+// Re-export RPC types from shared schemas (single source of truth)
+export type {
+  FsTreeNode,
+  FsFile,
+  HealthResponse,
+  ProjectInfo,
+  CreateProjectInput,
+  UpdateProjectInput,
+  GitFileStatus,
+  GitStatus,
+  GitDiff,
+  Session,
+  Message,
+  LogEntry,
+  LogMeta,
+  LogsResult,
+  GeneralSettings
+} from '@shared/orpc/schemas'
+
+// Pure UI types (not related to RPC)
+
 export type Role = 'user' | 'admin' | 'superuser'
 
 export interface User {
@@ -15,10 +36,6 @@ export interface ApiError {
   status?: number
 }
 
-export interface HealthResponse {
-  status: 'ok' | string
-}
-
 export interface UploadResponse {
   id: number
   path: string
@@ -28,14 +45,7 @@ export interface UploadResponse {
   url: string
 }
 
-// WebUI — Spec UI related types
-export interface FsTreeNode {
-  path: string
-  name: string
-  dir: boolean
-  children?: FsTreeNode[]
-}
-
+// Spec UI related types
 export interface SpecDocMeta {
   path: string
   title?: string
@@ -46,6 +56,7 @@ export interface SpecDocMeta {
   content?: string
 }
 
+// Diff UI types (for rendering, not RPC)
 export interface DiffChangeItem {
   path: string
   status: string // e.g., ' M', 'A ', '??'
@@ -59,17 +70,8 @@ export interface DiffFileResponse {
   split?: SplitRow[]
 }
 
-export interface TaskItem {
-  path: string
-  title?: string
-  status?: string
-  owner?: string
-  priority?: string
-  due?: string
-  fields?: Record<string, string>
-}
-
 export type SplitSide = 'ctx' | 'del' | 'add' | 'meta' | 'empty'
+
 export interface SplitRow {
   left: string
   right: string
@@ -79,11 +81,13 @@ export interface SplitRow {
   rn?: number
 }
 
-export interface ProjectInfo {
-  id: string
-  name: string
-  repoPath: string
-  createdAt: string
-  updatedAt: string
-  lastOpenedAt?: string
+// Task UI types
+export interface TaskItem {
+  path: string
+  title?: string
+  status?: string
+  owner?: string
+  priority?: string
+  due?: string
+  fields?: Record<string, string>
 }

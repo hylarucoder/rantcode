@@ -30,6 +30,8 @@ export default defineConfig(
       'no-empty': ['error', { allowEmptyCatch: true }],
       // Avoid wrapping try/catch that only rethrows
       'no-useless-catch': 'error',
+      // Prefer unified logger over direct console usage; allow error/warn for emergencies
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
       // Use TypeScript's inference broadly; do not force explicit returns
       '@typescript-eslint/explicit-function-return-type': 'off',
       // Using TypeScript, no need for prop-types

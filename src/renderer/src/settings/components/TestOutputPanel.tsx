@@ -47,9 +47,7 @@ export function TestOutputPanel({
           <div>
             <div className="text-xs text-muted-foreground mb-1">{t('settings.vendor.output')}</div>
             <pre className="bg-muted/40 border border-border/50 rounded-lg p-3 text-xs overflow-auto max-h-48 whitespace-pre-wrap font-mono">
-              {testOutput && testOutput.trim().length > 0
-                ? testOutput
-                : t('common.label.noOutput')}
+              {testOutput && testOutput.trim().length > 0 ? testOutput : t('common.label.noOutput')}
             </pre>
           </div>
         </div>
@@ -57,4 +55,3 @@ export function TestOutputPanel({
     </div>
   )
 }
-

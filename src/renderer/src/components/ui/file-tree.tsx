@@ -188,11 +188,15 @@ const Folder = ({
   return (
     <AccordionPrimitive.Item {...props} value={value} className="relative h-full overflow-hidden">
       <AccordionPrimitive.Trigger
-        className={cn('flex items-center gap-1 rounded-md px-1 py-0.5 text-sm', className, {
-          'bg-accent/40 text-accent-foreground': isSelect && isSelectable,
-          'cursor-pointer': isSelectable,
-          'cursor-not-allowed opacity-50': !isSelectable
-        })}
+        className={cn(
+          'flex items-center gap-1 whitespace-nowrap rounded-md px-1 py-0.5 text-sm',
+          className,
+          {
+            'bg-accent/40 text-accent-foreground': isSelect && isSelectable,
+            'cursor-pointer': isSelectable,
+            'cursor-not-allowed opacity-50': !isSelectable
+          }
+        )}
         disabled={!isSelectable}
       >
         {expandedItems?.includes(value)
@@ -229,7 +233,16 @@ interface FileProps
 
 const File = forwardRef<HTMLButtonElement, FileProps>(
   (
-    { value, className, isSelectable = true, isSelect, fileIcon, fileContextMenu, children, ...props },
+    {
+      value,
+      className,
+      isSelectable = true,
+      isSelect,
+      fileIcon,
+      fileContextMenu,
+      children,
+      ...props
+    },
     ref
   ) => {
     const { direction, selectedId, selectItem } = useTree()
@@ -241,7 +254,7 @@ const File = forwardRef<HTMLButtonElement, FileProps>(
         type="button"
         disabled={!isSelectable}
         className={cn(
-          'flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm duration-200 ease-in-out rtl:pr-0 rtl:pl-1',
+          'flex w-fit items-center gap-1 whitespace-nowrap rounded-md px-1 py-0.5 text-sm duration-200 ease-in-out rtl:pr-0 rtl:pl-1',
           {
             'bg-accent/40 text-accent-foreground': isSelected && isSelectable
           },

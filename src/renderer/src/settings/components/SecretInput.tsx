@@ -38,4 +38,3 @@ export function SecretInput({ id, value, onChange, placeholder, className }: Sec
     </div>
   )
 }
-

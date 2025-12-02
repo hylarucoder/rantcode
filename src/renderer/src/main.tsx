@@ -39,7 +39,7 @@ if (import.meta.env.DEV) {
     showToolbar: true,
     animationSpeed: 'fast',
     // 如需更重型分析可以打开这一项，但会有额外开销
-    trackUnnecessaryRenders: false,
+    trackUnnecessaryRenders: false
   })
 }
 

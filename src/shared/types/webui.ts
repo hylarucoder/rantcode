@@ -1,142 +1,15 @@
-import type { ServicePrototype } from 'orpc'
+/**
+ * Shared types for web UI (Notify channel events and Runner types)
+ *
+ * NOTE: RPC-related types should be imported from '@shared/orpc/schemas'
+ * This file only contains Notify channel event types and Runner execution types
+ */
 
-// Shared web UI domain types (ported from rantcode-cli/ui/src/types)
+import type { Runner } from '../runners'
 
-export type Role = 'user' | 'admin' | 'superuser'
-
-export interface User {
-  id: number
-  email: string
-  name?: string
-  role: Role
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface ApiError {
-  message: string
-  traceId?: string
-  status?: number
-}
-
-export interface HealthResponse {
-  status: 'ok' | string
-}
-
-export interface FsTreeNode {
-  path: string
-  name: string
-  dir: boolean
-  children?: FsTreeNode[]
-}
-
-export interface FsFile {
-  path: string
-  content: string
-}
-
-export interface SpecDocMeta {
-  path: string
-  title?: string
-  status?: string
-  fields?: Record<string, string>
-  errors?: string[]
-  warnings?: string[]
-  content?: string
-}
-
-export interface DiffChangeItem {
-  path: string
-  status: string
-  group: 'Staged' | 'Unstaged' | 'Untracked' | string
-}
-
-export type SplitSide = 'ctx' | 'del' | 'add' | 'meta' | 'empty'
-
-export interface SplitRow {
-  left: string
-  right: string
-  lt: SplitSide
-  rt: SplitSide
-  ln?: number
-  rn?: number
-}
-
-export interface DiffFileResponse {
-  path: string
-  mode: 'all' | 'staged' | 'worktree' | string
-  diff: string
-  split?: SplitRow[]
-}
-
-export interface TaskItem {
-  path: string
-  title?: string
-  status?: string
-  owner?: string
-  priority?: string
-  due?: string
-  fields?: Record<string, string>
-}
-
-export interface ProjectInfo {
-  id: string
-  name: string
-  repoPath: string
-  createdAt: string
-  updatedAt: string
-  lastOpenedAt?: string
-}
-
-export interface CreateProjectInput {
-  repoPath: string
-  name?: string
-}
-
-export interface UpdateProjectInput {
-  id: string
-  name?: string
-  repoPath?: string
-}
-
-export interface ProjectSelection {
-  projectId?: string
-}
-
-// RPC service prototypes and schema
-// RPC service prototypes and schema
-
-export interface SystemServicePrototype extends ServicePrototype {
-  health(): Promise<HealthResponse>
-  version(): Promise<{ version: string }>
-}
-
-export interface FsServicePrototype extends ServicePrototype {
-  tree(opts: {
-    base?: 'repo' | 'agent-docs' | ''
-    depth?: number
-    projectId?: string
-  }): Promise<FsTreeNode>
-  read(opts: {
-    base?: 'repo' | 'agent-docs' | ''
-    path: string
-    projectId?: string
-  }): Promise<FsFile>
-}
-
-export interface ProjectServicePrototype extends ServicePrototype {
-  list(): Promise<ProjectInfo[]>
-  add(input: CreateProjectInput): Promise<ProjectInfo>
-  update(input: UpdateProjectInput): Promise<ProjectInfo>
-  remove(opts: { id: string }): Promise<{ ok: boolean }>
-  pickRepoPath(): Promise<{ path: string } | null>
-}
-
-export interface RantcodeRpcSchema {
-  system: SystemServicePrototype
-  fs: FsServicePrototype
-  projects: ProjectServicePrototype
-}
+// ============================================================================
+// Docs Watcher Events (Notify channel)
+// ============================================================================
 
 export type DocsWatcherChangeType = 'add' | 'change' | 'unlink'
 
@@ -160,7 +33,9 @@ export type DocsWatcherEvent =
       content?: string
     }
 
-import type { Runner } from '../runners'
+// ============================================================================
+// Runner Events (Notify channel)
+// ============================================================================
 
 /** Runner 执行选项 */
 export interface RunnerRunOptions {

@@ -35,6 +35,7 @@ export function useVendorTest({
 
   useEffect(() => {
     if (testCommand) {
+      // eslint-disable-next-line no-console -- debug output for test command
       console.log('[Claude run] Command:', testCommand)
     }
   }, [testCommand])
@@ -84,4 +85,3 @@ export function useVendorTest({
     clearTestResults
   }
 }
-

@@ -8,6 +8,7 @@ import type { Message, Session, RightPanelTab, RunnerContextMap } from '@/featur
 type ActivityView = 'kanban' | 'docs' | 'git' | 'settings'
 import type { RunnerEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
+import { getLogger } from '@/lib/logger'
 
 // 稳定的空列表，避免 selector 在工作区未初始化时返回新引用导致不必要的重渲染
 const EMPTY_SESSIONS: Session[] = []
@@ -43,6 +44,9 @@ type SessionsNamespace = {
 
 // 消息同步队列，用于防抖和去重
 const messageSyncQueue = new Map<string, NodeJS.Timeout>()
+
+// workspace 相关日志（统一模块名）
+const log = getLogger('workspace.sessions')
 
 function getSessionsApi(): SessionsNamespace | null {
   const sessions = (orpc as { sessions?: SessionsNamespace }).sessions
@@ -264,7 +268,7 @@ export const useProjectChatStore = create<ChatStoreState>()(
         loadFromBackend: async (projectId) => {
           const api = getSessionsApi()
           if (!api) {
-            console.warn('[sessions] oRPC sessions API not available')
+            log.warn('sessions-api-unavailable', { projectId })
             // API 不可用时也标记为已加载，避免卡住
             set((state) => {
               const ws = state.projects[projectId]
@@ -298,9 +302,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
               }
               wsRef.version += 1
             })
-            console.log(`[sessions] Loaded ${sessions.length} sessions from backend`)
+            log.info('sessions-loaded', { projectId, count: sessions.length })
           } catch (err) {
-            console.error('[sessions] Failed to load from backend:', err)
+            log.error('sessions-load-failed', err instanceof Error ? err : undefined, {
+              projectId
+            })
             // 加载失败时也标记为已加载，避免卡住
             set((state) => {
               const ws = state.projects[projectId]
@@ -386,7 +392,10 @@ export const useProjectChatStore = create<ChatStoreState>()(
             if (!ws) return
             const session = ws.sessions.find((s) => s.id === sessionId)
             if (!session) {
-              console.error(`Session ${sessionId} not found in workspace ${projectId}`)
+              log.error('session-not-found-in-append', undefined, {
+                projectId,
+                sessionId
+              })
               return
             }
             // 记录新消息的索引
@@ -521,7 +530,7 @@ export const useProjectChatStore = create<ChatStoreState>()(
         syncToBackend: async (projectId, sessionId) => {
           const api = getSessionsApi()
           if (!api) {
-            console.warn('[sessions] oRPC sessions API not available for sync')
+            log.warn('sessions-api-unavailable-for-sync', { projectId, sessionId })
             return
           }
           const ws = get().projects[projectId]
@@ -540,9 +549,12 @@ export const useProjectChatStore = create<ChatStoreState>()(
             // 然后同步所有消息（使用 appendMessages 会重复，所以这里只更新整个 session）
             // 由于后端没有 replaceMessages API，我们通过删除再创建的方式实现
             // 但这不太好，让我们改用一个更好的方式：只在消息完成时同步
-            console.log(`[sessions] Synced session ${sessionId} to backend`)
+            log.info('session-synced', { projectId, sessionId })
           } catch (err) {
-            console.error('[sessions] Failed to sync to backend:', err)
+            log.error('session-sync-failed', err instanceof Error ? err : undefined, {
+              projectId,
+              sessionId
+            })
           }
         },
         syncMessageToBackend: (projectId, sessionId, messageId, immediate = false) => {
@@ -559,7 +571,11 @@ export const useProjectChatStore = create<ChatStoreState>()(
 
             const api = getSessionsApi()
             if (!api) {
-              console.warn('[sessions] oRPC sessions API not available for message sync')
+              log.warn('sessions-api-unavailable-for-message-sync', {
+                projectId,
+                sessionId,
+                messageId
+              })
               return
             }
 
@@ -586,9 +602,13 @@ export const useProjectChatStore = create<ChatStoreState>()(
                   runner: message.runner
                 }
               })
-              console.log(`[sessions] Message ${messageId} synced to backend`)
+              log.debug('message-synced', { projectId, sessionId, messageId })
             } catch (err) {
-              console.error('[sessions] Failed to sync message to backend:', err)
+              log.error('message-sync-failed', err instanceof Error ? err : undefined, {
+                projectId,
+                sessionId,
+                messageId
+              })
             }
           }
 
@@ -930,9 +950,7 @@ export function useProjectPreview(projectId: string) {
   const gitSelectedFile = useProjectPreviewStore(
     (s) => s.projects[projectId]?.gitSelectedFile ?? null
   )
-  const gitViewMode = useProjectPreviewStore(
-    (s) => s.projects[projectId]?.gitViewMode ?? 'unified'
-  )
+  const gitViewMode = useProjectPreviewStore((s) => s.projects[projectId]?.gitViewMode ?? 'unified')
   const gitStagedExpanded = useProjectPreviewStore(
     (s) => s.projects[projectId]?.gitStagedExpanded ?? true
   )

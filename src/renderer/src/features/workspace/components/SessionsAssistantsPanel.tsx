@@ -371,7 +371,9 @@ export function SessionsAssistantsPanel({
                   isActive={session.id === activeSession?.id}
                   onClick={() => onSelectSession(session.id)}
                   onRename={
-                    onRenameSession ? (newTitle) => onRenameSession(session.id, newTitle) : undefined
+                    onRenameSession
+                      ? (newTitle) => onRenameSession(session.id, newTitle)
+                      : undefined
                   }
                   onArchive={
                     onArchiveSession

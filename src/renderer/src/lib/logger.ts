@@ -28,6 +28,7 @@ export function getLogger(moduleName: string): LoggerAPI {
 
     const method: 'error' | 'warn' | 'log' =
       level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'
+    // eslint-disable-next-line no-console -- logger fallback implementation
     console[method](`${time} ${level.toUpperCase()} ${tag} ${msg}`, ctx || '')
   }
   return {

@@ -20,9 +20,7 @@ export default function NotFound({ title, message, showBackButton = true }: NotF
           <FileQuestion className="h-10 w-10 text-muted-foreground/50" />
         </div>
         <h1 className="mb-2 text-2xl font-semibold text-foreground">{t('notFound.code')}</h1>
-        <h2 className="mb-2 text-lg font-medium text-foreground">
-          {title || t('notFound.title')}
-        </h2>
+        <h2 className="mb-2 text-lg font-medium text-foreground">{title || t('notFound.title')}</h2>
         <p className="mb-6 text-sm text-muted-foreground">{message || t('notFound.message')}</p>
         <div className="flex items-center justify-center gap-3">
           {showBackButton && (

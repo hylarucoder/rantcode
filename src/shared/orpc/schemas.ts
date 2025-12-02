@@ -1,16 +1,19 @@
 import { z } from 'zod'
-import type { FsTreeNode } from '../types/webui'
 import { RUNNER_VALUES } from '../runners'
 
-export const baseKeySchema = z.union([
-  z.literal('repo'),
-  z.literal('agent-docs'),
-  z.literal('')
-])
+export const baseKeySchema = z.union([z.literal('repo'), z.literal('agent-docs'), z.literal('')])
 
 export const healthResponseSchema = z.object({
   status: z.string()
 })
+
+/** 文件系统节点（递归类型） */
+export interface FsTreeNode {
+  path: string
+  name: string
+  dir: boolean
+  children?: FsTreeNode[]
+}
 
 export const fsTreeNodeSchema: z.ZodType<FsTreeNode> = z.lazy(() =>
   z.object({
@@ -201,24 +204,24 @@ export const gitDiffInputSchema = z.object({
   staged: z.boolean().optional()
 })
 
+export const gitDiffHunkSchema = z.object({
+  oldStart: z.number().int(),
+  oldLines: z.number().int(),
+  newStart: z.number().int(),
+  newLines: z.number().int(),
+  content: z.string()
+})
+
+export const gitDiffFileSchema = z.object({
+  path: z.string(),
+  oldPath: z.string().optional(),
+  additions: z.number().int(),
+  deletions: z.number().int(),
+  hunks: z.array(gitDiffHunkSchema)
+})
+
 export const gitDiffSchema = z.object({
-  files: z.array(
-    z.object({
-      path: z.string(),
-      oldPath: z.string().optional(),
-      additions: z.number().int(),
-      deletions: z.number().int(),
-      hunks: z.array(
-        z.object({
-          oldStart: z.number().int(),
-          oldLines: z.number().int(),
-          newStart: z.number().int(),
-          newLines: z.number().int(),
-          content: z.string()
-        })
-      )
-    })
-  )
+  files: z.array(gitDiffFileSchema)
 })
 
 export const gitStatusInputSchema = z.object({
@@ -367,3 +370,70 @@ export const generalSettingsSchema = z.object({
       waylandShortcutsPortal: true
     })
 })
+
+// ============================================================================
+// Inferred Types (从 zod schema 推导，供三端共享)
+// ============================================================================
+
+/** 健康检查响应 */
+export type HealthResponse = z.infer<typeof healthResponseSchema>
+
+/** 文件系统文件 */
+export type FsFile = z.infer<typeof fsFileSchema>
+
+/** 项目信息 */
+export type ProjectInfo = z.infer<typeof projectInfoSchema>
+
+/** 创建项目输入 */
+export type CreateProjectInput = z.infer<typeof createProjectInputSchema>
+
+/** 更新项目输入 */
+export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>
+
+/** Git 文件状态 */
+export type GitFileStatus = z.infer<typeof gitFileStatusSchema>
+
+/** Git 状态 */
+export type GitStatus = z.infer<typeof gitStatusSchema>
+
+/** Git Diff Hunk */
+export type GitDiffHunk = z.infer<typeof gitDiffHunkSchema>
+
+/** Git Diff File */
+export type GitDiffFile = z.infer<typeof gitDiffFileSchema>
+
+/** Git Diff */
+export type GitDiff = z.infer<typeof gitDiffSchema>
+
+/** 会话 */
+export type Session = z.infer<typeof sessionSchema>
+
+/** 消息 */
+export type Message = z.infer<typeof messageSchema>
+
+/** 日志条目 */
+export type LogEntry = z.infer<typeof logEntrySchema>
+
+/** 日志元信息 */
+export type LogMeta = z.infer<typeof logMetaSchema>
+
+/** 日志结果 */
+export type LogsResult = z.infer<typeof logsResultSchema>
+
+/** 通用设置 */
+export type GeneralSettings = z.infer<typeof generalSettingsSchema>
+
+/** Provider 配置 */
+export type Catalog = z.infer<typeof catalogSchema>
+
+/** Claude Code Vendor 配置 */
+export type ClaudeVendorConfig = z.infer<typeof claudeVendorConfigSchema>
+
+/** Claude Code Vendors 目录 */
+export type ClaudeVendorsCatalog = z.infer<typeof claudeVendorsCatalogSchema>
+
+/** Agents 配置目录 */
+export type AgentsCatalog = z.infer<typeof agentsCatalogSchema>
+
+/** Agent 执行输入 */
+export type AgentRunInput = z.infer<typeof agentRunInputSchema>

@@ -62,4 +62,3 @@ export const ENV_KEY_NAMES: Record<TokenKey, string> = {
   minmax: 'MINMAX_API_KEY',
   official: 'ANTHROPIC_API_KEY'
 }
-

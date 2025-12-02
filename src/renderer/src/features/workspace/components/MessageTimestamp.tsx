@@ -23,7 +23,7 @@ export function MessageTimestamp({
   onModeChange,
   className
 }: MessageTimestampProps) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
 
   // 相对时间模式下每分钟更新一次
   useEffect(() => {
@@ -39,9 +39,7 @@ export function MessageTimestamp({
   }
 
   const timeText =
-    mode === 'relative'
-      ? humanizeRelativeTime(timestamp, now)
-      : formatAbsoluteTime(timestamp)
+    mode === 'relative' ? humanizeRelativeTime(timestamp, now) : formatAbsoluteTime(timestamp)
 
   return (
     <button
@@ -57,4 +55,3 @@ export function MessageTimestamp({
     </button>
   )
 }
-

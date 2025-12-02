@@ -36,6 +36,7 @@ import {
   catalogSchema,
   claudeVendorsCatalogSchema,
   claudeVendorConfigSchema,
+  claudeVendorTestResultSchema,
   claudeVendorRunInputSchema,
   agentsCatalogSchema,
   codexAgentConfigSchema,
@@ -56,7 +57,9 @@ import {
   getSessionInputSchema,
   getMessageLogsInputSchema,
   logsResultSchema,
-  appendLogInputSchema
+  appendLogInputSchema,
+  claudeTokensSchema,
+  agentsInfoSchema
 } from '../shared/orpc/schemas'
 import { spawn } from 'node:child_process'
 import {
@@ -84,12 +87,33 @@ export function setupOrpcBridge(): void {
   const sessionSvc = dbSessionService
 
   const orpcLog = loggerService.child('orpc')
+  const SLOW_ORPC_THRESHOLD_MS = 200
+
+  function extractInputContext(input: unknown): Record<string, unknown> | undefined {
+    if (!input || typeof input !== 'object') return undefined
+    const obj = input as Record<string, unknown>
+    const keys = ['projectId', 'sessionId', 'messageId', 'traceId'] as const
+    const ctx: Record<string, unknown> = {}
+    for (const key of keys) {
+      const value = obj[key]
+      if (typeof value === 'string') {
+        ctx[key] = value
+      }
+    }
+    return Object.keys(ctx).length ? ctx : undefined
+  }
 
   /** 广播错误到所有窗口并记录日志 */
-  function broadcastError(label: string, error: unknown): void {
+  function broadcastError(label: string, error: unknown, input?: unknown): void {
     const asErr = error as { stack?: string; message?: string }
     const msg = asErr?.message || String(error)
-    orpcLog.error(`call failed: ${label}`, { message: msg, stack: asErr?.stack })
+    const inputCtx = extractInputContext(input)
+    orpcLog.error(`call failed: ${label}`, {
+      label,
+      message: msg,
+      stack: asErr?.stack,
+      ...(inputCtx || {})
+    })
     try {
       BrowserWindow.getAllWindows().forEach((w) =>
         w.webContents.send('orpc:error', { label, stack: asErr?.stack, message: asErr?.message })
@@ -120,7 +144,7 @@ export function setupOrpcBridge(): void {
       try {
         return await fn(input)
       } catch (err) {
-        broadcastError(label, err)
+        broadcastError(label, err, input)
         throw err
       }
     }
@@ -249,38 +273,44 @@ export function setupOrpcBridge(): void {
         .handler(withErrorHandler('projects.pickRepoPath', () => projects.pickRepoPath()))
     },
     providers: {
-      get: os.output(catalogSchema).handler(async () => providersStore.read()),
+      get: os
+        .output(catalogSchema)
+        .handler(withErrorHandler('providers.get', () => providersStore.read())),
       set: os
         .input(catalogSchema)
         .output(catalogSchema)
-        .handler(async ({ input }) => {
-          await providersStore.write(input as Catalog)
-          return input
-        })
+        .handler(
+          withInputErrorHandler('providers.set', async (input) => {
+            await providersStore.write(input as Catalog)
+            return input
+          })
+        )
     },
     vendors: {
-      getClaudeCode: os.output(claudeVendorsCatalogSchema).handler(async () => vendorsStore.read()),
+      getClaudeCode: os
+        .output(claudeVendorsCatalogSchema)
+        .handler(withErrorHandler('vendors.getClaudeCode', () => vendorsStore.read())),
       setClaudeCode: os
         .input(claudeVendorsCatalogSchema)
         .output(claudeVendorsCatalogSchema)
-        .handler(async ({ input }) => {
-          await vendorsStore.write(input as ClaudeVendorsCatalog)
-          return input
-        }),
+        .handler(
+          withInputErrorHandler('vendors.setClaudeCode', async (input) => {
+            await vendorsStore.write(input as ClaudeVendorsCatalog)
+            return input
+          })
+        ),
       testClaudeCode: os
         .input(claudeVendorConfigSchema)
-        .output(
-          z.object({ ok: z.boolean(), error: z.string().optional(), output: z.string().optional() })
-        )
-        .handler(async ({ input }) => {
-          return testClaudeVendor(input)
-        }),
+        .output(claudeVendorTestResultSchema)
+        .handler(
+          withInputErrorHandler('vendors.testClaudeCode', async (input) => testClaudeVendor(input))
+        ),
       runClaudePrompt: os
         .input(claudeVendorRunInputSchema)
-        .output(
-          z.object({ ok: z.boolean(), error: z.string().optional(), output: z.string().optional() })
+        .output(claudeVendorTestResultSchema)
+        .handler(
+          withInputErrorHandler('vendors.runClaudePrompt', async (input) => runClaudeOnce(input))
         )
-        .handler(async ({ input }) => runClaudeOnce(input))
     },
     // Runner 配置和执行（底层 AI 执行器）
     runners: {
@@ -288,50 +318,45 @@ export function setupOrpcBridge(): void {
       run: os
         .input(agentRunInputSchema)
         .output(z.object({ traceId: z.string() }))
-        .handler(async ({ input }) => {
-          const win = BrowserWindow.getFocusedWindow()
-          const wc = win?.webContents
-          if (!wc) {
-            throw new Error('No active window')
-          }
-          return runCodex(wc.id, input)
-        }),
+        .handler(
+          withInputErrorHandler('runners.run', async (input) => {
+            const win = BrowserWindow.getFocusedWindow()
+            const wc = win?.webContents
+            if (!wc) {
+              throw new Error('No active window')
+            }
+            return runCodex(wc.id, input)
+          })
+        ),
       cancel: os
         .input(z.object({ traceId: z.string() }))
         .output(z.object({ ok: z.boolean() }))
-        .handler(async ({ input }) => cancelCodex(input.traceId)),
+        .handler(
+          withInputErrorHandler('runners.cancel', async (input) => cancelCodex(input.traceId))
+        ),
       // 配置管理
-      get: os.output(agentsCatalogSchema).handler(async () => agentsStore.read()),
+      get: os
+        .output(agentsCatalogSchema)
+        .handler(withErrorHandler('runners.get', () => agentsStore.read())),
       set: os
         .input(agentsCatalogSchema)
         .output(agentsCatalogSchema)
-        .handler(async ({ input }) => {
-          await agentsStore.write(input as AgentsCatalog)
-          return input
-        }),
+        .handler(
+          withInputErrorHandler('runners.set', async (input) => {
+            await agentsStore.write(input as AgentsCatalog)
+            return input
+          })
+        ),
       testCodex: os
         .input(codexAgentConfigSchema)
         .output(codexAgentTestResultSchema)
-        .handler(async ({ input }) =>
-          testCodexAgent(input as { binPath?: string; args?: string[] })
+        .handler(
+          withInputErrorHandler('runners.testCodex', async (input) =>
+            testCodexAgent(input as { binPath?: string; args?: string[] })
+          )
         ),
-      info: os
-        .output(
-          z.object({
-            codex: z.object({
-              executablePath: z.string().optional(),
-              version: z.string().optional()
-            }),
-            claudeCode: z.object({
-              executablePath: z.string().optional(),
-              version: z.string().optional()
-            }),
-            kimiCli: z
-              .object({ executablePath: z.string().optional(), version: z.string().optional() })
-              .optional()
-          })
-        )
-        .handler(async () => {
+      info: os.output(agentsInfoSchema).handler(
+        withErrorHandler('runners.info', async () => {
           const all = await detectAll()
           return {
             codex: { executablePath: all.codex.executablePath, version: all.codex.version },
@@ -341,57 +366,47 @@ export function setupOrpcBridge(): void {
             },
             kimiCli: { executablePath: all.kimiCli.executablePath, version: all.kimiCli.version }
           }
-        }),
-      getClaudeTokens: os
-        .output(
-          z.object({
-            official: z.string().optional(),
-            kimi: z.string().optional(),
-            glm: z.string().optional(),
-            minmax: z.string().optional()
-          })
-        )
-        .handler(async () => (await readClaudeTokens()) as ClaudeTokens),
-      setClaudeTokens: os
-        .input(
-          z.object({
-            official: z.string().optional(),
-            kimi: z.string().optional(),
-            glm: z.string().optional(),
-            minmax: z.string().optional()
-          })
-        )
-        .output(
-          z.object({
-            official: z.string().optional(),
-            kimi: z.string().optional(),
-            glm: z.string().optional(),
-            minmax: z.string().optional()
-          })
-        )
-        .handler(async ({ input }) => {
-          await writeClaudeTokens(input as ClaudeTokens)
-          return input
         })
+      ),
+      getClaudeTokens: os.output(claudeTokensSchema).handler(
+        withErrorHandler('runners.getClaudeTokens', async () => {
+          return (await readClaudeTokens()) as ClaudeTokens
+        })
+      ),
+      setClaudeTokens: os
+        .input(claudeTokensSchema)
+        .output(claudeTokensSchema)
+        .handler(
+          withInputErrorHandler('runners.setClaudeTokens', async (input) => {
+            await writeClaudeTokens(input as ClaudeTokens)
+            return input
+          })
+        )
     },
     app: {
-      getGeneral: os.output(generalSettingsSchema).handler(async () => {
-        return (await readGeneralSettings()) as GeneralSettings
-      }),
+      getGeneral: os.output(generalSettingsSchema).handler(
+        withErrorHandler('app.getGeneral', async () => {
+          return (await readGeneralSettings()) as GeneralSettings
+        })
+      ),
       setGeneral: os
         .input(generalSettingsSchema)
         .output(generalSettingsSchema)
-        .handler(async ({ input }) => {
-          const s = input as GeneralSettings
-          await writeGeneralSettings(s)
-          return s
-        }),
-      toggleMaximize: os.output(z.void()).handler(async () => {
-        const win = BrowserWindow.getFocusedWindow()
-        if (!win) return
-        if (win.isMaximized()) win.unmaximize()
-        else win.maximize()
-      })
+        .handler(
+          withInputErrorHandler('app.setGeneral', async (input) => {
+            const s = input as GeneralSettings
+            await writeGeneralSettings(s)
+            return s
+          })
+        ),
+      toggleMaximize: os.output(z.void()).handler(
+        withErrorHandler('app.toggleMaximize', async () => {
+          const win = BrowserWindow.getFocusedWindow()
+          if (!win) return
+          if (win.isMaximized()) win.unmaximize()
+          else win.maximize()
+        })
+      )
     },
     docs: {
       subscribe: os
@@ -522,7 +537,11 @@ export function setupOrpcBridge(): void {
         .message(data, handleRequest)
         .then(() => {
           const dt = Date.now() - t0
-          orpcLog.info('message handled', { duration_ms: dt })
+          if (dt > SLOW_ORPC_THRESHOLD_MS) {
+            orpcLog.warn('orpc-message-slow', { durationMs: dt })
+          } else {
+            orpcLog.debug('orpc-message-handled', { durationMs: dt })
+          }
         })
         .catch((err) => {
           const asErr = err as { stack?: string; message?: string }

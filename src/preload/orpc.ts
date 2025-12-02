@@ -3,6 +3,12 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/message-port'
 import type { ContractRouterClient } from '@orpc/contract'
 import type { RantcodeContract } from '../shared/orpc/contract'
+import type {
+  NotifyTopic,
+  NotifyPayloadMap,
+  SubscribeNotifyFn,
+  NotifyMessage
+} from '../shared/notify'
 
 // Extend MessagePort to include optional start() method
 type MessagePortWithStart = MessagePort & {
@@ -12,7 +18,7 @@ type MessagePortWithStart = MessagePort & {
 export type OrpcEnv = {
   client: ContractRouterClient<RantcodeContract>
   notifyPort: MessagePort
-  subscribeNotify: <T>(topic: string, handler: (payload: T) => void) => () => void
+  subscribeNotify: SubscribeNotifyFn
 }
 
 export function setupOrpc(): OrpcEnv {
@@ -30,11 +36,14 @@ export function setupOrpc(): OrpcEnv {
   ipcRenderer.postMessage('orpc:notify-connect', null, [notifyChannel.port2])
   ;(notifyChannel.port1 as MessagePortWithStart).start?.()
 
-  function subscribeNotify<T>(topic: string, handler: (payload: T) => void): () => void {
+  function subscribeNotify<T extends NotifyTopic>(
+    topic: T,
+    handler: (payload: NotifyPayloadMap[T]) => void
+  ): () => void {
     const listener = (event: MessageEvent) => {
-      const data = event.data as { topic?: string; payload?: unknown }
+      const data = event.data as NotifyMessage | undefined
       if (!data || data.topic !== topic) return
-      handler(data.payload as T)
+      handler(data.payload as NotifyPayloadMap[T])
     }
     notifyChannel.port1.addEventListener('message', listener as EventListener)
     return () => notifyChannel.port1.removeEventListener('message', listener as EventListener)

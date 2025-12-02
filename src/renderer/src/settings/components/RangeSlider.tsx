@@ -43,4 +43,3 @@ export function RangeSlider({
 /** Common format functions */
 export const formatPercent = (v: number): string => `${Math.round(v * 100)}%`
 export const formatDecimal = (v: number): string => v.toFixed(1)
-

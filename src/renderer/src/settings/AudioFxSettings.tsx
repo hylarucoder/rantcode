@@ -12,6 +12,7 @@ import { SettingsCardHeader, SettingsHint } from './components'
 import { readAsDataURL, previewAudio } from './lib'
 
 export default function AudioFxSettings() {
+  'use no memo' // react-hook-form's watch() is incompatible with React Compiler memoization
   const { t } = useTranslation()
   const form = useForm<AudioFxConfig>({ defaultValues: loadAudioFx() })
 
