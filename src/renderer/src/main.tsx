@@ -1,11 +1,12 @@
+import { scan } from 'react-scan'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 import './lib/i18n' // 初始化 i18n
 import { ensureMarkdownPipelinePreloaded } from './lib/markdown'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { loggerService } from './services/loggerService'
 
 function bootstrapTheme() {
@@ -30,6 +31,17 @@ void ensureMarkdownPipelinePreloaded()
 // Instrument oRPC global and log boot milestones
 loggerService.instrumentGlobalOrpc()
 loggerService.child('app.lifecycle').info('renderer-bootstrap')
+
+// 仅在开发环境启用 React Scan，帮助分析组件渲染性能
+if (import.meta.env.DEV) {
+  scan({
+    enabled: true,
+    showToolbar: true,
+    animationSpeed: 'fast',
+    // 如需更重型分析可以打开这一项，但会有额外开销
+    trackUnnecessaryRenders: false,
+  })
+}
 
 const queryClient = new QueryClient()
 

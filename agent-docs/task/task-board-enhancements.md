@@ -1,6 +1,6 @@
 ---
 title: 任务看板增强功能
-status: doing
+status: todo
 priority: P2
 owner: AI
 ---
