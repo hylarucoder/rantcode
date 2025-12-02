@@ -33,6 +33,7 @@
     "release:nightly": "tsx scripts/build-channel.ts nightly --publish"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.56",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

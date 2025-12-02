@@ -8,7 +8,8 @@ import { resolveProjectRoot } from '../../rpc'
 import { isErrorLike } from '../../../shared/utils/errorLike'
 import { buildCodexArgs } from './cli'
 import { findExecutable, RUNNER_CONFIGS } from '../detect'
-import { runClaudeCodeStreaming, cancelClaudeCode } from '../claudecode'
+import { runClaudeCodeSDKStreaming, cancelClaudeCodeSDK } from '../claudecode-sdk'
+import { isAgentSDKRunner } from '../../../shared/runners'
 
 type ExecRunner = NonNullable<RunnerRunOptions['runner']>
 
@@ -23,11 +24,6 @@ interface CodexJobState {
 }
 
 const jobStates = new Map<string, CodexJobState>()
-
-// 判断是否是 Claude Code 类型的 runner
-function isClaudeCodeRunner(runner: string): boolean {
-  return runner.startsWith('claude-code')
-}
 
 function getWebContents(targetId: number): WebContents | null {
   const contents = webContents.fromId(targetId)
@@ -85,12 +81,12 @@ export async function runCodex(
 
   const runner: ExecRunner = (payload.runner as ExecRunner) ?? 'codex'
 
-  // 如果是 Claude Code runner，委托给 claudecode runner
-  if (isClaudeCodeRunner(runner)) {
-    return runClaudeCodeStreaming(targetContentsId, payload)
+  // 所有 claude-code 相关 runner 都使用 Agent SDK 模式
+  if (isAgentSDKRunner(runner)) {
+    return runClaudeCodeSDKStreaming(targetContentsId, payload)
   }
 
-  // 以下是 Codex 原生逻辑
+  // 以下是 Codex / kimi-cli 原生 CLI 逻辑
   const traceId =
     typeof payload?.traceId === 'string' && payload.traceId.length > 0
       ? payload.traceId
@@ -290,7 +286,7 @@ export async function runCodex(
 }
 
 export function cancelCodex(traceId: string): { ok: boolean } {
-  // 先尝试在 codex 进程中取消
+  // 先尝试在 codex / kimi-cli 进程中取消
   const child = runningProcesses.get(traceId)
   if (child) {
     try {
@@ -300,6 +296,7 @@ export function cancelCodex(traceId: string): { ok: boolean } {
       return { ok: false }
     }
   }
-  // 否则尝试在 claudecode 进程中取消
-  return cancelClaudeCode(traceId)
+
+  // 尝试在 Agent SDK runner 中取消
+  return cancelClaudeCodeSDK(traceId)
 }

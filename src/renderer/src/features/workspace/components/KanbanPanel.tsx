@@ -674,7 +674,7 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">{t('workspace.kanban.title')}</h2>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {t('workspace.kanban.taskCount', { count: String(tasks.length) })}
+            {t('workspace.kanban.taskCount', { count: tasks.length })}
           </span>
         </div>
         <div className="flex items-center gap-2">

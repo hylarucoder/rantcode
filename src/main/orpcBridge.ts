@@ -62,7 +62,7 @@ import { spawn } from 'node:child_process'
 import {
   runClaudeOnce as runClaudeOnceFromModule,
   testClaudeVendor as testClaudeVendorFromModule
-} from './runners/claudecode'
+} from './runners/claudecode-sdk'
 // Defer loading general settings module to avoid creating store before userData override
 import { detectAll } from './runners/detect'
 import { runCodex, cancelCodex } from './runners/codex'
