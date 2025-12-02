@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import {
   MessageSquare,
   Bot,
@@ -44,6 +44,11 @@ interface SessionsAssistantsPanelProps {
   // Assistants
   agentId: string
   onAgentIdChange: (id: string) => void
+  // 持久化状态（从 store 传入）
+  activeTab: TabType
+  onTabChange: (tab: TabType) => void
+  showArchived: boolean
+  onShowArchivedChange: (show: boolean) => void
 }
 
 /** 根据 Agent ID 返回对应图标 */
@@ -270,10 +275,12 @@ export function SessionsAssistantsPanel({
   onArchiveSession,
   onDeleteSession,
   agentId,
-  onAgentIdChange
+  onAgentIdChange,
+  activeTab,
+  onTabChange,
+  showArchived,
+  onShowArchivedChange
 }: SessionsAssistantsPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('sessions')
-  const [showArchived, setShowArchived] = useState(false)
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? sessions[0]
 
   // 过滤会话列表
@@ -286,7 +293,7 @@ export function SessionsAssistantsPanel({
       <div className="flex shrink-0 border-b border-border/50">
         <button
           type="button"
-          onClick={() => setActiveTab('sessions')}
+          onClick={() => onTabChange('sessions')}
           className={cn(
             'relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors',
             activeTab === 'sessions'
@@ -302,7 +309,7 @@ export function SessionsAssistantsPanel({
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('assistants')}
+          onClick={() => onTabChange('assistants')}
           className={cn(
             'relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors',
             activeTab === 'assistants'
@@ -337,7 +344,7 @@ export function SessionsAssistantsPanel({
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowArchived(!showArchived)}
+                  onClick={() => onShowArchivedChange(!showArchived)}
                   title={showArchived ? '隐藏已归档' : '显示已归档'}
                 >
                   {showArchived ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}

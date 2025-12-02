@@ -66,6 +66,14 @@ type PreviewProjectState = {
   rightTab: RightPanelTab
   previewTocOpen: boolean
   activeView: ActivityView
+  // Sessions/Assistants 面板状态
+  chatPanelTab: 'sessions' | 'assistants'
+  showArchivedSessions: boolean
+  // Git 面板状态
+  gitSelectedFile: string | null
+  gitViewMode: 'unified' | 'split'
+  gitStagedExpanded: boolean
+  gitUnstagedExpanded: boolean
 }
 
 interface ChatStoreState {
@@ -101,6 +109,14 @@ interface PreviewStoreState {
   setRightTab: (projectId: string, tab: RightPanelTab) => void
   setPreviewTocOpen: (projectId: string, open: boolean) => void
   setActiveView: (projectId: string, view: ActivityView) => void
+  // Sessions/Assistants 面板
+  setChatPanelTab: (projectId: string, tab: 'sessions' | 'assistants') => void
+  setShowArchivedSessions: (projectId: string, show: boolean) => void
+  // Git 面板
+  setGitSelectedFile: (projectId: string, file: string | null) => void
+  setGitViewMode: (projectId: string, mode: 'unified' | 'split') => void
+  setGitStagedExpanded: (projectId: string, expanded: boolean) => void
+  setGitUnstagedExpanded: (projectId: string, expanded: boolean) => void
   reset: (projectId: string) => void
 }
 
@@ -116,7 +132,15 @@ const defaultPreviewProjectState = (): PreviewProjectState => ({
   selectedDocPath: null,
   rightTab: 'preview',
   previewTocOpen: false,
-  activeView: 'docs'
+  activeView: 'docs',
+  // Sessions/Assistants 面板状态
+  chatPanelTab: 'sessions',
+  showArchivedSessions: false,
+  // Git 面板状态
+  gitSelectedFile: null,
+  gitViewMode: 'unified',
+  gitStagedExpanded: true,
+  gitUnstagedExpanded: true
 })
 
 // 构建 traceId -> message 索引
@@ -650,6 +674,44 @@ export const useProjectPreviewStore = create<PreviewStoreState>()(
             if (!ws) return
             ws.activeView = view
           }),
+        // Sessions/Assistants 面板
+        setChatPanelTab: (projectId, tab) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.chatPanelTab = tab
+          }),
+        setShowArchivedSessions: (projectId, show) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.showArchivedSessions = show
+          }),
+        // Git 面板
+        setGitSelectedFile: (projectId, file) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.gitSelectedFile = file
+          }),
+        setGitViewMode: (projectId, mode) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.gitViewMode = mode
+          }),
+        setGitStagedExpanded: (projectId, expanded) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.gitStagedExpanded = expanded
+          }),
+        setGitUnstagedExpanded: (projectId, expanded) =>
+          set((state) => {
+            const ws = state.projects[projectId]
+            if (!ws) return
+            ws.gitUnstagedExpanded = expanded
+          }),
         reset: (projectId) =>
           set((state) => {
             delete state.projects[projectId]
@@ -857,22 +919,63 @@ export function useProjectPreview(projectId: string) {
     (s) => s.projects[projectId]?.previewTocOpen ?? false
   )
   const activeView = useProjectPreviewStore((s) => s.projects[projectId]?.activeView ?? 'docs')
+  // Sessions/Assistants 面板状态
+  const chatPanelTab = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.chatPanelTab ?? 'sessions'
+  )
+  const showArchivedSessions = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.showArchivedSessions ?? false
+  )
+  // Git 面板状态
+  const gitSelectedFile = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.gitSelectedFile ?? null
+  )
+  const gitViewMode = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.gitViewMode ?? 'unified'
+  )
+  const gitStagedExpanded = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.gitStagedExpanded ?? true
+  )
+  const gitUnstagedExpanded = useProjectPreviewStore(
+    (s) => s.projects[projectId]?.gitUnstagedExpanded ?? true
+  )
+
   const setSelectedDocPath = useProjectPreviewStore((s) => s.setSelectedDocPath)
   const setRightTab = useProjectPreviewStore((s) => s.setRightTab)
   const setPreviewTocOpen = useProjectPreviewStore((s) => s.setPreviewTocOpen)
   const setActiveView = useProjectPreviewStore((s) => s.setActiveView)
+  const setChatPanelTab = useProjectPreviewStore((s) => s.setChatPanelTab)
+  const setShowArchivedSessions = useProjectPreviewStore((s) => s.setShowArchivedSessions)
+  const setGitSelectedFile = useProjectPreviewStore((s) => s.setGitSelectedFile)
+  const setGitViewMode = useProjectPreviewStore((s) => s.setGitViewMode)
+  const setGitStagedExpanded = useProjectPreviewStore((s) => s.setGitStagedExpanded)
+  const setGitUnstagedExpanded = useProjectPreviewStore((s) => s.setGitUnstagedExpanded)
   const ensure = useProjectPreviewStore((s) => s.ensure)
+
   useEffect(() => {
     ensure(projectId)
   }, [projectId, ensure])
+
   return {
     selectedDocPath,
     rightTab,
     previewTocOpen,
     activeView,
+    chatPanelTab,
+    showArchivedSessions,
+    gitSelectedFile,
+    gitViewMode,
+    gitStagedExpanded,
+    gitUnstagedExpanded,
     setSelectedDocPath: (path: string | null) => setSelectedDocPath(projectId, path),
     setRightTab: (tab: RightPanelTab) => setRightTab(projectId, tab),
     setPreviewTocOpen: (open: boolean) => setPreviewTocOpen(projectId, open),
-    setActiveView: (view: ActivityView) => setActiveView(projectId, view)
+    setActiveView: (view: ActivityView) => setActiveView(projectId, view),
+    setChatPanelTab: (tab: 'sessions' | 'assistants') => setChatPanelTab(projectId, tab),
+    setShowArchivedSessions: (show: boolean) => setShowArchivedSessions(projectId, show),
+    setGitSelectedFile: (file: string | null) => setGitSelectedFile(projectId, file),
+    setGitViewMode: (mode: 'unified' | 'split') => setGitViewMode(projectId, mode),
+    setGitStagedExpanded: (expanded: boolean) => setGitStagedExpanded(projectId, expanded),
+    setGitUnstagedExpanded: (expanded: boolean) => setGitUnstagedExpanded(projectId, expanded)
   }
 }

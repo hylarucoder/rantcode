@@ -116,6 +116,7 @@
       "dragHere": "Drag tasks here",
       "openFile": "Open file",
       "chat": "Chat",
+      "checkStatus": "Check Status",
       "moveTo": "Move to {{column}}",
       "movedTo": "Task moved to \"{{column}}\"",
       "updateFailed": "Failed to update task status",
@@ -151,6 +152,7 @@
       "noChanges": "No changes to commit",
       "staged": "Staged",
       "unstaged": "Unstaged",
+      "checkStatus": "Check Status",
       "commit": "Commit",
       "commitDialog": {
         "title": "Git Commit",

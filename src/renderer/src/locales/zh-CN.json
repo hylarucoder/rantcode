@@ -116,6 +116,7 @@
       "dragHere": "拖拽任务到此处",
       "openFile": "打开文件",
       "chat": "聊聊",
+      "checkStatus": "检查状态",
       "moveTo": "移至 {{column}}",
       "movedTo": "任务已移至「{{column}}」",
       "updateFailed": "更新任务状态失败",
@@ -151,6 +152,7 @@
       "noChanges": "没有待提交的更改",
       "staged": "已暂存",
       "unstaged": "未暂存",
+      "checkStatus": "检查状态",
       "commit": "提交",
       "commitDialog": {
         "title": "Git Commit",

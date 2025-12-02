@@ -35,7 +35,8 @@ import {
   RefreshCw,
   ExternalLink,
   MessageCircle,
-  Plus
+  Plus,
+  ClipboardCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -71,6 +72,7 @@ import { fetchFile } from '@/features/spec/api/fs'
 import { orpc } from '@/lib/orpcQuery'
 import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
+import type { DocsWatcherEvent } from '@shared/types/webui'
 import { useGlobalChatStore } from '@/state/globalChat'
 
 // Task 类型定义（与 agent-docs/design/data-model.md 对齐）
@@ -193,6 +195,7 @@ interface SortableTaskCardProps {
   isOverlay?: boolean
   onOpenFile: (filePath: string) => void
   onChatWithFile?: (filePath: string) => void
+  onCheckStatus?: (filePath: string) => void
   onTitleClick: (task: Task) => void
   onStatusChange: (task: Task, newStatus: TaskStatus) => void
   t: (key: string, options?: Record<string, string>) => string
@@ -204,6 +207,7 @@ function SortableTaskCard({
   isOverlay,
   onOpenFile,
   onChatWithFile,
+  onCheckStatus,
   onTitleClick,
   onStatusChange,
   t
@@ -324,6 +328,12 @@ function SortableTaskCard({
                     {t('workspace.kanban.chat')}
                   </DropdownMenuItem>
                 )}
+                {onCheckStatus && (
+                  <DropdownMenuItem onClick={() => onCheckStatus(task.filePath)}>
+                    <ClipboardCheck className="mr-2 h-3.5 w-3.5" />
+                    {t('workspace.kanban.checkStatus')}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 {columns
                   .filter((c) => c.id !== task.status)
@@ -356,6 +366,7 @@ function TaskCardOverlay({
       isOverlay
       onOpenFile={() => {}}
       onChatWithFile={undefined}
+      onCheckStatus={undefined}
       onTitleClick={() => {}}
       onStatusChange={() => {}}
       t={t}
@@ -370,6 +381,7 @@ interface DroppableColumnProps {
   activeId: string | null
   onOpenFile: (filePath: string) => void
   onChatWithFile?: (filePath: string) => void
+  onCheckStatus?: (filePath: string) => void
   onTitleClick: (task: Task) => void
   onStatusChange: (task: Task, newStatus: TaskStatus) => void
   t: (key: string, options?: Record<string, string>) => string
@@ -381,6 +393,7 @@ function DroppableColumn({
   activeId,
   onOpenFile,
   onChatWithFile,
+  onCheckStatus,
   onTitleClick,
   onStatusChange,
   t
@@ -433,6 +446,7 @@ function DroppableColumn({
                 isDragging={activeId === task.id}
                 onOpenFile={onOpenFile}
                 onChatWithFile={onChatWithFile}
+                onCheckStatus={onCheckStatus}
                 onTitleClick={onTitleClick}
                 onStatusChange={onStatusChange}
                 t={t}
@@ -591,6 +605,43 @@ export function KanbanPanel({ projectId, onChatWithFile }: KanbanPanelProps) {
   useEffect(() => {
     void loadTasks()
   }, [loadTasks])
+
+  // 监听 task 目录文件变化，当文件内容变化时重新加载任务
+  useEffect(() => {
+    if (!projectId) return undefined
+
+    type DocsSubscribe = (
+      opts: { projectId?: string },
+      handler: (event: DocsWatcherEvent) => void
+    ) => () => void
+    const docsApi = (
+      window as unknown as {
+        api?: { docs?: { subscribe?: DocsSubscribe } }
+      }
+    ).api?.docs
+    if (!docsApi?.subscribe) return undefined
+
+    let scheduled = false
+    const flush = () => {
+      scheduled = false
+      void loadTasks()
+    }
+
+    const unsubscribe = docsApi.subscribe({ projectId }, (event) => {
+      // 只关注 task 目录下的文件变化
+      if (event.kind === 'file' && event.path?.startsWith('task/')) {
+        if (!scheduled) {
+          scheduled = true
+          // 使用 queueMicrotask 进行防抖，避免短时间内多次触发
+          queueMicrotask(flush)
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe?.()
+    }
+  }, [projectId, loadTasks])
 
   // 按状态分组任务
   const tasksByStatus = useMemo(() => {
@@ -818,6 +869,16 @@ ${prompt}
     openGlobalChat
   ])
 
+  // 检查任务完成状态
+  const handleCheckTaskStatus = useCallback(
+    (filePath: string) => {
+      setSelectedProjectId(projectId)
+      setInitialPrompt(`@${filePath} 比对当前文档和当前代码，检查任务完成情况并更新 status`)
+      openGlobalChat()
+    },
+    [projectId, setSelectedProjectId, setInitialPrompt, openGlobalChat]
+  )
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background/50">
       {/* Header */}
@@ -1004,6 +1065,7 @@ ${prompt}
                 activeId={activeId}
                 onOpenFile={openInEditor}
                 onChatWithFile={onChatWithFile}
+                onCheckStatus={handleCheckTaskStatus}
                 onTitleClick={handleTitleClick}
                 onStatusChange={(task, newStatus) => void updateTaskStatus(task, newStatus)}
                 t={t}

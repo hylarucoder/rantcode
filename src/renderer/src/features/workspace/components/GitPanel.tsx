@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { orpc } from '@/lib/orpcQuery'
 import { useGlobalChatStore } from '@/state/globalChat'
+import { useProjectPreview } from '@/features/workspace/state/store'
+import { useGitAutoRefresh } from '@/features/workspace/hooks/useGitAutoRefresh'
 
 import type { z } from 'zod'
 import type { gitFileStatusSchema, gitDiffSchema } from '@shared/orpc/schemas'
@@ -479,14 +481,27 @@ function DiffView({
 
 export function GitPanel({ projectId }: GitPanelProps) {
   const { t } = useTranslation()
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [stagedExpanded, setStagedExpanded] = useState(true)
-  const [unstagedExpanded, setUnstagedExpanded] = useState(true)
+
+  // 从 store 获取持久化状态
+  const {
+    gitSelectedFile: selectedFile,
+    gitViewMode: viewMode,
+    gitStagedExpanded: stagedExpanded,
+    gitUnstagedExpanded: unstagedExpanded,
+    setGitSelectedFile: setSelectedFile,
+    setGitViewMode: setViewMode,
+    setGitStagedExpanded: setStagedExpanded,
+    setGitUnstagedExpanded: setUnstagedExpanded
+  } = useProjectPreview(projectId)
+
+  // 临时 UI 状态（不需要持久化）
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [viewMode, setViewMode] = useState<DiffViewMode>('unified')
 
   // 全局聊天 store
   const { setInitialPrompt, setSelectedProjectId, open: openGlobalChat } = useGlobalChatStore()
+
+  // 事件驱动的自动刷新（Runner 完成 + docs 变化时触发，带防抖）
+  useGitAutoRefresh(projectId)
 
   const {
     data: status,
@@ -494,7 +509,9 @@ export function GitPanel({ projectId }: GitPanelProps) {
     refetch: refetchStatus
   } = useQuery({
     ...orpc.git.status.queryOptions({ input: { projectId } }),
-    refetchInterval: 5000
+    // 移除定时轮询，改为事件驱动刷新
+    // 保留窗口焦点时刷新作为后备
+    refetchOnWindowFocus: true
   })
 
   const { data: diff, isLoading: diffLoading } = useQuery({
