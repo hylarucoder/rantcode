@@ -101,7 +101,9 @@
       "selectRunner": "选择执行器",
       "sendHint": "发送",
       "send": "发送",
-      "interrupt": "中断"
+      "interrupt": "中断",
+      "sending": "发送中…",
+      "interruptHint": "点击中断"
     },
     "kanban": {
       "title": "任务看板",

@@ -101,7 +101,9 @@
       "selectRunner": "Select runner",
       "sendHint": "to send",
       "send": "Send",
-      "interrupt": "Stop"
+      "interrupt": "Stop",
+      "sending": "Sending…",
+      "interruptHint": "Click to stop"
     },
     "kanban": {
       "title": "Task Board",

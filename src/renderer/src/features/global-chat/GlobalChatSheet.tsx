@@ -264,6 +264,9 @@ function GlobalChatContent({
   const tokensQuery = useClaudeTokensQuery()
   const tokens = tokensQuery.data ?? {}
 
+  const tokenKey = getTokenKeyForRunner(runner)
+  const runnerConfigured = !tokenKey || !!tokens[tokenKey]
+
   const handleSend = async () => {
     if (runningTraceId || !project) return
     const value = input.trim()
@@ -357,12 +360,16 @@ function GlobalChatContent({
     const unsubscribe = subscribe((event: RunnerEvent) => {
       if (event.type === 'exit') {
         const ok = (event.code ?? 1) === 0
-        const timeDisplay = typeof event.durationMs === 'number' ? ` ${humanizeDuration(event.durationMs)}` : ''
+        const timeDisplay =
+          typeof event.durationMs === 'number' ? ` ${humanizeDuration(event.durationMs)}` : ''
         if (ok) {
           toast.success(t('globalChat.execDone', '执行完成') + timeDisplay)
           playSfx('notify')
         } else {
-          toast.error(t('globalChat.execFailed', '执行失败') + ` (exit ${event.code ?? '?'})${timeDisplay}`)
+          toast.error(
+            t('globalChat.execFailed', '执行失败') +
+              ` (exit ${event.code ?? '?'})${timeDisplay}`
+          )
         }
         playAudioFx('end')
         setRunningTraceId(null)
@@ -498,6 +505,7 @@ function GlobalChatContent({
           onInterrupt={handleInterrupt}
           runner={runner}
           onRunnerChange={setRunner}
+          runnerConfigured={runnerConfigured}
         />
       </div>
     </div>

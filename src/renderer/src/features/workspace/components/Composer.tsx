@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import type { RunnerRunOptions } from '@shared/types/webui'
 import { RUNNER_UI_LIST } from '@shared/runners'
-import { Send, Square, Cpu } from 'lucide-react'
+import { Send, Square, Cpu, Loader2 } from 'lucide-react'
 
 type ExecRunner = NonNullable<RunnerRunOptions['runner']>
 
@@ -25,7 +25,8 @@ export function Composer({
   isRunning,
   onInterrupt,
   runner,
-  onRunnerChange
+  onRunnerChange,
+  runnerConfigured
 }: {
   value: string
   onChange: (v: string) => void
@@ -35,6 +36,8 @@ export function Composer({
   /** 底层 Runner（执行器） */
   runner: ExecRunner
   onRunnerChange: (r: ExecRunner) => void
+  /** 当前 Runner / Agent 是否已正确配置（用于 UI 提示颜色） */
+  runnerConfigured?: boolean
 }) {
   const { t } = useTranslation()
   // 工作区与 agent-docs 列表
@@ -200,10 +203,18 @@ export function Composer({
           <Select value={runner} onValueChange={(v) => onRunnerChange(v as ExecRunner)}>
             <SelectTrigger
               size="sm"
-              className="h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0"
+              className={cn(
+                'h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent/50 focus:ring-0',
+                runnerConfigured === false ? 'text-muted-foreground/60' : 'text-muted-foreground'
+              )}
               title={t('workspace.composer.selectRunner')}
             >
-              <Cpu className="h-3 w-3" />
+              <Cpu
+                className={cn(
+                  'h-3 w-3',
+                  runnerConfigured === false ? 'text-muted-foreground/50' : 'text-primary'
+                )}
+              />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -226,14 +237,22 @@ export function Composer({
           type="button"
           size="sm"
           variant={isRunning ? 'destructive' : 'default'}
-          className="h-7 gap-1.5 rounded-lg px-3 text-xs"
+          className="group relative h-7 gap-1.5 rounded-lg px-3 text-xs overflow-hidden"
           onClick={isRunning ? onInterrupt : onSend}
           disabled={isRunning ? false : !value.trim()}
         >
           {isRunning ? (
             <>
-              <Square className="h-3 w-3" />
-              {t('workspace.composer.interrupt')}
+              {/* 默认显示：加载中状态 */}
+              <span className="flex items-center gap-1.5 transition-opacity group-hover:opacity-0">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t('workspace.composer.sending')}
+              </span>
+              {/* Hover 时显示：中断提示 */}
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 text-xs opacity-0 transition-opacity group-hover:opacity-100">
+                <Square className="h-3 w-3" />
+                {t('workspace.composer.interruptHint')}
+              </span>
             </>
           ) : (
             <>
