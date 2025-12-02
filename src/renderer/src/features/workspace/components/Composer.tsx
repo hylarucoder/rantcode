@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/select'
 import type { RunnerRunOptions } from '@shared/types/webui'
 import { RUNNER_UI_LIST } from '@shared/runners'
-import { Send, Square, Cpu, Loader2 } from 'lucide-react'
+import { Send, Square, Loader2 } from 'lucide-react'
+import { Claude } from '@lobehub/icons'
 
 type ExecRunner = NonNullable<RunnerRunOptions['runner']>
 
@@ -209,7 +210,7 @@ export function Composer({
               )}
               title={t('workspace.composer.selectRunner')}
             >
-              <Cpu
+              <Claude
                 className={cn(
                   'h-3 w-3',
                   runnerConfigured === false ? 'text-muted-foreground/50' : 'text-primary'

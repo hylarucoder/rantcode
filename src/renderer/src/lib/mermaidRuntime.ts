@@ -180,6 +180,9 @@ async function waitForElementVisible(el: HTMLElement, timeout = 500): Promise<bo
   return false
 }
 
+// 每一帧最多渲染的 Mermaid 图数量，避免一次性阻塞主线程
+const MERMAID_BATCH_SIZE = 4
+
 export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Promise<void> {
   const containers = collectMermaidBlocks(root)
   if (containers.length === 0) return
@@ -224,35 +227,38 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
     })
     return
   }
+
   let seq = 0
-  await Promise.all(
-    containers.map(async (el) => {
-      const id = `mmd-${Date.now()}-${seq++}`
-      const chartRaw = el.textContent ?? ''
-      const chart = normalizeMermaid(chartRaw)
 
-      const renderOnce = async () => {
-        // 渲染前检查元素是否仍在 DOM 中且可见
-        if (!isElementVisible(el)) {
-          throw new Error('Element not visible in DOM')
-        }
-        const { svg } = await mermaid.render(id, chart, el)
-        // 渲染后再次检查元素是否还在 DOM 中
-        if (!document.body.contains(el)) return
-        el.innerHTML = svg
-        el.setAttribute('data-mermaid-processed', '1')
-        // 绑定点击放大查看
-        if (!el.getAttribute('data-mermaid-lightbox')) {
-          el.style.cursor = 'zoom-in'
-          el.setAttribute('data-mermaid-lightbox', '1')
-          el.addEventListener('click', (event) => {
-            event.stopPropagation()
-            const svgHtml = el.innerHTML
-            openMermaidLightbox(svgHtml)
-          })
-        }
+  // 将每个容器的渲染封装成任务，后续按批次执行
+  const tasks = containers.map((el) => {
+    const id = `mmd-${Date.now()}-${seq++}`
+    const chartRaw = el.textContent ?? ''
+    const chart = normalizeMermaid(chartRaw)
+
+    const renderOnce = async () => {
+      // 渲染前检查元素是否仍在 DOM 中且可见
+      if (!isElementVisible(el)) {
+        throw new Error('Element not visible in DOM')
       }
+      const { svg } = await mermaid.render(id, chart, el)
+      // 渲染后再次检查元素是否还在 DOM 中
+      if (!document.body.contains(el)) return
+      el.innerHTML = svg
+      el.setAttribute('data-mermaid-processed', '1')
+      // 绑定点击放大查看
+      if (!el.getAttribute('data-mermaid-lightbox')) {
+        el.style.cursor = 'zoom-in'
+        el.setAttribute('data-mermaid-lightbox', '1')
+        el.addEventListener('click', (event) => {
+          event.stopPropagation()
+          const svgHtml = el.innerHTML
+          openMermaidLightbox(svgHtml)
+        })
+      }
+    }
 
+    return async () => {
       try {
         // 等待元素变为可见
         const visible = await waitForElementVisible(el)
@@ -301,6 +307,19 @@ export async function renderMermaidIn(root: HTMLElement, theme: ThemeMode): Prom
           el.setAttribute('data-mermaid-processed', 'error')
         }
       }
-    })
-  )
+    }
+  })
+
+  // 按批次分帧渲染 Mermaid 图，避免长时间同步阻塞导致 FPS 大幅下降
+  for (let i = 0; i < tasks.length; i += MERMAID_BATCH_SIZE) {
+    const batch = tasks.slice(i, i + MERMAID_BATCH_SIZE)
+    // 同一批次内部并行渲染
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(batch.map((fn) => fn()))
+    if (i + MERMAID_BATCH_SIZE < tasks.length) {
+      // 让出一帧，避免长时间占用主线程
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    }
+  }
 }

@@ -41,6 +41,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@libsql/client": "^0.15.8",
+    "@lobehub/icons": "^2.43.1",
     "@orpc/client": "^1.11.2",
     "@orpc/contract": "^1.11.2",
     "@orpc/server": "^1.11.2",

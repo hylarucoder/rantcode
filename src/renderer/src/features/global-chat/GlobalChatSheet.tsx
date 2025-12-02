@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { MessageSquare, FolderOpen, Plus } from 'lucide-react'
+import { FolderOpen, Plus } from 'lucide-react'
+import { Claude } from '@lobehub/icons'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import {
@@ -129,7 +130,7 @@ export function GlobalChatSheet() {
         >
           <SheetHeader className="border-b pb-3">
             <SheetTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
+              <Claude className="h-5 w-5" />
               {t('globalChat.title', '对话')}
             </SheetTitle>
           </SheetHeader>
@@ -442,7 +443,7 @@ function GlobalChatContent({
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Claude className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="flex min-w-0 flex-col">
             <span className="text-sm font-medium">{t('globalChat.title', '对话')}</span>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">

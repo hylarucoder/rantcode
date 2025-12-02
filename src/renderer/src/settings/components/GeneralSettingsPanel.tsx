@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { Settings, Palette, Languages } from 'lucide-react'
+import { Palette, Languages } from 'lucide-react'
+import { Claude } from '@lobehub/icons'
 import { setRootDarkWithNoTransition } from '@/lib/theme'
 import {
   useGeneralSettingsQuery,
@@ -23,7 +24,7 @@ export function GeneralSettingsPanel() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="border-border/50 shadow-sm overflow-hidden">
         <SettingsCardHeader
-          icon={<Settings className="h-5 w-5 text-blue-500" />}
+          icon={<Claude className="h-5 w-5 text-blue-500" />}
           iconClassName="bg-blue-500/10"
           title={t('settings.general.basic')}
           description={t('settings.general.basicDesc')}
@@ -31,7 +32,7 @@ export function GeneralSettingsPanel() {
         <CardContent className="py-4">
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-              <Settings className="h-6 w-6 text-muted-foreground/50" />
+              <Claude className="h-6 w-6 text-muted-foreground/50" />
             </div>
             <p className="text-sm text-muted-foreground">
               {t('settings.general.basicPlaceholder')}
