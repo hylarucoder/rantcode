@@ -1,329 +1,343 @@
-# Agents 抽象层设计与集成指南
+# Agent 与 Runner 设计文档
 
-> 目标：为多类 Agent（rantcode、codex、claude-code、Kimi CLI）提供一致的编程接口和运行时管理，使你可以在不改动上层业务的情况下自由切换和组合。
+> 本文档描述项目中 Agent（业务角色）与 Runner（底层执行器）的分层架构设计。
 
-## 1. 目标与范围
+## 1. 核心概念
 
-- 统一：用一个 `AgentAdapter` 接口抽象不同实现（本地进程/守护、HTTP/WS 服务、OpenAI 兼容或非兼容 LLM）。
-- 可替换：通过 `AgentRegistry`/`AgentFactory` 按配置动态装配与切换实现。
-- 可观测：标准化日志、事件、流式增量、错误与重试策略。
-- 安全：凭证管理、权限边界（尤其工具调用）、超时/资源限额。
-- 贴合 Electron 工程：在 main/preload/renderer 各层分工明确，避免跨层越权。
+### 1.1 概念分离
 
-不在本版范围：分布式任务编排、跨租户多实例调度、完整 APM/Tracing 平台（预留挂点）。
+项目采用 **Agent + Runner** 分离架构：
 
-## 2. Agent 分类与典型接入
+| 概念 | 层级 | 职责 | 示例 |
+|-----|-----|-----|-----|
+| **Agent** | 业务层 | 定义角色职责、System Prompt、能力边界 | 需求分析师、架构师、开发者、测试工程师 |
+| **Runner** | 技术层 | 实际调用 CLI 工具执行任务 | codex、claude-code、kimi-cli |
 
-1. rantcode（你自研/自定义的 Agent）
+**关系**：Agent 通过 Runner 执行任务。例如「开发 Agent」使用「Claude Code」Runner 来实现代码。
 
-- 形态：命令行一次性进程或后台守护（可选 HTTP/WS）。
-- 接入：优先 `ProcessAgentAdapter`（spawn/stdio 行级 JSON），也可 `HttpAgentAdapter`。
+### 1.2 设计目标
 
-2. codex（Codex CLI/本地执行器）
+- **职责分离**：业务逻辑（Agent）与技术实现（Runner）解耦
+- **可替换**：同一 Agent 可切换不同 Runner
+- **可观测**：统一事件流，支持日志、进度展示
+- **安全**：凭证管理在 main 层，renderer 无法直接访问
 
-- 形态：本地运行、具备工具调用和计划执行能力。
-- 接入：`ProcessAgentAdapter` 或（如提供本地端口）`HttpAgentAdapter`。
-- 配置：无需显式配置（自动探测路径与版本）。
-- 展示：在 UI 中显示已探测到的可执行路径与版本号。
+## 2. Agent 设计
 
-3. claude-code（统一入口，需支持四种后端：official / kimi / glm / minmax）
-
-- 形态：同一套“Claude Code”调用语义，不同模型/供应商后端。
-- 接入：
-  - official：Anthropic 官方 API（建议 `ProviderSpecificAdapter`；或做兼容层）。
-  - kimi：Kimi/Moonshot 提供的 API（若 OpenAI 兼容可走 `OpenAICompatibleAdapter`）。
-  - glm：智谱 GLM（多为 OpenAI 兼容变体，可走 `OpenAICompatibleAdapter`，必要时设定路径差异）。
-  - minmax：Minimax（大多兼容/半兼容，建议尝试 `OpenAICompatibleAdapter`，不兼容则 `ProviderSpecificAdapter`）。
-- 说明：在 `ClaudeCodeAdapter` 内以 `provider` 字段切换后端；统一对外暴露 `AgentAdapter` 接口。
-- 配置：CLI 需展示可执行路径与版本；四种后端仅需提供 token（默认使用各供应商标准 baseUrl 与推荐模型）。
-
-4. Kimi CLI（Kimi 的本地 CLI 形态）
-
-- 形态：命令行/本地进程，通过 stdio 交互。
-- 接入：`ProcessAgentAdapter`（推荐）。
-
-## 3. 总体架构
-
-- AgentAdapter（核心接口）：统一 `init/call/stream/tools/dispose` 等生命周期与调用语义。
-- Transport 层：`ProcessTransport`、`HttpTransport`、`WsTransport`（超时、重试、SSE/事件解码）。
-- Protocol 层：OpenAI Chat、JSON-RPC、自定义 JSON over stdio、SSE。
-- Registry/Factory：按配置创建实例，支持热插拔与按需复用连接。
-- ToolRuntime：统一工具注册/执行与安全沙箱，隔离文件系统/网络权限。
-- AgentTraceStore：管理 Agent 轨迹/上下文/缓存（可选）。
-- Auth 管理：API Key、Token、签名策略、密钥来源（env/安全存储）。
-
-运行时信息展示（路径与版本）：
-
-- 为 `codex` 与 `claude-code` 增加运行时探测（可执行路径、版本号），用于 UI/日志展示。
-
-## 4. 核心数据模型（TypeScript 草案）
+### 2.1 Agent 能力枚举
 
 ```ts
-// 角色与消息
-export type Role = 'system' | 'user' | 'assistant' | 'tool'
+// src/shared/agents.ts
+export type AgentCapability =
+  | 'read_file'    // 读取文件
+  | 'write_file'   // 修改文件
+  | 'execute_cmd'  // 执行命令
+  | 'browse_web'   // 浏览器交互
+  | 'search_code'  // 搜索代码库
+```
 
-export interface ContentPartText {
-  type: 'text'
-  text: string
-}
-export interface ContentPartImage {
-  type: 'image'
-  url: string
-  mime?: string
-}
-export type ContentPart = ContentPartText | ContentPartImage
+### 2.2 Agent 配置结构
 
-export interface AgentMessage {
-  role: Role
-  content: ContentPart[] // 文本/图片等多模态
-  toolCalls?: ToolCall[]
-  name?: string // 可选：指定工具/函数名或助手名称
-  metadata?: Record<string, any>
+```ts
+export interface AgentConfig {
+  id: string                        // 唯一标识
+  name: string                      // 显示名称
+  description?: string              // 描述
+  systemPrompt: string              // 定义 Agent 的行为
+  capabilities: AgentCapability[]   // 允许的能力
+  defaultRunner?: Runner            // 默认使用的 Runner
+  outputSchema?: string             // 期望产物格式（YAML schema）
+  isPreset?: boolean                // 是否为预设 Agent
+}
+```
+
+### 2.3 预设 Agent
+
+| ID | 名称 | 能力 | 用途 |
+|----|-----|-----|-----|
+| `general` | 通用助手 | read_file, write_file, execute_cmd, search_code | 无特定职责约束 |
+| `analyst` | 需求分析 Agent | read_file, search_code | 理解用户意图，输出结构化需求 |
+| `architect` | 架构 Agent | read_file, search_code | 将需求拆解为可执行任务 |
+| `developer` | 开发 Agent | read_file, write_file, execute_cmd, search_code | 按任务清单实现代码 |
+| `tester` | 测试 Agent | read_file, execute_cmd, browse_web, search_code | 验证实现是否满足需求 |
+
+### 2.4 Agent 使用流程
+
+```ts
+import { getAgent, buildAgentPrompt } from '@/shared/agents'
+
+// 获取 Agent 配置
+const agent = getAgent('developer')
+
+// 构建带 System Prompt 的完整 Prompt
+const fullPrompt = buildAgentPrompt(agent, userInput)
+
+// 通过 Runner 执行
+await runnerService.run({ prompt: fullPrompt, runner: 'claude-code' })
+```
+
+## 3. Runner 设计
+
+### 3.1 Runner 类型
+
+```ts
+// src/shared/runners.ts
+export type Runner =
+  | 'codex'              // OpenAI Codex CLI
+  | 'claude-code'        // Claude Code（官方）
+  | 'claude-code-glm'    // Claude Code + 智谱 GLM
+  | 'claude-code-kimi'   // Claude Code + Kimi/Moonshot
+  | 'claude-code-minimax'// Claude Code + MiniMax
+  | 'kimi-cli'           // Kimi CLI
+```
+
+### 3.2 Runner 配置
+
+Runner 配置硬编码在 `src/main/runners/detect.ts`：
+
+```ts
+interface RunnerConfig {
+  binaries: string[]     // 可执行文件候选名称
+  envOverride: string    // 环境变量覆盖路径
+  displayName: string    // 显示名称
+  baseUrl?: string       // API 基础 URL（第三方供应商）
+  tokenEnvKey?: string   // Token 环境变量 key
 }
 
-// 工具与函数调用
-export interface ToolSchema {
-  name: string
-  description?: string
-  parameters: Record<string, any> // JSON Schema 片段
+const RUNNER_CONFIGS: Record<Runner, RunnerConfig> = {
+  codex: {
+    binaries: ['codex', 'openai-codex'],
+    envOverride: 'CODEX_BIN',
+    displayName: 'Codex'
+  },
+  'claude-code': {
+    binaries: ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code',
+    tokenEnvKey: 'official'
+  },
+  'claude-code-glm': {
+    binaries: ['claude-code', 'claude'],
+    envOverride: 'CLAUDE_CODE_BIN',
+    displayName: 'Claude Code (GLM)',
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    tokenEnvKey: 'glm'
+  },
+  // ... 其他配置
+}
+```
+
+### 3.3 Runner 实现方式
+
+| Runner | 实现方式 | 说明 |
+|--------|---------|-----|
+| `claude-code*` | `@anthropic-ai/claude-agent-sdk` | 官方 SDK，类型安全，支持流式 |
+| `codex` | CLI spawn + stdio | 原生 CLI 调用 |
+| `kimi-cli` | CLI spawn + stdio | 原生 CLI 调用 |
+
+### 3.4 判断是否使用 Agent SDK
+
+```ts
+// src/shared/runners.ts
+export function isAgentSDKRunner(runner: Runner): boolean {
+  return runner.startsWith('claude-code')
+}
+```
+
+## 4. 运行时架构
+
+### 4.1 目录结构
+
+```
+src/main/runners/
+├── detect.ts              # Runner 探测与配置
+├── claudecode-sdk/
+│   ├── index.ts           # 导出
+│   └── runner.ts          # Agent SDK 实现
+└── codex/
+    ├── index.ts           # 导出
+    ├── cli.ts             # CLI 参数构建
+    └── runner.ts          # CLI spawn 实现
+```
+
+### 4.2 事件流
+
+Runner 执行过程中通过 `RunnerEvent` 推送事件：
+
+```ts
+// src/shared/types/webui.ts
+export type RunnerEvent =
+  | { type: 'start'; traceId: string; command: string[]; cwd: string }
+  | { type: 'log'; traceId: string; stream: 'stdout' | 'stderr'; data: string }
+  | { type: 'text'; traceId: string; text: string; delta: boolean }
+  | { type: 'context'; traceId: string; contextId: string }
+  | { type: 'claude_message'; traceId: string; messageType: string; content?: string; raw: unknown }
+  | { type: 'error'; traceId: string; message: string }
+  | { type: 'exit'; traceId: string; code: number | null; signal: string | null; durationMs: number }
+```
+
+### 4.3 事件推送机制
+
+```
+Runner 执行
+    ↓
+dispatchEvent()
+    ↓
+notifyBridge.ts (main)
+    ↓
+IPC → preload
+    ↓
+renderer 订阅处理
+```
+
+## 5. 可执行文件探测
+
+### 5.1 探测流程
+
+1. 检查环境变量覆盖（如 `CLAUDE_CODE_BIN`）
+2. 搜索额外路径（`~/.claude/local`、`~/.local/bin`）
+3. 遍历 `PATH` 查找可执行文件
+4. 解析 bash wrapper 脚本，找到真正的 JS 可执行文件
+
+### 5.2 版本检测
+
+```ts
+// 尝试多种参数获取版本
+const tryArgsList = [['--version'], ['version'], ['-v']]
+```
+
+### 5.3 DetectResult
+
+```ts
+export interface DetectResult {
+  name: Runner
+  executablePath?: string
+  version?: string
 }
 
-export interface ToolCall {
-  id: string
-  name: string // tool name
-  arguments: Record<string, any>
+// 使用示例
+const result = await detect('claude-code')
+// { name: 'claude-code', executablePath: '/path/to/claude', version: '1.0.0' }
+```
+
+## 6. Claude Code SDK 集成
+
+### 6.1 SDK 调用
+
+```ts
+import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
+
+const options: Options = {
+  cwd: repoRoot,
+  env: { ANTHROPIC_API_KEY: token, ... },
+  pathToClaudeCodeExecutable,
+  permissionMode: 'bypassPermissions',
+  includePartialMessages: true
 }
 
-export interface ToolHandler {
-  schema: ToolSchema
-  handle: (args: Record<string, any>, ctx: RunContext) => Promise<any>
-}
+const q = query({ prompt, options })
 
-export interface RunContext {
+for await (const message of q) {
+  // 处理流式消息
+}
+```
+
+### 6.2 第三方供应商支持
+
+通过设置环境变量切换供应商：
+
+| 供应商 | `ANTHROPIC_BASE_URL` | Token 变量 |
+|-------|---------------------|-----------|
+| 官方 | （默认） | `ANTHROPIC_API_KEY` |
+| 智谱 GLM | `https://open.bigmodel.cn/api/anthropic` | `ZHIPU_API_KEY` |
+| Kimi | `https://api.moonshot.cn/anthropic` | `KIMI_API_KEY` |
+| MiniMax | `https://api.minimax.chat/v1/text/chatcompletion_v2` | `MINMAX_API_KEY` |
+
+### 6.3 Token 管理
+
+Token 存储在 `src/main/settings/tokens.ts`，通过 `readClaudeTokens()` 读取：
+
+```ts
+interface ClaudeTokens {
+  official?: string
+  glm?: string
+  kimi?: string
+  minmax?: string
+}
+```
+
+## 7. Electron 分层
+
+### 7.1 main 层
+
+- 管理 Runner 实例与执行
+- 凭证存储与读取
+- 暴露 oRPC API 给 preload
+
+### 7.2 preload 层
+
+- 定义类型安全桥接 API
+- 转发调用到 main
+- 不直接处理敏感数据
+
+### 7.3 renderer 层
+
+- 管理 UI 状态与会话
+- 订阅 Runner 事件
+- 通过 preload API 发起调用
+
+## 8. API 接口
+
+### 8.1 运行 Runner
+
+```ts
+// oRPC contract
+runner.run.input({
+  prompt: string
+  runner: Runner
+  projectId?: string
   traceId?: string
-  signal?: AbortSignal
-  tags?: string[]
-  // 安全：文件/网络/环境变量访问，由调用侧严格控制
-}
+  contextId?: string  // 用于恢复会话
+  extraArgs?: string[]
+})
 
-// 调用入参与返回
-export interface AgentTurn {
-  messages: AgentMessage[]
-  tools?: ToolSchema[]
-  model?: string
-  temperature?: number
-  topP?: number
-  maxTokens?: number
-  toolChoice?: 'auto' | 'none' | { type: 'tool'; name: string }
-  metadata?: Record<string, any>
-}
-
-export interface AgentResult {
-  message: AgentMessage // 最终汇总
-  finishReason?: 'stop' | 'length' | 'tool_calls' | 'error'
-  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }
-  raw?: any // 供应商原始响应，便于排错
-}
-
-export interface AgentDelta {
-  type: 'text' | 'tool_call' | 'event'
-  textDelta?: string
-  toolCallDelta?: Partial<ToolCall> & { id: string }
-  event?: { name: string; payload?: any }
-}
-
-// 适配器核心
-export interface AgentAdapter {
-  id: string
-  kind: 'process' | 'http' | 'ws' | 'openai_compatible' | 'provider_specific'
-  init(): Promise<void>
-  dispose(): Promise<void>
-  supportsStreaming(): boolean
-  call(turn: AgentTurn, ctx?: RunContext): Promise<AgentResult>
-  stream?(turn: AgentTurn, ctx?: RunContext): AsyncIterable<AgentDelta>
-  tools?(): ToolSchema[] // 该 Agent 内置工具声明（如 Codex）
-  info?(): Promise<AgentInfo> // 可选：返回路径、版本、provider 等运行时信息
-}
-
-export interface AgentInfo {
-  name: string // 如 'codex', 'claude-code'
-  provider?: string // claude-code: 'official' | 'kimi' | 'glm' | 'minmax'
-  executablePath?: string // 可执行路径（如 /usr/local/bin/codex）
-  version?: string // 语义化版本/构建号
-  model?: string // 使用的模型（可选）
-}
+runner.run.output({
+  traceId: string
+})
 ```
 
-## 5. Adapter 设计要点
+### 8.2 取消运行
 
-### 5.1 ProcessAgentAdapter（本地命令行/进程）
-
-- 通过 `child_process.spawn` 启动；协议可采用：
-  - 行级 JSON（每行一个 JSON 对象），便于流式解析；
-  - 或者纯请求-响应 JSON（stdio），简化对接。
-- 超时/内存/CPU 限额，异常时自动清理子进程；支持重启。
-- 流式输出：按行/块解码为 `AgentDelta`。
-
-### 5.2 HttpAgentAdapter / WsAgentAdapter（守护/云服务）
-
-- HTTP：`POST /chat` 同步响应，或 `text/event-stream` 推流。
-- WS：建立会话后推送 delta 事件；需心跳与重连策略。
-- 统一鉴权：Bearer Token、API Key、签名头；重试与幂等（幂等键/重放保护）。
-
-### 5.3 OpenAICompatibleAdapter（官方/国产兼容协议）
-
-- 统一 Chat Completions / Responses API 与 SSE 解析；
-- 工具调用：映射为 OpenAI function/tool schema；收敛 `tool_choice` 行为；
-- 供应商差异通过 `capabilities`/特性开关处理（如 max tokens、响应字段差异）。
-
-### 5.4 ProviderSpecificAdapter（非兼容协议）
-
-- 封装各家 SDK/REST；在适配器内转换为统一 `AgentResult/AgentDelta`。
-- 建议：尽量转为 OpenAI 风格以减少上层差异。
-
-## 6. 工具（Tool）与函数调用
-
-- 统一工具注册：`ToolRuntime` 维护 `name -> handler` 映射与 JSON Schema；
-- 执行策略：
-  - `tool_choice:auto`：由模型决定是否调用工具；
-  - `tool_choice:none`：禁止工具；
-  - 指定工具：只允许命名工具。
-- 安全：工具执行位于可信层（Electron main/preload），严禁 renderer 直接触达高权限操作（FS/Network/Shell）。
-- 结果回传：工具结果编码为 `role: 'tool'` 的消息，纳入后续模型对话。
-
-## 7. 配置与注册（示例）
-
-建议新建 `agents.config.json`（或等效 TS 配置）统一管理：
-
-```json
-{
-  "defaultAgent": "openai-gpt-4o-mini",
-  "agents": {
-    "rantcode": {
-      "type": "process",
-      "command": "node",
-      "args": ["./local/rantcode-agent.js"],
-      "env": { "AGENT_MODE": "cli" },
-      "timeoutMs": 120000
-    },
-    "codex": {
-      "type": "process",
-      "auto": true,
-      "detect": {
-        "commands": ["codex"],
-        "versionArgs": ["--version", "version"]
-      }
-    },
-    "claude-code-official": {
-      "type": "provider_specific",
-      "provider": "official",
-      "apiKeyEnv": "ANTHROPIC_API_KEY"
-    },
-    "claude-code-kimi": {
-      "type": "openai_compatible",
-      "provider": "kimi",
-      "apiKeyEnv": "KIMI_API_KEY"
-    },
-    "claude-code-glm": {
-      "type": "openai_compatible",
-      "provider": "glm",
-      "apiKeyEnv": "ZHIPU_API_KEY"
-    },
-    "claude-code-minmax": {
-      "type": "openai_compatible",
-      "provider": "minmax",
-      "apiKeyEnv": "MINMAX_API_KEY"
-    },
-    "kimi-cli": {
-      "type": "process",
-      "command": "<kimi cli 可执行文件>",
-      "args": ["--stdio"],
-      "env": { "KIMI_API_KEY": "${KIMI_API_KEY}" },
-      "timeoutMs": 120000
-    }
-  }
-}
+```ts
+runner.cancel.input({ traceId: string })
+runner.cancel.output({ ok: boolean })
 ```
 
-`AgentRegistry` 读取配置 → `AgentFactory` 实例化 → 暴露 `get(id)`/`useDefault()`。
+### 8.3 探测 Runner
 
-## 8. 生命周期与上下文
+```ts
+runner.detect.input({ runner: Runner })
+runner.detect.output({
+  name: Runner
+  executablePath?: string
+  version?: string
+})
+```
 
-- init：预热连接/会话，探测能力（工具、最大上下文、令牌限额）。
-- keepalive：WS 心跳、HTTP 健康检查；失败自动重建。
-- 取消：支持 `AbortSignal`；中止本地进程或 HTTP 请求。
-- 并发与速率：队列/限流器；供应商速率限制与退避重试（指数退避）。
+## 9. 术语表
 
-路径与版本探测（codex / claude-code 专用）：
-
-- 可执行路径：优先读取配置显式路径；未配置则按 `process.env.PATH` 通过 `which`/`where` 探测。
-- 版本号：尝试以 `--version`、`version` 等参数调用，解析 `semver` 或构建号；失败则回退为原始文本显示。
-- 展示：在 UI/日志中统一通过 `AgentAdapter.info()` 返回的 `executablePath` 与 `version` 展示。
-
-## 9. 错误处理与降级
-
-- 分类：输入校验、网络/超时、鉴权、配额、解析、供应商错误、工具执行错误。
-- 策略：
-  - 可重试错误：退避重试，带幂等键；
-  - 不可重试：快速失败 + 诊断信息；
-  - 回退：主模型失败→备用模型；流失败→切换非流式。
-
-## 10. 观测与日志
-
-- 事件：`run.start`/`run.delta`/`run.finish`/`run.error`；
-- 结构化日志：包含 `traceId`、agentId、模型名、延迟、令牌用量；
-- 挂点：可接入 APM/Tracing（OpenTelemetry）与本地日志文件。
-
-## 11. 在 Electron 项目中的分层落地
-
-- main（Node 权限层）：
-  - 管理 `AgentRegistry`/`AgentAdapter` 实例与 ToolRuntime；
-  - 执行高权限工具（FS/Network/Shell）；
-  - 暴露安全 IPC/API 给 preload。
-- preload（桥接层）：
-  - 定义类型安全 API，转发到 main；
-  - 做最小化的数据校验与序列化；
-  - 不直接做高权限操作。
-- renderer（UI 层）：
-  - 管理会话与流式渲染；
-  - 不直接接触凭证/文件系统；
-  - 通过 preload API 发起调用与订阅事件。
-
-## 12. 最小可用实现（MVP）建议
-
-1. 落地核心接口：`AgentAdapter`、`AgentTurn`、`AgentResult`、`AgentDelta`。
-2. 实现 `OpenAICompatibleAdapter`（覆盖官方与主流国产兼容厂商）。
-3. 实现 `ProcessAgentAdapter`（对接你现有 CLI/后台进程）。
-4. 做一个 `ToolRuntime`（内置 1~2 个安全工具，如只读 FS）。
-5. 加上 `AgentRegistry` + JSON 配置解析。
-6. 在 main 层提供 IPC API：`callAgent` / `streamAgent`；renderer 做简单 UI 验证。
-
-## 13. 术语表
-
-- Agent：具备推理/编排/工具调用能力的执行体。
-- Adapter：将具体实现（进程/HTTP/LLM）映射为统一接口的适配器。
-- Tool：受控的函数/操作，由 Agent 触发、由受信侧执行。
-- Turn：一轮调用，包含上下文消息与参数，在统一接口中执行。
-- Delta：流式增量片段，用于逐步渲染与交互。
+| 术语 | 说明 |
+|-----|-----|
+| **Agent** | 业务角色，定义职责、System Prompt 和能力边界 |
+| **Runner** | 底层执行器，负责调用 CLI 工具 |
+| **Trace** | 一次执行的完整轨迹，由 traceId 标识 |
+| **Context** | Runner 会话上下文，用于恢复对话 |
 
 ---
 
-如需，我可以基于此文档直接生成 `src/main/agents/` 的初始代码骨架（接口 + 适配器空实现 + Registry/Factory + preload 桥接）。
+## 10. 后续演进方向
 
-## 14. claude-code 集成说明（official / kimi / glm / minmax）
-
-- 统一入口：`ClaudeCodeAdapter`，通过 `provider` 切换后端，保持对上层 `AgentAdapter` 一致语义。
-- official（Anthropic）：仅需 `ANTHROPIC_API_KEY`；默认使用官方标准 baseUrl 与推荐模型。
-- kimi / glm / minmax：仅需各自 token（`KIMI_API_KEY`、`ZHIPU_API_KEY`、`MINMAX_API_KEY`）；默认使用各供应商标准 baseUrl 与推荐模型。
-- 统一流式：将 SSE/WS/分片文本解码为 `AgentDelta`（text/tool_call/event）。
-- 令牌/模型：如需自定义模型，可在调用时通过 `AgentTurn.model` 覆盖；计费/用量通过 `usage` 统一回传。
-
-## 15. Kimi CLI 对接说明
-
-- 接入：`ProcessAgentAdapter`，通过 stdio 行级 JSON 帧或纯文本流（建议前者）。
-- 建议的 stdio 帧格式（可协商）：
-  - 请求：`{ "type": "call", "id": "<traceId>", "messages": [...], "stream": true }`
-  - 增量：`{ "type": "delta", "id": "<traceId>", "delta": { "type": "text", "text": "..." } }`
-  - 结束：`{ "type": "final", "id": "<traceId>", "message": { ... }, "usage": { ... } }`
-- 凭证：通过环境变量传入（如 `KIMI_API_KEY`），仅在 main 层注入。
-- 路径与版本展示：同 codex/claude-code 的探测流程（可执行路径 + `--version`）。
+1. **自定义 Agent**：支持用户创建自定义 Agent 配置
+2. **Agent 工作流**：多 Agent 协作的任务编排
+3. **Tool 系统**：为 Agent 注册可调用的工具
+4. **配置外置**：将 Runner 配置迁移到 JSON 文件

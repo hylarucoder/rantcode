@@ -10,7 +10,7 @@
 分层与通道
 - 渲染层（Renderer）：通过 `window.api.docs.subscribe({ workspaceId }, handler)` 订阅；不直接触碰 Node/Electron。
 - 预加载（Preload）：在 `window.api` 中暴露 `docs` 桥，桥接 oRPC 与 notify 通道。
-- 主进程（Main）：使用 chokidar 监控工作区 `docs/` 目录，并通过 notify 通道向订阅窗口推送事件。
+- 主进程（Main）：使用 chokidar 监控工作区 `agent-docs/` 目录，并通过 notify 通道向订阅窗口推送事件。
 - 通道：
   - oRPC：`docs.subscribe` / `docs.unsubscribe` 管理订阅生命周期（与窗口 webContents 绑定）。
   - Notify：主题 `docs`；服务端 → 渲染端单向广播增量事件。
@@ -30,8 +30,8 @@
   - 订阅与计数：`addDocsSubscriber()` / `removeDocsSubscriber()` 基于 `webContents.id` 维护订阅计数；最后一个订阅者退出时自动关闭 watcher。
   - 多窗口/多工作区映射：`contentsToWorkspaces` 映射窗口 id → watcher set，窗口销毁时统一清理。
 - 路径与内容：
-  - 监控目录：工作区根目录下 `docs/`（`resolveBaseDir('docs', workspaceId)`）。
-  - 变更事件中，路径以相对 `docs/` 的 POSIX 斜杠表示；`add/change` 会尝试读取内容，`unlink` 不带内容。
+  - 监控目录：工作区根目录下 `agent-docs/`（`resolveBaseDir('agent-docs', workspaceId)`）。
+  - 变更事件中，路径以相对 `agent-docs/` 的 POSIX 斜杠表示；`add/change` 会尝试读取内容，`unlink` 不带内容。
 
 预加载边界
 - 入口：`src/preload/bridges/docs.ts`（桥构造函数），`src/preload/index.ts`（统一暴露为 `window.api`）。

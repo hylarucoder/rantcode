@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import type { Message, Session, RunnerContextMap } from '@/features/workspace/types'
+import type { Message, Session } from '@/features/workspace/types'
+import type { SessionsNamespace } from '@shared/orpc/client-types'
 import type { RunnerEvent } from '@shared/types/webui'
 import { orpc } from '@/lib/orpcQuery'
 import { getLogger } from '@/lib/logger'
@@ -9,35 +10,6 @@ import { buildTraceIndex, updateMessageByTraceId, applyEventToMessage } from './
 
 // 稳定的空列表，避免 selector 在工作区未初始化时返回新引用导致不必要的重渲染
 export const EMPTY_SESSIONS: Session[] = []
-
-// oRPC sessions namespace type
-type SessionsNamespace = {
-  list: {
-    call: (input: { projectId: string; includeArchived?: boolean }) => Promise<Session[]>
-  }
-  create: { call: (input: { projectId: string; title?: string }) => Promise<Session> }
-  update: {
-    call: (input: {
-      projectId: string
-      sessionId: string
-      title?: string
-      runnerContexts?: RunnerContextMap
-      archived?: boolean
-    }) => Promise<Session>
-  }
-  delete: { call: (input: { projectId: string; sessionId: string }) => Promise<{ ok: boolean }> }
-  appendMessages: {
-    call: (input: { projectId: string; sessionId: string; messages: Message[] }) => Promise<Session>
-  }
-  updateMessage: {
-    call: (input: {
-      projectId: string
-      sessionId: string
-      messageId: string
-      patch: Partial<Message>
-    }) => Promise<Session>
-  }
-}
 
 // 消息同步队列，用于防抖和去重
 const messageSyncQueue = new Map<string, NodeJS.Timeout>()

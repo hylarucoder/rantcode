@@ -70,16 +70,16 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 | Provider 配置 | Settings 页面完整配置管理 |
 | 系统通知 | 任务完成/失败通知 |
 | 路由系统 | React Router + 404 处理 |
-| 文档监控 | docsWatcher 实时监控 docs/ 变更 |
+| 文档监控 | docsWatcher 实时监控 agent-docs/ 变更 |
 
 ### 2.2 待实现功能
 
 #### Task 看板（P1）✅ 已实现
 
-- **设计状态**：数据模型完成（`docs/design/data-model.md`）
+- **设计状态**：数据模型完成（`agent-docs/design/data-model.md`）
 - **已完成**：
   - [x] Kanban UI 组件
-  - [x] 从 `docs/task/*.md` 读取任务
+  - [x] 从 `agent-docs/task/*.md` 读取任务
   - [x] 解析 frontmatter（status/priority/owner）
   - [x] 拖拽后自动更新文件 frontmatter
 - **待实现**：
@@ -96,7 +96,7 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 
 #### TTS 语音提醒（P2）
 
-- **设计文档**：`docs/spec/tts.md`
+- **设计文档**：`agent-docs/spec/tts.md`
 - **当前状态**：Web Speech 部分实现
 - **待实现**：
   - [ ] `/speech/synthesize` oRPC 路由
@@ -106,7 +106,7 @@ Git 状态显示 **22+ 个文件** 有修改或新增未提交：
 
 ### 2.3 规格文档中的后续任务
 
-来自 `docs/spec/core-entities.md`：
+来自 `agent-docs/spec/core-entities.md`：
 
 - [ ] 实现 Session 持久化到 SQLite
 - [ ] 支持 Session 搜索和过滤
@@ -298,10 +298,10 @@ pnpm build:stable
 
 ## 附录：相关文档
 
-- 架构设计：`docs/design/architecture.md`
-- 数据模型：`docs/design/data-model.md`
-- 路由设计：`docs/design/routing.md`
-- 核心实体规范：`docs/spec/core-entities.md`
-- Agents 边界：`docs/spec/agents-boundary.md`
-- TTS 设计：`docs/spec/tts.md`
+- 架构设计：`agent-docs/design/architecture.md`
+- 数据模型：`agent-docs/design/data-model.md`
+- 路由设计：`agent-docs/design/routing.md`
+- 核心实体规范：`agent-docs/spec/core-entities.md`
+- Agents 边界：`agent-docs/spec/agents-boundary.md`
+- TTS 设计：`agent-docs/spec/tts.md`
 

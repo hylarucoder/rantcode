@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useProjectChatStore } from './chatStore'
-import { useProjectPreviewStore } from './previewStore'
+import { useProjectUIStore } from './uiStore'
 import type { Session } from '@/features/workspace/types'
 import type { RunnerEvent } from '@shared/types/webui'
 
@@ -23,12 +23,12 @@ const baseSession: Session = {
 
 beforeEach(() => {
   useProjectChatStore.setState({ projects: {} })
-  useProjectPreviewStore.setState({ projects: {} })
+  useProjectUIStore.setState({ projects: {} })
 })
 
 afterEach(() => {
   useProjectChatStore.setState({ projects: {} })
-  useProjectPreviewStore.setState({ projects: {} })
+  useProjectUIStore.setState({ projects: {} })
 })
 
 describe('useProjectChatStore', () => {
@@ -97,15 +97,15 @@ describe('useProjectChatStore', () => {
   })
 })
 
-describe('useProjectPreviewStore', () => {
-  it('updates preview preferences independently', () => {
-    const previewStore = useProjectPreviewStore.getState()
-    previewStore.ensure(PROJECT_ID)
-    previewStore.setSelectedDocPath(PROJECT_ID, 'docs/readme.md')
-    previewStore.setRightTab(PROJECT_ID, 'trace')
-    previewStore.setPreviewTocOpen(PROJECT_ID, true)
+describe('useProjectUIStore', () => {
+  it('updates UI preferences independently', () => {
+    const uiStore = useProjectUIStore.getState()
+    uiStore.ensure(PROJECT_ID)
+    uiStore.setSelectedDocPath(PROJECT_ID, 'docs/readme.md')
+    uiStore.setRightTab(PROJECT_ID, 'trace')
+    uiStore.setPreviewTocOpen(PROJECT_ID, true)
 
-    const project = useProjectPreviewStore.getState().projects[PROJECT_ID]
+    const project = useProjectUIStore.getState().projects[PROJECT_ID]
     expect(project?.selectedDocPath).toBe('docs/readme.md')
     expect(project?.rightTab).toBe('trace')
     expect(project?.previewTocOpen).toBe(true)

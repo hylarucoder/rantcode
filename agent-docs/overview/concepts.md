@@ -7,7 +7,7 @@
 - 本地 Electron 应用，用来**围绕一个代码仓库管理 AI 开发工作流**。
 - 核心特点：
   - **文档驱动开发（Doc‑Driven Development）**：
-    - 把 `docs/` 视为事实来源：overview/design/spec/task。
+    - 把 `agent-docs/` 视为事实来源：overview/design/spec/task。
     - 任何任务、需求、设计变更优先落在文档上，再驱动代码改动。
   - **多模型代码助手中台**：
     - 能接 OpenAI / Anthropic / 本地模型等不同 Provider。
@@ -50,7 +50,7 @@
 
 ### Docs / 文档
 
-- 在仓库中的 `docs/` 目录，按功能拆分：
+- 在仓库中的 `agent-docs/` 目录，按功能拆分：
   - `overview/` – 项目总览、onboarding、概念解释（本文件所在位置）。
   - `design/` – 设计文档 / RFC / 架构方案。
   - `spec/` – 行为规范、接口定义、交互细节。
@@ -107,7 +107,7 @@
 
 ### Work View（任务盘）
 
-- 从 `docs/task/` 文档中提取 TaskItem（带状态、owner、优先级等）。
+- 从 `agent-docs/task/` 文档中提取 TaskItem（带状态、owner、优先级等）。
 - 视图包含：
   - 筛选区：Status / Owner / Priority / 关键词。
   - 列表区：任务表格（Title, Status, Owner, Priority, Due）。
@@ -159,4 +159,4 @@
 4. **与本地工具链的协作**
    - 例如：与编辑器、终端、测试运行的联动（这部分目前在“未来工作”）。
 
-这份文档只定义名词和信息结构，不绑定具体的 UI 细节；后续可以在 `docs/design/` 里沉淀交互设计稿和更细致的流程说明。
+这份文档只定义名词和信息结构，不绑定具体的 UI 细节；后续可以在 `agent-docs/design/` 里沉淀交互设计稿和更细致的流程说明。

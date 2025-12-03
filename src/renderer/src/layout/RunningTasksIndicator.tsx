@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useRunningTasks, type RunningTask } from '@/shared/hooks/useRunningTasks'
-import { useAppStore } from '@/state/app'
+import { useAppStore } from '@/app/state'
 
 /** 格式化运行时长 */
 function formatDuration(ms: number): string {

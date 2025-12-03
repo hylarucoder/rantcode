@@ -13,7 +13,7 @@ flowchart LR
         WM["WindowService\n窗口管理"]
         ORPC["orpcBridge\nRPC 网关"]
         AGENTS["agents / codexRunner\n调用本地 Codex CLI"]
-        DOCS["docsWatcher\n监控 docs/ 变更"]
+        DOCS["docsWatcher\n监控 agent-docs/ 变更"]
         SETTINGS["settings/*\n通用设置与 providers"]
         SERVICES["services/*\n项目、日志等服务"]
       end
@@ -63,7 +63,7 @@ flowchart LR
       end
     end
 
-    Repo["本地项目仓库\n代码 + docs/"]
+    Repo["本地项目仓库\n代码 + agent-docs/"]
     Codex["Codex CLI / AI 引擎"]
   end
 
@@ -90,7 +90,7 @@ flowchart LR
   - 负责应用生命周期管理、窗口创建（`windowService`）、单实例锁以及崩溃上报（`crashReporter`）。
   - 通过 `orpcBridge` 暴露系统、文件、项目、settings 等 RPC 能力给渲染层。
   - `agents/codex/runner.ts` 与 `agents/claudecode/runner.ts` 封装了对本地 CLI 的调用与事件流（`AgentEvent`）。
-  - `docsWatcher.ts` 监控工作区的 `docs/` 目录变更，并经由 notify 通道推送到前端。
+  - `docsWatcher.ts` 监控工作区的 `agent-docs/` 目录变更，并经由 notify 通道推送到前端。
 
 - **Preload (`src/preload/`)**
   - 初始化 orpc 客户端与通知订阅（`orpc.ts`）。
@@ -108,11 +108,11 @@ flowchart LR
     - `api/hooks.ts`：**新增 API Hooks 系统**，提供会话管理的 React Query hooks（list/create/update/delete/appendMessages）。
     - `state/store.ts`：使用 Zustand 管理 chat sessions / messages、右侧 preview 状态等。
   - `features/settings`：设置管理，包含 `api/hooks.ts` 等专门的 API hooks。
-  - `features/spec`：Explorer / Diff / Work 视图，对 `docs/` 和 Git diff 做 UI 呈现。
+  - `features/spec`：Explorer / Diff / Work 视图，对 `agent-docs/` 和 Git diff 做 UI 呈现。
   - `features/logs`：解析 `conversation.log`（Agent Trace），以 Session/事件流形式展示 Codex CLI 的执行记录。
   - `state/`：
     - `workspace`：提供 `WorkspaceProvider` 与 `useWorkspace`，统一 workspaceId 上下文。
-    - `projects.ts`：**新增**项目状态管理，与 Projects 页面配合使用。
+    - `projects.ts`：项目状态管理，与 Projects 页面配合使用。
 
 - **Shared (`src/shared/`)**
   - `types/webui.ts`：前后端共享的领域模型，如 `ProjectInfo` / `TaskItem` / `SpecDocMeta` / `AgentRunOptions` / `AgentEvent` 等。
@@ -174,11 +174,11 @@ sequenceDiagram
 
 ## 4. 文档驱动与数据模型的映射
 
-结合 `docs/design/data-model.md` 中的数据模型，本项目当前实现大致对应关系如下：
+结合 `agent-docs/design/data-model.md` 中的数据模型，本项目当前实现大致对应关系如下：
 
 - `Project`（数据模型）
   - 对应 main 侧的项目服务 + `ProjectInfo` 类型，渲染层通过 Projects 页面管理。
-  - **新增**：`state/projects.ts` 提供了项目状态管理，`projects/api/hooks.ts` 提供了 API 集成。
+  - `state/projects.ts` 提供了项目状态管理，`projects/api/hooks.ts` 提供了 API 集成。
 - `DocRef`
   - 目前主要体现在 `FsTreeNode` / `FsFile` 以及前端 `docs` store 对 docs 路径的管理。
   - 后续可以在 main 侧显式维护 DocRef 表，以支持更精细的「某一节 spec / task」级引用。
@@ -188,7 +188,7 @@ sequenceDiagram
   - 后续如需跨设备/实例持久化，可以在 main 侧增加 Session 实体存储，与 Task / DocRef 建立外键关系。
 - `Job`
   - 对应 Codex CLI 的一次执行回合：在前端里是 `Message` 中的 assistant 消息（带 `jobId` 和 `status`），在 main/CLI 侧是 `AgentRunOptions.jobId` + 事件流。
-- **Git 集成**（**新增实现**）
+- **Git 集成**
   - `GitPanel` 组件提供了完整的 Git 状态查看和 diff 功能。
   - 支持 unified/split 两种 diff 视图模式。
   - 实时监控文件变更，区分已暂存和未暂存文件。
@@ -196,12 +196,12 @@ sequenceDiagram
 ## 5. 后续可以扩展的方向
 
 - **Task/Session/Job 落地到主进程存储**：
-  - 按 `docs/design/data-model.md` 中的结构，在 main 侧增加 Task/Session/Job 管理服务，使 Workspace 的 UI 会话与全局 Task 看板打通。
+  - 按 `agent-docs/design/data-model.md` 中的结构，在 main 侧增加 Task/Session/Job 管理服务，使 Workspace 的 UI 会话与全局 Task 看板打通。
 
 - **DocsWatcher 与 DocRef 的联动**：
-  - 监控 `docs/task/`、`docs/spec/` 变更时，自动解析文档中的 frontmatter，更新 Task/DocRef 索引。
+  - 监控 `agent-docs/task/`、`agent-docs/spec/` 变更时，自动解析文档中的 frontmatter，更新 Task/DocRef 索引。
 
 - **多模型 Provider 统一管理**：
   - `settings/vendors` + Settings 视图已经提供 Provider 配置，可以将 Codex CLI / 远程 LLM 统一抽象为 `Provider + Model`。
 
-> 本文作为架构草稿，后续可在 `docs/design/agents-design.md` / `docs/design/workspace-store.md` 中进一步补充某些子系统的细节图与时序图。
+> 本文作为架构草稿，后续可在 `agent-docs/design/agents-design.md` / `agent-docs/design/workspace-store.md` 中进一步补充某些子系统的细节图与时序图。

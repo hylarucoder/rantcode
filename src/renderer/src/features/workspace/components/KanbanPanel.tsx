@@ -32,7 +32,7 @@ import { orpc } from '@/lib/orpcQuery'
 import { toast } from 'sonner'
 import type { FsTreeNode } from '@/types'
 import type { DocsWatcherEvent } from '@shared/types/webui'
-import { useGlobalChatStore } from '@/state/globalChat'
+import { useGlobalChatStore } from '@/features/global-chat'
 import { getLogger } from '@/lib/logger'
 
 import {

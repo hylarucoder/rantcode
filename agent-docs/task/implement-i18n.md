@@ -13,7 +13,7 @@ owner: AI
 
 ## 设计文档
 
-详见 `docs/spec/i18n.md`
+详见 `agent-docs/spec/i18n.md`
 
 ## 待办
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { ProjectProvider } from '@/state/workspace'
-import { useProjects } from '@/state/projects'
+import { ProjectProvider } from '@/app/providers'
+import { useProjects } from '@/app/providers'
 import { toast } from 'sonner'
 
 // 子视图组件

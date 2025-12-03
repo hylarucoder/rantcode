@@ -18,9 +18,9 @@ import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { fetchFile } from '@/features/spec/api/fs'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
 import { usePreviewDocument } from '@/features/preview'
-import { useDocsWatcher, useDocContent, useDocsStore } from '@/state/docs'
+import { useDocsWatcher, useDocContent, useDocsStore } from '../state/docsStore'
 import type { DocsWatcherEvent } from '@shared/types/webui'
-import { useProject } from '@/state/workspace'
+import { useProject } from '@/app/providers'
 import type { FsTreeNode, SpecDocMeta } from '@/types'
 
 interface ExplorerProps {

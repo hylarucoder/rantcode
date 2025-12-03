@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/command'
 import { useFsTreeQuery, fetchFile } from '@/features/spec'
 import type { FsTreeNode, SpecDocMeta } from '@/types'
-import { useProject } from '@/state/workspace'
+import { useProject } from '@/app/providers'
 
 function flattenTree(root: FsTreeNode | null): { path: string; name: string }[] {
   if (!root) return []

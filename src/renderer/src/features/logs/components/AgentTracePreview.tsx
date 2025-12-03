@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarClock, FileDiff, MessageSquare, Puzzle, Terminal } from 'lucide-react'
-import { useProject } from '@/state/workspace'
+import { useProject } from '@/app/providers'
 import { fetchFile } from '@/features/spec'
 import { parseAgentTrace, type TraceSession, type TraceEvent } from '@/lib/logParsers'
 import { cn } from '@/lib/utils'

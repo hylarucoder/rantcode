@@ -61,7 +61,7 @@ interface Task {
   id: TaskId
   projectId: ProjectId
   title: string
-  descriptionDoc?: DocRefId // 对应 docs/task/*.md 中的某一条/某一节
+  descriptionDoc?: DocRefId // 对应 agent-docs/task/*.md 中的某一条/某一节
   status: TaskStatus
   priority?: 'P0' | 'P1' | 'P2'
   owner?: string
@@ -81,7 +81,7 @@ interface Task {
 - Task 是"看板卡片"，同时也是"变更的入口和容器"：
   - 在 UI 的 Kanban 视图中展示。
   - 在 Diff/Review 视图里可以按 Task 过滤。
-- `descriptionDoc` 用于把 Task 实体与 `docs/task/` 中的文档条目关联起来。
+- `descriptionDoc` 用于把 Task 实体与 `agent-docs/task/` 中的文档条目关联起来。
 - **当前状态**：数据模型设计完成，待实现前端看板 UI 和后端存储。
 
 ## 4. DocRef：文档与文件引用
@@ -96,7 +96,7 @@ interface DocRef {
   projectId: ProjectId
 
   kind: DocKind
-  path: string // 相对于 repo 根的路径，如 docs/spec/foo.md 或 src/app/index.ts
+  path: string // 相对于 repo 根的路径，如 agent-docs/spec/foo.md 或 src/app/index.ts
   title?: string // 解析自文档/文件的标题（如一级 heading 或文件名）
 
   // 可选：定位到文档的某一节/片段
@@ -302,8 +302,8 @@ interface ModelConfig {
 3. **DocRef 精确引用**：实现文档级别的精确定位和引用
 4. **Task 新建功能**：支持在看板中新建任务文件
 
-> 后续可以在 `docs/design/*.md` 中补充：
+> 后续可以在 `agent-docs/design/*.md` 中补充：
 >
 > - 与 Git 的集成方式（diffRef 的具体含义）；
-> - 如何从 docs/task 中同步/生成 Task 实体；
+> - 如何从 agent-docs/task 中同步/生成 Task 实体；
 > - Runner 配置的高级功能和扩展性设计。

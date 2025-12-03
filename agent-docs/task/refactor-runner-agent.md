@@ -326,7 +326,7 @@ await runnersBridge.run({
 
 ### Phase 4：文档更新（~0.5h）
 
-- [ ] 4.1 更新 `docs/design/multi-role-collaboration.md`
+- [ ] 4.1 更新 `agent-docs/design/multi-role-collaboration.md`
   - 使用新的 Runner + Agent 概念
   
 - [ ] 4.2 更新代码注释和 JSDoc

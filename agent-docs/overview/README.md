@@ -4,7 +4,7 @@
 
 ## 文档约定
 
-`docs/` 目录是 **文档驱动开发（Doc-Driven Development）** 工作流的核心：
+`agent-docs/` 目录是 **文档驱动开发（Doc-Driven Development）** 工作流的核心：
 
 | 目录 | 用途 |
 |------|------|

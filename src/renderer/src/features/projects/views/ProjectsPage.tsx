@@ -14,7 +14,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { useProjects } from '@/state/projects'
+import { useProjects } from '@/app/providers'
 import type { ProjectInfo } from '@/types'
 
 export default function ProjectsPage() {

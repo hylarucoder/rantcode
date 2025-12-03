@@ -15,11 +15,26 @@ Keep new code in the appropriate layer (main vs preload vs renderer) and avoid c
 
 ## Build, Test, and Development Commands
 
-- `pnpm dev` – start Electron + renderer in development mode with HMR.
-- `pnpm build` – type‑check and build for production.
-- `pnpm start` – run the built app.
-- `pnpm lint` – run ESLint on all source files.
-- `pnpm typecheck` – run TypeScript type checking for main and renderer.
+核心命令：
+
+- `pnpm dev` – 启动开发模式（Electron + 渲染层 HMR）
+- `pnpm build` – 类型检查 + 生产构建
+- `pnpm start` – 运行构建后的应用
+- `pnpm lint` – 运行 ESLint
+- `pnpm typecheck` – TypeScript 类型检查
+
+数据库命令：
+
+- `pnpm db:generate` – 生成数据库迁移文件
+- `pnpm db:migrate` – 执行数据库迁移
+- `pnpm db:studio` – 打开 Drizzle Studio 查看数据库
+
+构建与发布：
+
+- `pnpm build:stable` – 构建稳定版
+- `pnpm build:nightly` – 构建 Nightly 版
+- `pnpm release:stable` – 发布稳定版到 GitHub
+- `pnpm release:nightly` – 发布 Nightly 版到 GitHub
 
 Use `pnpm` consistently; do not mix `npm`/`yarn` in scripts or docs.
 
@@ -35,11 +50,16 @@ Prefer small, focused modules; keep platform‑specific logic in main/preload in
 
 ## Testing Guidelines
 
-Currently there is no dedicated automated test suite configured. When adding tests:
+项目已配置 Vitest 测试框架：
 
-- Co‑locate tests next to source files as `*.test.ts(x)`.
-- Prefer lightweight, deterministic tests (no real network or filesystem side effects).
-- Add a `pnpm test` script if you introduce a test runner.
+- `pnpm test` – 运行所有测试
+- `pnpm test:watch` – 监视模式运行测试
+
+测试规范：
+
+- 测试文件放置在源文件旁，命名为 `*.test.ts(x)`
+- 优先编写轻量、确定性的测试（避免真实网络或文件系统副作用）
+- 核心功能应有对应的单元测试覆盖
 
 ## Commit & Pull Request Guidelines
 

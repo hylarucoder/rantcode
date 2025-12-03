@@ -107,7 +107,7 @@ priority: P1
 
 ### 3.1 现有实体迁移
 
-根据 `docs/spec/core-entities.md`，需要迁移的实体：
+根据 `agent-docs/spec/core-entities.md`，需要迁移的实体：
 
 ```typescript
 // 示例 schema 设计（待验证）

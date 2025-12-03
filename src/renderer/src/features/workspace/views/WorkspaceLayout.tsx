@@ -11,8 +11,8 @@ import DocCommandPalette from '@/features/spec/components/DocCommandPalette'
 import { fetchFile } from '@/features/spec/api/fs'
 import type { ProjectInfo, SpecDocMeta } from '@/types'
 import type { PreviewTocItem } from '@/features/preview'
-import { useGlobalChatStore } from '@/state/globalChat'
-import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
+import { useGlobalChatStore } from '@/features/global-chat'
+import { useProjectUI } from '@/features/workspace/hooks/useProjectUI'
 
 /**
  * WorkspaceLayout - 项目工作区布局
@@ -46,7 +46,7 @@ export function WorkspaceLayout({
   onRemoveProject?: () => void
 }) {
   // 使用持久化的活动视图状态，而不是本地 useState
-  const { activeView, setActiveView } = useProjectPreview(project.id)
+  const { activeView, setActiveView } = useProjectUI(project.id)
 
   // 全局对话面板
   const openGlobalChat = useGlobalChatStore((s) => s.open)

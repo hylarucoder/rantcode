@@ -77,8 +77,8 @@ src/renderer/src/
 ## 执行步骤
 
 1. ✅ 创建本 task 文档
-2. ✅ 更新 `docs/spec/conversation-log.md` 内的命名
-3. ✅ 更新 `docs/design/` 相关文档内的命名
+2. ✅ 更新 `agent-docs/spec/conversation-log.md` 内的命名
+3. ✅ 更新 `agent-docs/design/` 相关文档内的命名
 4. ✅ 重命名类型：`ConversationSession` → `TraceSession` 等
 5. ✅ 重命名解析器模块：保留 `logParsers/` 目录，更新内部类型和函数名
 6. ✅ 重命名组件文件和导出

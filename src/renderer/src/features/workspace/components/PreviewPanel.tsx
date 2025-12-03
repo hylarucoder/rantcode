@@ -3,6 +3,7 @@ import { ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useThemeMode } from '@/shared/hooks/use-theme-mode'
 import { renderMermaidIn } from '@/lib/mermaidRuntime'
+import { resolveRelativePath } from '@/features/workspace/utils/pathResolver'
 import type { PreviewTocItem } from '@/features/preview'
 import type { ThemeMode } from '@/types/theme'
 
@@ -91,20 +92,7 @@ export default function PreviewPanel({
         e.preventDefault()
         if (!docPath || !onNavigate) return
 
-        // 解析相对路径
-        const basePath = docPath.split('/').slice(0, -1).join('/')
-        const parts = href.split('/')
-        const resolvedParts = basePath ? basePath.split('/') : []
-
-        for (const part of parts) {
-          if (part === '..') {
-            resolvedParts.pop()
-          } else if (part !== '.') {
-            resolvedParts.push(part)
-          }
-        }
-
-        const resolvedPath = resolvedParts.join('/')
+        const resolvedPath = resolveRelativePath(docPath, href)
         onNavigate(resolvedPath)
         return
       }

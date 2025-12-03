@@ -20,8 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { useProjects } from '@/state/projects'
-import { useAppStore } from '@/state/app'
+import { useProjects } from '@/app/providers'
+import { useAppStore } from '@/app/state'
 import { setRootDarkWithNoTransition } from '@/lib/theme'
 import { useSfx } from '@/shared/hooks/useSfx'
 import {

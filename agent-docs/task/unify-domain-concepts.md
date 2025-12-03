@@ -26,15 +26,15 @@ priority: P1
 | `Provider` | `Provider` | LLM 服务提供方（如 OpenAI, Anthropic） |
 
 **问题**：
-- `docs/spec/core-entities.md` 仍然使用 `Agent` 术语
-- `docs/design/data-model.md` 中 `Agent` 和 `Runner` 概念混用
+- `agent-docs/spec/core-entities.md` 仍然使用 `Agent` 术语
+- `agent-docs/design/data-model.md` 中 `Agent` 和 `Runner` 概念混用
 - 部分代码仍有 `agents` 命名残留（如 `@deprecated` 的 bridge）
 
 ### 2. Job / Message.traceId / Execution 概念重叠
 
 | 概念 | 定义位置 | 实际用途 |
 |------|----------|----------|
-| `Job` | `docs/design/data-model.md` | 设计文档中的完整执行实体 |
+| `Job` | `agent-docs/design/data-model.md` | 设计文档中的完整执行实体 |
 | `Message.traceId` | 代码实现 | 实际用于追踪执行的字段 |
 | `traceId` | `RunnerEvent` | 事件流中的执行标识 |
 
@@ -123,9 +123,9 @@ priority: P1
 
 1. [x] 讨论并确定上述待决策问题
 2. [x] 代码重命名：`runnerSessions` / `sessionId` → `runnerContexts` / `contextId`
-3. [x] 更新 `docs/spec/core-entities.md`，统一使用 Runner 命名
-4. [x] 更新 `docs/design/data-model.md`，简化 Job 为 Message + traceId
-5. [x] 更新 `docs/overview/concepts.md`，添加上下文续写说明
+3. [x] 更新 `agent-docs/spec/core-entities.md`，统一使用 Runner 命名
+4. [x] 更新 `agent-docs/design/data-model.md`，简化 Job 为 Message + traceId
+5. [x] 更新 `agent-docs/overview/concepts.md`，添加上下文续写说明
 
 ## 相关文档
 

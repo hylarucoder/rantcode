@@ -1,6 +1,6 @@
 ---
 title: 实现多角色协作系统
-status: backlog
+status: in_progress
 priority: P2
 owner: AI
 ---
@@ -11,9 +11,24 @@ owner: AI
 
 构建 AI 角色协作流水线，覆盖从需求分析到测试验收的完整软件开发周期。
 
+## 当前状态
+
+**已完成**：
+- ✅ Agent 配置抽象层（`src/shared/agents.ts`）
+- ✅ 预设 Agent 定义（analyst/architect/developer/tester/general）
+- ✅ Agent System Prompt 模板
+- ✅ Agent 能力枚举（read_file/write_file/execute_cmd 等）
+
+**待实现**：
+- ⬜ 角色选择器 UI
+- ⬜ Requirement/Task/TestCase 数据模型
+- ⬜ 产物（Artifact）存储与检索
+- ⬜ 检查点（Gate）机制
+- ⬜ 自动流转模式
+
 ## 设计文档
 
-详见 `docs/design/multi-role-collaboration.md`
+详见 `agent-docs/design/multi-role-collaboration.md`
 
 ## 角色定义
 

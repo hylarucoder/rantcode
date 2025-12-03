@@ -92,13 +92,13 @@
 
 ## 5. 文档监控 (`src/main/docsWatcher.ts`)
 
-- 使用 `chokidar` 或原生 `fs.watch` 监听 `docs/` 目录变更。
+- 使用 `chokidar` 或原生 `fs.watch` 监听 `agent-docs/` 目录变更。
 - 变更事件通过 `notifyBridge` 推送到渲染层，触发 `docs` store 刷新文件树。
 - 支持通过 `oRPC.docs.subscribe/unsubscribe` 动态开启/关闭订阅（按 workspace）。
 
 ### 未来扩展
 
-- 解析 `docs/task/*.md` frontmatter，自动同步 Task 实体。
+- 解析 `agent-docs/task/*.md` frontmatter，自动同步 Task 实体。
 - 增量更新 DocRef 索引。
 
 ---
@@ -264,7 +264,7 @@ GitPanel
 
 | 模块 | 说明 |
 |------|------|
-| **TTS 系统** | `docs/spec/tts.md` 已有规格，待落地设计与实现 |
+| **TTS 系统** | `agent-docs/spec/tts.md` 已有规格，待落地设计与实现 |
 | **多窗口 / 多 Workspace** | 当前单窗口，未来可能需要多窗口状态隔离 |
 | **插件 / 扩展机制** | 若要支持自定义 Agent / Tool |
 | **Git 操作功能** | 当前只支持查看，待添加 commit/push/pull 等操作 |

@@ -22,8 +22,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { orpc } from '@/lib/orpcQuery'
-import { useGlobalChatStore } from '@/state/globalChat'
-import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
+import { useGlobalChatStore } from '@/features/global-chat'
+import { useProjectUI } from '@/features/workspace/hooks/useProjectUI'
 import { useGitAutoRefresh } from '@/features/workspace/hooks/useGitAutoRefresh'
 
 import { GitFileList, DiffView } from './git'
@@ -45,7 +45,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
     setGitViewMode: setViewMode,
     setGitStagedExpanded: setStagedExpanded,
     setGitUnstagedExpanded: setUnstagedExpanded
-  } = useProjectPreview(projectId)
+  } = useProjectUI(projectId)
 
   // 临时 UI 状态（不需要持久化）
   const [isRefreshing, setIsRefreshing] = useState(false)

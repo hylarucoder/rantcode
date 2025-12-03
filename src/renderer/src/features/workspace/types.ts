@@ -62,3 +62,9 @@ export interface Session {
 }
 
 export type RightPanelTab = 'preview' | 'trace'
+
+/** 活动栏视图类型 */
+export type ActivityView = 'kanban' | 'docs' | 'git' | 'settings'
+
+// Re-export SessionsNamespace from shared layer for convenience
+export type { SessionsNamespace } from '@shared/orpc/client-types'

@@ -1,8 +1,9 @@
 import { FileText, Settings, GitBranch, KanbanSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { ActivityView } from '@/features/workspace/types'
 
-// sessions 已移至全局对话面板，不再作为项目内视图
-export type ActivityView = 'kanban' | 'docs' | 'git' | 'settings'
+// Re-export for backward compatibility
+export type { ActivityView } from '@/features/workspace/types'
 
 interface ActivityBarProps {
   activeView: ActivityView

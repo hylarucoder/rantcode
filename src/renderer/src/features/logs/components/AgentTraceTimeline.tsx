@@ -24,7 +24,7 @@ import {
   type ToolCallData,
   type TodoItem
 } from '@/lib/logParsers'
-import { useRunnerLogStore } from '@/state/runnerLogs'
+import { useRunnerLogStore } from '../state/runnerLogStore'
 import { humanizeDuration } from '@shared/utils/humanize'
 
 function CollapsibleText({ text, lines = 80 }: { text: string; lines?: number }) {

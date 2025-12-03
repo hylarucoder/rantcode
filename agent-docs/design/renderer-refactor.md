@@ -103,7 +103,7 @@ src/renderer/src/
 
 4. Settings 扩展（v2）
 
-- 增加 `TTSSettings`：配置 TTS 引擎/音色/速率与策略；与 `docs/spec/tts.md` 对齐。
+- 增加 `TTSSettings`：配置 TTS 引擎/音色/速率与策略；与 `agent-docs/spec/tts.md` 对齐。
 
 5. 清理与对齐（v3）
 

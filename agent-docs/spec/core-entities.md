@@ -26,12 +26,16 @@
 
 | 术语 | 说明 |
 |------|------|
-| **Runner** | 底层 CLI 执行器（如 codex, claude-code-glm） |
+| **Runner** | 底层 CLI 执行器（如 codex, claude-code-glm），负责实际调用 CLI 工具 |
+| **Agent** | 用户可配置的 AI 助手，定义职责和 System Prompt（见 `src/shared/agents.ts`） |
 | **Session** | 用户的对话会话线程 |
 | **Message** | 会话中的单条消息（user 或 assistant） |
 | **traceId** | 一次执行的追踪标识，用于关联 RunnerEvent |
 | **contextId** | Runner CLI 的上下文标识，用于上下文续写 |
 | **RunnerContextMap** | 各 Runner 的 contextId 映射 |
+
+> **Runner vs Agent**：Runner 是技术层概念，Agent 是业务层概念。Agent 通过 Runner 执行任务。
+> 示例：「开发 Agent」使用「Claude Code」Runner 来实现代码。
 
 ---
 
@@ -53,8 +57,6 @@ type Runner =
 interface RunnerUIConfig {
   value: Runner
   label: string       // UI 显示名称
-  description?: string // 助手描述
-  available?: boolean  // 是否可用（检测到 CLI）
 }
 ```
 
@@ -73,11 +75,11 @@ interface RunnerUIConfig {
 type RunnerEvent =
   | { type: 'start'; traceId: string; command: string[]; cwd: string }
   | { type: 'log'; traceId: string; stream: 'stdout' | 'stderr'; data: string }
-  | { type: 'exit'; traceId: string; code: number | null; signal: string | null; durationMs: number }
+  | { type: 'exit'; traceId: string; code: number | null; signal: NodeJS.Signals | null; durationMs: number }
   | { type: 'context'; traceId: string; contextId: string }
   | { type: 'error'; traceId: string; message: string }
   | { type: 'text'; traceId: string; text: string; delta?: boolean }
-  | { type: 'claude_message'; traceId: string; messageType: string; content?: string; raw?: unknown }
+  | { type: 'claude_message'; traceId: string; messageType: 'init' | 'assistant' | 'result' | 'user' | 'system'; content?: string; raw?: unknown }
 ```
 
 ---
@@ -272,9 +274,12 @@ CREATE TABLE sessions (
   project_id TEXT NOT NULL,
   title TEXT NOT NULL,
   runner_contexts TEXT,  -- JSON 格式的 RunnerContextMap
+  archived INTEGER DEFAULT 0,  -- 是否已归档（不删除但隐藏）
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE INDEX sessions_project_idx ON sessions(project_id);
 
 CREATE TABLE messages (
   id TEXT PRIMARY KEY,
@@ -290,7 +295,12 @@ CREATE TABLE messages (
   runner TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE INDEX messages_session_idx ON messages(session_id);
 ```
+
+> **注意**：TypeScript 类型中使用 camelCase（如 `errorMessage`），数据库字段使用 snake_case（如 `error_message`）。
+> 前端 `Message` 接口中的 `contextId` 和 `logMeta` 字段不直接存储在数据库中，而是通过其他方式获取。
 
 ---
 

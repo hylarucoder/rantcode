@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router'
 import type { ProjectInfo } from '@/types'
 import { WorkspaceLayout } from '@/features/workspace/views/WorkspaceLayout'
 import { usePreviewDocument } from '@/features/preview'
-import { useProjectPreview } from '@/features/workspace/state/hooks/useProjectPreview'
-import { useProjects } from '@/state/projects'
+import { useProjectUI } from '@/features/workspace/hooks/useProjectUI'
+import { useProjects } from '@/app/providers'
 
 interface SessionsViewProps {
   project: ProjectInfo
@@ -23,7 +23,7 @@ export default function SessionsView({ project }: SessionsViewProps) {
 
   const projectId = project.id
   const { selectedDocPath, setSelectedDocPath, previewTocOpen, setPreviewTocOpen } =
-    useProjectPreview(projectId)
+    useProjectUI(projectId)
 
   const {
     html: previewHtml,

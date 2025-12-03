@@ -13,7 +13,7 @@ owner: AI
 
 ## 设计文档
 
-详见 `docs/spec/tts.md`
+详见 `agent-docs/spec/tts.md`
 
 ## 待办
 

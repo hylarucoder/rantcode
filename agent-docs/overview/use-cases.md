@@ -37,7 +37,7 @@
 
 - 步骤轮廓：
   - 在 rantcode 中添加项目 → 打开 Workspace →
-  - 用 Explorer 浏览 `docs/overview/` 和 `docs/design/` →
+  - 用 Explorer 浏览 `agent-docs/overview/` 和 `agent-docs/design/` →
   - 右列预览 + TOC 快速扫一遍重要章节 →
   - 开一个「Onboarding 会话」，把 docs + 部分文件树交给模型，让它用自己的话总结。
 - 意义：
@@ -46,7 +46,7 @@
 ### 场景 B：从 Task 文档驱动一个小 feature
 
 - 步骤轮廓：
-  - 在 `docs/task/` 写/选一个任务条目（带状态、owner、优先级）；
+  - 在 `agent-docs/task/` 写/选一个任务条目（带状态、owner、优先级）；
   - 在 Workspace 中选中文件 → 右侧预览当前文档 →
   - 开一个专门的会话，把这个 Task 作为上下文，让模型生成修改建议 / 代码片段；
   - 用 Diff 视图检查模型生成的改动是否符合 Spec 文档；
@@ -60,14 +60,14 @@
   - 做完一轮较大的重构或功能开发；
   - 在 Diff 视图查看所有变更，按 group 分组；
   - 开一个 Review 会话，让模型基于 Diff 给出总结、风险点、需要更新的文档位置；
-  - 根据建议更新 `docs/design/` 和 `docs/spec/` 对应章节。
+  - 根据建议更新 `agent-docs/design/` 和 `agent-docs/spec/` 对应章节。
 - 意义：
   - 把“代码 review + 文档补齐”变成一个可重复的、半自动的 ritual。
 
 ### 场景 D：帮新人 Onboarding / 交接项目
 
 - 步骤轮廓：
-  - 维护一个 `docs/overview/onboarding.md` 或类似文档；
+  - 维护一个 `agent-docs/overview/onboarding.md` 或类似文档；
   - 新人第一次打开 rantcode，选择项目后，默认打开 Onboarding 文档 + 一个预设的会话；
   - 通过会话问任何关于架构、规范、流程的问题，模型尽量都引用仓库内 docs 来回答。
 - 意义：
@@ -101,4 +101,4 @@
 
 ---
 
-> TODO：后续可以针对每个场景拆出更详细的「流程图 / 交互草图」，并在 `docs/design/` 目录下补充对应的设计文档。
+> TODO：后续可以针对每个场景拆出更详细的「流程图 / 交互草图」，并在 `agent-docs/design/` 目录下补充对应的设计文档。

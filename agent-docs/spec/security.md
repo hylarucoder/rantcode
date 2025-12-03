@@ -4,16 +4,19 @@
 
 ## 窗口与 WebPreferences
 
-- 显式开启：
-  - `contextIsolation: true`
-  - `nodeIntegration: false`
-  - `sandbox: false`（如要开启 sandbox，需要评估 MessagePort/preload 行为）
-- 其他推荐：
-  - `webSecurity: true`
-  - `disableBlinkFeatures: 'Auxclick'`
-  - 使用自定义 `userAgent`（便于排查）
+当前已配置（`src/main/windowService.ts`）：
 
-> 目前 `src/main/index.ts` 使用了 preload，并通过 contextBridge 暴露必要 API；建议补充 `contextIsolation: true` 以避免 Renderer 获取 Node 能力。
+- ✅ `contextIsolation: true` - 隔离渲染进程上下文
+- ✅ `nodeIntegration: false` - 禁止渲染进程直接访问 Node.js
+- ✅ `webSecurity: true` - 启用同源策略
+- ⚠️ `sandbox: false` - 未启用沙箱（如需开启，需评估 MessagePort/preload 行为）
+
+可选优化：
+
+- `disableBlinkFeatures: 'Auxclick'`
+- 使用自定义 `userAgent`（便于排查）
+
+> 主窗口和子窗口均已正确配置安全选项，通过 `contextBridge.exposeInMainWorld` 安全地暴露 API。
 
 ## CSP 与 Markdown
 

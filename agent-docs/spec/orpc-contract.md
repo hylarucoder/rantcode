@@ -7,6 +7,21 @@
 - 位置：`src/shared/orpc/contract.ts`
 - 工具：`@orpc/contract` 的 `oc.router()`；输入输出均为 zod schema。
 
+### 完整命名空间
+
+| 命名空间 | 说明 | 端点 |
+|----------|------|------|
+| `system` | 系统状态 | `health`, `version` |
+| `fs` | 文件系统 | `tree`, `read`, `write` |
+| `projects` | 项目管理 | `list`, `add`, `update`, `remove`, `pickRepoPath` |
+| `providers` | Provider 配置 | `get`, `set` |
+| `vendors` | Claude Code 供应商 | `getClaudeCode`, `setClaudeCode`, `testClaudeCode`, `runClaudePrompt` |
+| `runners` | Runner 执行器 | `run`, `cancel`, `get`, `set`, `testCodex`, `info`, `getClaudeTokens`, `setClaudeTokens` |
+| `app` | 应用设置 | `getGeneral`, `setGeneral`, `toggleMaximize` |
+| `docs` | 文档监听 | `subscribe`, `unsubscribe` |
+| `git` | Git 集成 | `status`, `diff` |
+| `sessions` | 会话管理 | `list`, `get`, `create`, `update`, `delete`, `appendMessages`, `updateMessage`, `getMessageLogs`, `appendLog` |
+
 ```ts
 // 片段示例
 export const contract = oc.router({
@@ -18,8 +33,8 @@ export const contract = oc.router({
     tree: oc.input(fsTreeInputSchema).output(fsTreeNodeSchema),
     read: oc.input(fsReadInputSchema).output(fsFileSchema),
     write: oc.input(fsWriteInputSchema).output(okResponseSchema)
-  }
-  // ...
+  },
+  // ...更多命名空间见 src/shared/orpc/contract.ts
 })
 
 export type RantcodeContract = typeof contract

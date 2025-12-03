@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useFsTreeQuery } from '@/features/spec/api/hooks'
-import { useProject } from '@/state/workspace'
+import { useProject } from '@/app/providers'
 import {
   Select,
   SelectContent,
